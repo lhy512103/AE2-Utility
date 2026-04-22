@@ -1,0 +1,102 @@
+plugins {
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.74'
+}
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(java_version as int)
+    }
+    withSourcesJar()
+}
+
+neoForge {
+    version = neo_version
+
+    mods {
+        create(mod_id) {
+            sourceSet sourceSets.main
+        }
+    }
+
+    runs {
+        client {
+            client()
+            gameDirectory = file('run/client')
+        }
+        server {
+            server()
+            gameDirectory = file('run/server')
+        }
+    }
+}
+
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "Jared's Maven"
+        url = "https://maven.blamejared.com/"
+    }
+}
+
+dependencies {
+    // 完整 JEI（非仅 API）：编译期需要 RecipesGui、ImmutableRect2i 等实现类；运行时仍由 localRuntime 提供
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+
+    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+}
+
+tasks.named("processResources", ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version           : neo_version,
+            neo_version_range     : neo_version_range,
+            loader_version_range  : loader_version_range,
+            mod_id                : mod_id,
+            mod_name              : mod_name,
+            mod_license           : mod_license,
+            mod_version           : mod_version,
+            mod_authors           : mod_authors,
+            mod_description       : mod_description
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(["META-INF/neoforge.mods.toml", "pack.mcmeta"]) {
+        expand replaceProperties
+    }
+}
+
+tasks.named("jar", Jar).configure {
+    manifest {
+        attributes([
+                "Specification-Title"   : mod_id,
+                "Specification-Vendor"  : mod_authors,
+                "Specification-Version" : "1",
+                "Implementation-Title"  : project.name,
+                "Implementation-Version": project.version,
+                "Implementation-Vendor" : mod_authors
+        ])
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+}

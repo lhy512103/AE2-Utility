@@ -1,0 +1,21 @@
+{
+  "message.ae2utility.no_terminal_link": "AE2 Utility: the current terminal is not connected to an available ME network.",
+  "message.ae2utility.no_item_inputs": "AE2 Utility: this JEI recipe has no item inputs to request.",
+  "message.ae2utility.no_wireless_terminal": "No usable wireless terminal was found",
+  "message.ae2utility.wireless_terminal_unavailable": "The wireless terminal is currently unavailable or disconnected",
+  "message.ae2utility.move_items": "Move items",
+  "message.ae2utility.missing_ingredients": "Compatible items were not found",
+  "message.ae2utility.missing_ignored": "Missing items will be skipped",
+  "message.ae2utility.ctrl_click_to_craft": "CTRL + click to craft unavailable items",
+  "message.ae2utility.will_craft": "Will craft unavailable items",
+  "message.ae2utility.filtered": "AE2 Utility: these items were filtered by the terminal view cells and were not requested: %1$s",
+  "message.ae2utility.missing": "AE2 Utility: missing from the ME network: %1$s",
+  "message.ae2utility.full": "AE2 Utility: skipped because the terminal and player inventory are full: %1$s",
+  "message.ae2utility.bookmark_missing_inputs": "Bookmarked %1$s missing ingredient(s) in JEI",
+  "message.ae2utility.bookmark_missing_inputs_none": "Nothing to bookmark (all inputs are craftable, empty, or already bookmarked)",
+  "jei.tooltip.ae2utility.encode_pattern_button": "Encode Pattern",
+  "jei.tooltip.ae2utility.encode_pattern_blue_slots": "Blue highlighted items can be auto-crafted.",
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_bookmark_hint": "Ctrl+Shift+left-click: upload the pattern and add inputs without a crafting pattern to JEI bookmarks.",
+  "jei.tooltip.ae2utility.encode_pattern_shift": "Hold Shift to map/upload pattern to Provider",
+  "jei.tooltip.ae2utility.missing_blank_pattern": "Missing Blank Pattern"
+}

@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+.gradle-user-home/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# NeoForge / Minecraft dev runs (local game dirs)
+run/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & local debug
+*.log
+.gradle-user-home-debug/
+
+# Cursor / local tooling (optional)
+.cursor/

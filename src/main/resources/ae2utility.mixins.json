@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.lhy.ae2utility.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "ae2utility.refmap.json",
+  "client": [
+    "MixinRecipeLayout",
+    "MixinRecipesGui"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

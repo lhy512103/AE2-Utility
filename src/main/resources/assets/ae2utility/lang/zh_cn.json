@@ -1,0 +1,21 @@
+{
+  "message.ae2utility.no_terminal_link": "AE2实用：当前终端未连接到可用的 ME 网络。",
+  "message.ae2utility.no_item_inputs": "AE2实用：该 JEI 配方没有可拉取的物品输入。",
+  "message.ae2utility.no_wireless_terminal": "未检测到可用的无线终端",
+  "message.ae2utility.wireless_terminal_unavailable": "无线终端当前不可用或未连接",
+  "message.ae2utility.move_items": "填充物品",
+  "message.ae2utility.missing_ingredients": "未找到兼容的物品",
+  "message.ae2utility.missing_ignored": "缺失的物品将被忽略",
+  "message.ae2utility.ctrl_click_to_craft": "按住 Ctrl 并左键可自动合成不可用的物品",
+  "message.ae2utility.will_craft": "将自动合成不可用的物品",
+  "message.ae2utility.filtered": "AE2实用：以下物品被终端视图单元过滤，未尝试拉取：%1$s",
+  "message.ae2utility.missing": "AE2实用：ME 网络中缺少：%1$s",
+  "message.ae2utility.full": "AE2实用：终端与玩家背包空间不足，已跳过：%1$s",
+  "message.ae2utility.bookmark_missing_inputs": "已将 %1$s 个缺失合成样板的材料加入 JEI 收藏",
+  "message.ae2utility.bookmark_missing_inputs_none": "没有可收藏的材料（输入均已可自动合成、槽位为空或已在收藏栏）",
+  "jei.tooltip.ae2utility.encode_pattern_button": "编码处理样板",
+  "jei.tooltip.ae2utility.encode_pattern_blue_slots": "蓝色高亮的物品 可以自动制作。",
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_bookmark_hint": "同时按住 Ctrl键 可将缺失合成样板的输入材料加入 JEI 收藏栏",
+  "jei.tooltip.ae2utility.encode_pattern_shift": "按住 Shift 映射/上传样板到供应器",
+  "jei.tooltip.ae2utility.missing_blank_pattern": "缺少空白样板"
+}
