@@ -10,10 +10,12 @@ import appeng.menu.me.items.CraftingTermMenu;
 import appeng.menu.me.items.WirelessCraftingTermMenu;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.client.NbtTearCardScreen;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 
@@ -40,6 +42,11 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void registerAdvanced(mezz.jei.api.registration.IAdvancedRegistration registration) {
         registration.addRecipeButtonFactory(new EncodePatternButtonFactory());
+    }
+
+    @Override
+    public void registerGuiHandlers(IGuiHandlerRegistration registration) {
+        registration.addGhostIngredientHandler(NbtTearCardScreen.class, new NbtTearCardGhostHandler());
     }
 
     @Override

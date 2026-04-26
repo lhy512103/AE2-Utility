@@ -2,6 +2,9 @@ package com.lhy.ae2utility.jei;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,6 +27,8 @@ public final class JeiPatternSubstitutionUi {
     /** 无线/非终端场景下使用的本地开关（与终端打开时由菜单同步） */
     public static boolean localSubstitute = false;
     public static boolean localSubstituteFluids = true;
+    private static boolean localStateLoaded = false;
+    private static final String CONFIG_FILE_NAME = "ae2utility-jei-substitution.properties";
 
     private static final int BTN = 8;
     private static final int GAP = 2;
@@ -35,6 +40,50 @@ public final class JeiPatternSubstitutionUi {
     private static int lastFluidY = Integer.MIN_VALUE;
 
     private JeiPatternSubstitutionUi() {}
+
+    private static void ensureLocalStateLoaded() {
+        if (localStateLoaded) {
+            return;
+        }
+        localStateLoaded = true;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.gameDirectory == null) {
+            return;
+        }
+        Path path = getLocalStatePath(minecraft);
+        if (!Files.exists(path)) {
+            return;
+        }
+        Properties properties = new Properties();
+        try (var reader = Files.newBufferedReader(path)) {
+            properties.load(reader);
+            localSubstitute = Boolean.parseBoolean(properties.getProperty("itemSubstitute", Boolean.toString(localSubstitute)));
+            localSubstituteFluids = Boolean.parseBoolean(properties.getProperty("fluidSubstitute", Boolean.toString(localSubstituteFluids)));
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void saveLocalState() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.gameDirectory == null) {
+            return;
+        }
+        Properties properties = new Properties();
+        properties.setProperty("itemSubstitute", Boolean.toString(localSubstitute));
+        properties.setProperty("fluidSubstitute", Boolean.toString(localSubstituteFluids));
+        Path path = getLocalStatePath(minecraft);
+        try {
+            Files.createDirectories(path.getParent());
+            try (var writer = Files.newBufferedWriter(path)) {
+                properties.store(writer, "AE2 Utility JEI substitution toggles");
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static Path getLocalStatePath(Minecraft minecraft) {
+        return minecraft.gameDirectory.toPath().resolve("config").resolve(CONFIG_FILE_NAME);
+    }
 
     private static @Nullable PatternEncodingTermMenu getOpenPatternMenu() {
         LocalPlayer player = Minecraft.getInstance().player;
@@ -71,6 +120,7 @@ public final class JeiPatternSubstitutionUi {
     }
 
     public static boolean isItemSubstituteOn() {
+        ensureLocalStateLoaded();
         var menu = getOpenPatternMenu();
         if (menu != null) {
             return menu.isSubstitute();
@@ -79,6 +129,7 @@ public final class JeiPatternSubstitutionUi {
     }
 
     public static boolean isFluidSubstituteOn() {
+        ensureLocalStateLoaded();
         var menu = getOpenPatternMenu();
         if (menu != null) {
             return menu.isSubstituteFluids();
@@ -87,27 +138,34 @@ public final class JeiPatternSubstitutionUi {
     }
 
     public static void toggleItemSubstitute() {
+        ensureLocalStateLoaded();
         var menu = getOpenPatternMenu();
         if (menu != null) {
             menu.setSubstitute(!menu.isSubstitute());
+            localSubstitute = menu.isSubstitute();
         } else {
             localSubstitute = !localSubstitute;
         }
+        saveLocalState();
     }
 
     public static void toggleFluidSubstitute() {
+        ensureLocalStateLoaded();
         var menu = getOpenPatternMenu();
         if (menu != null) {
             menu.setSubstituteFluids(!menu.isSubstituteFluids());
+            localSubstituteFluids = menu.isSubstituteFluids();
         } else {
             localSubstituteFluids = !localSubstituteFluids;
         }
+        saveLocalState();
     }
 
     /**
      * 在 JEI {@code RecipesGui} 渲染末尾调用：仅在配方区域左上角绘制一对 8×8 开关。
      */
     public static void render(ImmutableRect2i recipeLayoutsArea, GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        ensureLocalStateLoaded();
         if (!isSubstitutionContextActive()) {
             lastItemX = Integer.MIN_VALUE;
             return;

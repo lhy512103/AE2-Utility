@@ -3,6 +3,7 @@ package com.lhy.ae2utility.service;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import appeng.api.crafting.PatternDetailsHelper;
@@ -10,6 +11,34 @@ import appeng.core.definitions.AEItems;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
 
 public class ClearPatternsService {
+
+    /**
+     * Consolidates all blank patterns in the player inventory into as few stacks as possible.
+     */
+    private static void mergeBlankPatternsInInventory(ServerPlayer player, Inventory inv) {
+        int total = 0;
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (!stack.isEmpty() && AEItems.BLANK_PATTERN.is(stack)) {
+                total += stack.getCount();
+                inv.setItem(i, ItemStack.EMPTY);
+            }
+        }
+        if (total <= 0) {
+            return;
+        }
+        int maxStack = AEItems.BLANK_PATTERN.stack().getMaxStackSize();
+        for (int i = 0; i < inv.getContainerSize() && total > 0; i++) {
+            if (inv.getItem(i).isEmpty()) {
+                int put = Math.min(total, maxStack);
+                inv.setItem(i, AEItems.BLANK_PATTERN.stack(put));
+                total -= put;
+            }
+        }
+        if (total > 0) {
+            ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack(total));
+        }
+    }
 
     public static void handle(final ClearPatternsPacket msg, final IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
@@ -25,8 +54,8 @@ public class ClearPatternsService {
                         clearedCount += count;
                     }
                 }
-                // 如果有清理操作，则向客户端广播背包更新 (Broadcast inventory changes if any patterns were cleared)
                 if (clearedCount > 0) {
+                    mergeBlankPatternsInInventory(player, inv);
                     player.containerMenu.broadcastChanges();
                 }
             }

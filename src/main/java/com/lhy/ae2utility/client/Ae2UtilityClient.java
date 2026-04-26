@@ -22,6 +22,8 @@ public class Ae2UtilityClient {
     @SubscribeEvent
     public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
         CraftableStateCache.tick();
+        InventoryPatternUploadQueue.tick();
+        RecipeTreeUploadQueue.tick();
     }
 
     @SubscribeEvent
