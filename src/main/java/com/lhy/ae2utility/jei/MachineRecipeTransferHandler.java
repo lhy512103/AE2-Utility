@@ -28,6 +28,7 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.util.PullIngredientOrdering;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;
 import com.lhy.ae2utility.network.PullMachineRecipeInputsPacket;
@@ -229,11 +230,11 @@ public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> im
         if (!hasItemStack(slotView)) {
             return new RequestedIngredient(List.of(), 0);
         }
-        List<ItemStack> alternatives = slotView.getItemStacks()
+        List<ItemStack> alternatives = PullIngredientOrdering.preferSpecificComponentsFirst(slotView.getItemStacks()
                 .filter(stack -> !stack.isEmpty())
                 .map(ItemStack::copy)
                 .distinct()
-                .toList();
+                .toList());
         int count = Math.max(getDisplayedStack(slotView).getCount(), 1);
         return new RequestedIngredient(alternatives, count);
     }

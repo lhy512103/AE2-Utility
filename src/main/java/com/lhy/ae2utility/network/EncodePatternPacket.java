@@ -14,17 +14,22 @@ import org.jetbrains.annotations.Nullable;
 import appeng.api.stacks.GenericStack;
 import com.lhy.ae2utility.Ae2UtilityMod;
 
-public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId, boolean shiftDown, boolean substitute, boolean substituteFluids) implements CustomPacketPayload {
+public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
+        String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute, boolean substituteFluids) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<EncodePatternPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "encode_pattern"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, EncodePatternPacket> STREAM_CODEC =
             StreamCodec.ofMember(EncodePatternPacket::write, EncodePatternPacket::decode);
 
-    public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId, boolean shiftDown, boolean substitute, boolean substituteFluids) {
+    public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
+            String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute, boolean substituteFluids) {
         this.inputs = Collections.unmodifiableList(new ArrayList<>(inputs));
         this.outputs = Collections.unmodifiableList(new ArrayList<>(outputs));
         this.recipeId = recipeId;
+        this.patternName = patternName == null ? "" : patternName;
+        this.providerSearchKey = providerSearchKey == null ? "" : providerSearchKey;
+        this.providerDisplayName = providerDisplayName == null ? "" : providerDisplayName;
         this.shiftDown = shiftDown;
         this.substitute = substitute;
         this.substituteFluids = substituteFluids;
@@ -33,6 +38,9 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
     private static EncodePatternPacket decode(RegistryFriendlyByteBuf buffer) {
         boolean hasId = buffer.readBoolean();
         ResourceLocation id = hasId ? buffer.readResourceLocation() : null;
+        String patternName = buffer.readUtf(256);
+        String providerSearchKey = buffer.readUtf(256);
+        String providerDisplayName = buffer.readUtf(256);
         boolean shiftDown = buffer.readableBytes() > 0 && buffer.readBoolean();
         boolean substitute = buffer.readableBytes() > 0 && buffer.readBoolean();
         boolean substituteFluids = buffer.readableBytes() > 0 && buffer.readBoolean();
@@ -51,6 +59,9 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
                 inputs,
                 readGenericStacks(buffer),
                 id,
+                patternName,
+                providerSearchKey,
+                providerDisplayName,
                 shiftDown,
                 substitute,
                 substituteFluids
@@ -62,6 +73,9 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         if (recipeId != null) {
             buffer.writeResourceLocation(recipeId);
         }
+        buffer.writeUtf(patternName, 256);
+        buffer.writeUtf(providerSearchKey, 256);
+        buffer.writeUtf(providerDisplayName, 256);
         buffer.writeBoolean(shiftDown);
         buffer.writeBoolean(substitute);
         buffer.writeBoolean(substituteFluids);

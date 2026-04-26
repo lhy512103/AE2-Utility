@@ -1,10 +1,14 @@
 package com.lhy.ae2utility.service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+
+import org.jetbrains.annotations.Nullable;
 
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -23,6 +27,7 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.SmithingRecipe;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
 
+import appeng.api.config.Actionable;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -33,13 +38,26 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.IGrid;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.ITerminalHost;
+import appeng.menu.SlotSemantics;
 import appeng.menu.me.common.MEStorageMenu;
+import appeng.menu.me.items.PatternEncodingTermMenu;
+
+import net.minecraft.world.inventory.Slot;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.InvalidateCraftableCachePacket;
+import com.lhy.ae2utility.network.RecipeTreeOpenProvidersPacket;
+import com.lhy.ae2utility.util.PullIngredientOrdering;
 
 public final class EncodePatternService {
+    private enum BlankPatternSource {
+        PATTERN_TERMINAL_SLOT,
+        PLAYER_INVENTORY,
+        ME_NETWORK
+    }
+
     private EncodePatternService() {}
 
     public static void handle(Player player, EncodePatternPacket payload) {
@@ -86,31 +104,16 @@ public final class EncodePatternService {
             actionSource = IActionSource.ofPlayer(serverPlayer);
         }
 
-        // 3. Consume 1 Blank Pattern
+        RecipeTreeUploadResultBridge.clearPendingName(serverPlayer);
+        RecipeTreeUploadContextBridge.clear(serverPlayer);
+
+        // 3. Consume 1 Blank Pattern（与样板编码终端逻辑一致：先终端空白槽，再背包，再网络）
         AEItemKey blankPatternKey = AEItemKey.of(AEItems.BLANK_PATTERN);
-        boolean consumed = false;
-        boolean consumedFromPlayerInventory = false;
-        
-        // Try player inventory first
-        for (int i = 0; i < serverPlayer.getInventory().getContainerSize(); i++) {
-            ItemStack stack = serverPlayer.getInventory().getItem(i);
-            if (AEItems.BLANK_PATTERN.is(stack)) {
-                stack.shrink(1);
-                consumed = true;
-                consumedFromPlayerInventory = true;
-                break;
-            }
-        }
-        
-        // Then try ME network
-        if (!consumed) {
-            long extracted = inventory.extract(blankPatternKey, 1, appeng.api.config.Actionable.MODULATE, actionSource);
-            if (extracted > 0) {
-                consumed = true;
-            }
-        }
-        
-        if (!consumed) {
+        BlankPatternSource blankSource = consumeOneBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey);
+        if (blankSource == null) {
+            serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.encode_failed_no_blank_named",
+                    payload.patternName().isBlank() ? "-" : payload.patternName()));
+            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             return;
         }
 
@@ -126,9 +129,11 @@ public final class EncodePatternService {
                 // Bookmarked or single option
                 in.add(alts.get(0));
             } else {
-                // Multiple options, check ME network
+                // Multiple options, check ME network (prefer exact component matches in storage)
+                List<GenericStack> sortedAlts = new ArrayList<>(alts);
+                sortedAlts.sort(Comparator.comparingInt(PullIngredientOrdering::genericStackItemSpecificityRank).reversed());
                 GenericStack chosen = null;
-                for (GenericStack alt : alts) {
+                for (GenericStack alt : sortedAlts) {
                     if (alt != null && alt.what() != null) {
                         long stored = inventory.getAvailableStacks().get(alt.what());
                         if (stored > 0) {
@@ -138,17 +143,18 @@ public final class EncodePatternService {
                     }
                 }
                 if (chosen == null) {
-                    chosen = alts.get(0); // Fallback to first flashing item
+                    chosen = sortedAlts.get(0); // Fallback to first flashing item
                 }
                 in.add(chosen);
             }
         }
 
         if (in.isEmpty() || out.isEmpty()) {
-            // Refund
-            refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, consumedFromPlayerInventory);
+            refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
             return;
         }
+
+        int meaningfulInputCount = countMeaningfulInputs(in);
 
         // 5. Encode pattern
         try {
@@ -158,7 +164,7 @@ public final class EncodePatternService {
             if (payload.recipeId() != null) {
                 var recipeHolder = serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId()).orElse(null);
                 if (recipeHolder != null) {
-                    if (recipeHolder.value() instanceof CraftingRecipe) {
+                    if (recipeHolder.value() instanceof CraftingRecipe && meaningfulInputCount <= 9) {
                         ItemStack[] inArray = new ItemStack[9];
                         Arrays.fill(inArray, ItemStack.EMPTY);
                         var ingredients3x3 = appeng.util.CraftingRecipeUtil.ensure3by3CraftingMatrix(recipeHolder.value());
@@ -204,6 +210,8 @@ public final class EncodePatternService {
             }
 
             if (!encodedPattern.isEmpty()) {
+                rememberProviderSearchKey(serverPlayer, payload, encodedPattern);
+
                 if (payload.shiftDown() && net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
                     try {
                         Class<?> pendingUtil = Class.forName("com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil");
@@ -222,7 +230,8 @@ public final class EncodePatternService {
                                 boolean duplicate = (Boolean) duplicateCheck.invoke(null, eaepGrid, encodedPattern);
                                 if (duplicate) {
                                     serverPlayer.sendSystemMessage(Component.translatable("extendedae_plus.message.matrix.duplicate"));
-                                    refundBlankPatternToNetwork(serverPlayer, inventory, actionSource, blankPatternKey);
+                                    RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                                    refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
                                     return;
                                 }
                             } catch (NoSuchMethodException ignored) {
@@ -235,29 +244,77 @@ public final class EncodePatternService {
                             // 只要矩阵上传成功就结束；失败则继续走 EAEP 的待上传逻辑，
                             // 让它自己弹供应器选择界面，而不是直接回退到玩家背包。
                             if (uploaded) {
+                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), true);
                                 sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
                                 return;
                             }
                         }
 
                         // Use EAEP's UI upload for processing or if no matrix was found
+                        presetEaepProviderSearchKey(serverPlayer, payload);
+                        RecipeTreeUploadContextBridge.rememberGrid(serverPlayer, eaepGrid);
                         java.lang.reflect.Method beginUpload = pendingUtil.getMethod("beginPendingCtrlQUpload", ServerPlayer.class, ItemStack.class);
+                        RecipeTreeUploadResultBridge.rememberPendingName(serverPlayer, payload.patternName());
                         beginUpload.invoke(null, serverPlayer, encodedPattern);
+                        PacketDistributor.sendToPlayer(serverPlayer, new RecipeTreeOpenProvidersPacket());
                         sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
                         return;
                     } catch (Throwable e) {
+                        RecipeTreeUploadResultBridge.clearPendingName(serverPlayer);
                         Ae2UtilityMod.LOGGER.error("Failed to integrate with ExtendedAE_Plus: {}", e.getMessage());
                     }
                 }
                 ItemHandlerHelper.giveItemToPlayer(serverPlayer, encodedPattern);
+                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
                 sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
             } else {
-                refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, consumedFromPlayerInventory);
+                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
             }
         } catch (Throwable e) {
+            RecipeTreeUploadResultBridge.clearPendingName(serverPlayer);
             Ae2UtilityMod.LOGGER.error("Error encoding pattern: ", e);
-            refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, consumedFromPlayerInventory);
+            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
         }
+    }
+
+    /**
+     * @return 消耗成功时的来源；无法消耗则返回 null
+     */
+    private static @Nullable BlankPatternSource consumeOneBlankPattern(ServerPlayer serverPlayer, MEStorage inventory,
+            IActionSource actionSource, AEItemKey blankPatternKey) {
+        if (serverPlayer.containerMenu instanceof PatternEncodingTermMenu patternMenu) {
+            for (Slot slot : patternMenu.getSlots(SlotSemantics.BLANK_PATTERN)) {
+                ItemStack stack = slot.getItem();
+                if (AEItems.BLANK_PATTERN.is(stack) && !stack.isEmpty()) {
+                    stack.shrink(1);
+                    if (stack.isEmpty()) {
+                        slot.set(ItemStack.EMPTY);
+                    } else {
+                        slot.set(stack);
+                    }
+                    slot.setChanged();
+                    patternMenu.broadcastChanges();
+                    return BlankPatternSource.PATTERN_TERMINAL_SLOT;
+                }
+            }
+        }
+
+        for (int i = 0; i < serverPlayer.getInventory().getContainerSize(); i++) {
+            ItemStack stack = serverPlayer.getInventory().getItem(i);
+            if (AEItems.BLANK_PATTERN.is(stack) && !stack.isEmpty()) {
+                stack.shrink(1);
+                serverPlayer.getInventory().setChanged();
+                return BlankPatternSource.PLAYER_INVENTORY;
+            }
+        }
+
+        long extracted = inventory.extract(blankPatternKey, 1, Actionable.MODULATE, actionSource);
+        if (extracted > 0) {
+            return BlankPatternSource.ME_NETWORK;
+        }
+        return null;
     }
 
     private static void sendCraftableCacheRefreshIfNonEmpty(ServerPlayer serverPlayer, EncodePatternPacket payload) {
@@ -265,6 +322,89 @@ public final class EncodePatternService {
         if (!keys.isEmpty()) {
             PacketDistributor.sendToPlayer(serverPlayer, new InvalidateCraftableCachePacket(keys));
         }
+    }
+
+    private static void presetEaepProviderSearchKey(ServerPlayer serverPlayer, EncodePatternPacket payload) {
+        try {
+            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
+            String searchKey = resolveProviderSearchKey(serverPlayer, payload, uploadUtil);
+            if (payload.recipeId() != null) {
+                var recipeHolder = serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId()).orElse(null);
+                if (recipeHolder != null && recipeHolder.value() instanceof CraftingRecipe
+                        && (searchKey == null || searchKey.isBlank())) {
+                    java.lang.reflect.Method preset = uploadUtil.getMethod("presetCraftingProviderSearchKey");
+                    preset.invoke(null);
+                    return;
+                }
+            }
+            if (searchKey != null && !searchKey.isBlank()) {
+                java.lang.reflect.Method setName = uploadUtil.getMethod("setLastProcessingName", String.class);
+                setName.invoke(null, searchKey);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void rememberProviderSearchKey(ServerPlayer serverPlayer, EncodePatternPacket payload, ItemStack encodedPattern) {
+        String searchKey = resolveProviderSearchKey(serverPlayer, payload, null);
+        if (searchKey != null && !searchKey.isBlank()) {
+            encodedPattern.set(ModDataComponents.PATTERN_PROVIDER_SEARCH_KEY.get(), searchKey);
+        }
+    }
+
+    private static String resolveProviderSearchKey(ServerPlayer serverPlayer, EncodePatternPacket payload, @Nullable Class<?> uploadUtilClass) {
+        String searchKey = payload.providerSearchKey();
+        if (searchKey != null && !searchKey.isBlank()) {
+            return resolveAlias(uploadUtilClass, searchKey);
+        }
+        if (payload.recipeId() == null) {
+            return "";
+        }
+
+        var recipeHolder = serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId()).orElse(null);
+        if (recipeHolder == null) {
+            return "";
+        }
+
+        if (recipeHolder.value() instanceof CraftingRecipe) {
+            return resolveAlias(uploadUtilClass, "crafting");
+        }
+
+        if (uploadUtilClass != null) {
+            try {
+                java.lang.reflect.Method mapRecipe = uploadUtilClass.getMethod("mapRecipeTypeToSearchKey",
+                        net.minecraft.world.item.crafting.Recipe.class);
+                Object mapped = mapRecipe.invoke(null, recipeHolder.value());
+                if (mapped instanceof String mappedString && !mappedString.isBlank()) {
+                    return mappedString;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        ResourceLocation recipeTypeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(recipeHolder.value().getType());
+        if (recipeTypeId != null) {
+            return recipeTypeId.getPath();
+        }
+
+        return "";
+    }
+
+    private static String resolveAlias(@Nullable Class<?> uploadUtilClass, String rawKey) {
+        if (rawKey == null || rawKey.isBlank()) {
+            return "";
+        }
+        if (uploadUtilClass != null) {
+            try {
+                java.lang.reflect.Method resolveAlias = uploadUtilClass.getMethod("resolveSearchKeyAlias", String.class);
+                Object resolved = resolveAlias.invoke(null, rawKey);
+                if (resolved instanceof String resolvedString && !resolvedString.isBlank()) {
+                    return resolvedString;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return rawKey;
     }
 
     private static List<AEKey> collectCraftableKeysForRefresh(EncodePatternPacket payload) {
@@ -288,20 +428,36 @@ public final class EncodePatternService {
     }
 
     private static void refundBlankPattern(ServerPlayer player, MEStorage inventory, IActionSource actionSource,
-            AEItemKey blankPatternKey, boolean refundToPlayer) {
-        if (refundToPlayer) {
-            ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack());
-            return;
-        }
-
-        inventory.insert(blankPatternKey, 1, appeng.api.config.Actionable.MODULATE, actionSource);
-    }
-
-    private static void refundBlankPatternToNetwork(ServerPlayer player, MEStorage inventory, IActionSource actionSource,
-            AEItemKey blankPatternKey) {
-        long inserted = inventory.insert(blankPatternKey, 1, appeng.api.config.Actionable.MODULATE, actionSource);
-        if (inserted <= 0) {
-            ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack());
+            AEItemKey blankPatternKey, BlankPatternSource source) {
+        switch (source) {
+            case PLAYER_INVENTORY -> ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack());
+            case ME_NETWORK -> {
+                long inserted = inventory.insert(blankPatternKey, 1, Actionable.MODULATE, actionSource);
+                if (inserted <= 0) {
+                    ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack());
+                }
+            }
+            case PATTERN_TERMINAL_SLOT -> {
+                if (player.containerMenu instanceof PatternEncodingTermMenu menu) {
+                    for (Slot slot : menu.getSlots(SlotSemantics.BLANK_PATTERN)) {
+                        ItemStack cur = slot.getItem();
+                        if (cur.isEmpty()) {
+                            slot.set(AEItems.BLANK_PATTERN.stack());
+                            slot.setChanged();
+                            menu.broadcastChanges();
+                            return;
+                        }
+                        if (AEItems.BLANK_PATTERN.is(cur) && cur.getCount() < cur.getMaxStackSize()) {
+                            cur.grow(1);
+                            slot.set(cur);
+                            slot.setChanged();
+                            menu.broadcastChanges();
+                            return;
+                        }
+                    }
+                }
+                ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack());
+            }
         }
     }
 
@@ -309,6 +465,16 @@ public final class EncodePatternService {
         for (int i = 0; i < Math.min(9, inputStacks.size()); i++) {
             inArray[i] = toItemStack(inputStacks.get(i));
         }
+    }
+
+    private static int countMeaningfulInputs(List<GenericStack> inputStacks) {
+        int count = 0;
+        for (GenericStack inputStack : inputStacks) {
+            if (inputStack != null && inputStack.what() != null && inputStack.amount() > 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static void mapCompactCraftingInputs(List<GenericStack> inputStacks, List<Ingredient> ingredients3x3,

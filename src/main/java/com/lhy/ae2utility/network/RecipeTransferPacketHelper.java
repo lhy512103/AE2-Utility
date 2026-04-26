@@ -1,28 +1,34 @@
 package com.lhy.ae2utility.network;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
+import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import com.lhy.ae2utility.util.GenericIngredientUtil;
+import com.lhy.ae2utility.util.PullIngredientOrdering;
+
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
+import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.RecipeIngredientRole;
-
-import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.GenericStack;
-
-import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import net.minecraft.network.chat.Component;
 
 public final class RecipeTransferPacketHelper {
     private RecipeTransferPacketHelper() {
     }
 
-    public static List<appeng.api.stacks.AEKey> getBookmarkKeys() {
+    public static List<AEKey> getBookmarkKeys() {
         mezz.jei.api.runtime.IJeiRuntime runtime = com.lhy.ae2utility.jei.Ae2UtilityJeiPlugin.getJeiRuntime();
         if (runtime == null) return List.of();
         
@@ -37,13 +43,12 @@ public final class RecipeTransferPacketHelper {
             java.lang.reflect.Method getElementsMethod = bookmarkList.getClass().getMethod("getElements");
             List<?> elements = (List<?>) getElementsMethod.invoke(bookmarkList);
             
-            List<appeng.api.stacks.AEKey> bookmarks = new ArrayList<>();
+            List<AEKey> bookmarks = new ArrayList<>();
             for (Object element : elements) {
                 java.lang.reflect.Method getTypedIngredientMethod = element.getClass().getMethod("getTypedIngredient");
                 mezz.jei.api.ingredients.ITypedIngredient<?> typedIngredient = (mezz.jei.api.ingredients.ITypedIngredient<?>) getTypedIngredientMethod.invoke(element);
                 if (typedIngredient != null) {
-                    Object ingredient = typedIngredient.getIngredient();
-                    appeng.api.stacks.AEKey key = getAEKey(ingredient);
+                    AEKey key = GenericIngredientUtil.toAEKey(typedIngredient.getIngredient());
                     if (key != null) {
                         bookmarks.add(key);
                     }
@@ -55,18 +60,9 @@ public final class RecipeTransferPacketHelper {
         }
     }
 
-    private static appeng.api.stacks.AEKey getAEKey(Object ingredient) {
-        if (ingredient instanceof ItemStack is && !is.isEmpty()) {
-            return appeng.api.stacks.AEItemKey.of(is);
-        } else if (ingredient instanceof FluidStack fs && !fs.isEmpty()) {
-            return appeng.api.stacks.AEFluidKey.of(fs);
-        }
-        return null;
-    }
-
     public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
         List<List<GenericStack>> slots = new ArrayList<>();
-        List<appeng.api.stacks.AEKey> bookmarkedKeys = getBookmarkKeys();
+        List<AEKey> bookmarkedKeys = getBookmarkKeys();
         
         for (IRecipeSlotView slotView : slotsView.getSlotViews(role)) {
             List<GenericStack> alternatives = new ArrayList<>();
@@ -89,17 +85,25 @@ public final class RecipeTransferPacketHelper {
                     }
                 }
             }
+            if (count == 1) {
+                for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
+                    long chemicalAmount = GenericIngredientUtil.tryGetMekanismChemicalAmount(typed.getIngredient());
+                    if (chemicalAmount > 1) {
+                        count = chemicalAmount;
+                        break;
+                    }
+                }
+            }
             
             // 1. Try to find a match in bookmarks first
             GenericStack bookmarkedStack = null;
-            for (appeng.api.stacks.AEKey bookmarkedKey : bookmarkedKeys) {
+            for (AEKey bookmarkedKey : bookmarkedKeys) {
                 if (bookmarkedStack != null) break;
                 for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
                     Object ing = typed.getIngredient();
-                    appeng.api.stacks.AEKey ingKey = getAEKey(ing);
+                    AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
                     if (ingKey != null && ingKey.equals(bookmarkedKey)) {
-                        if (ing instanceof ItemStack is) bookmarkedStack = new GenericStack(ingKey, count);
-                        else if (ing instanceof FluidStack fs) bookmarkedStack = new GenericStack(ingKey, count);
+                        bookmarkedStack = new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count));
                         break;
                     }
                 }
@@ -114,7 +118,7 @@ public final class RecipeTransferPacketHelper {
             // 2. If no bookmark, collect all alternatives in static order
             for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
                 Object ing = typed.getIngredient();
-                appeng.api.stacks.AEKey ingKey = getAEKey(ing);
+                AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
                 if (ingKey != null) {
                     boolean alreadyAdded = false;
                     for (GenericStack existing : alternatives) {
@@ -124,7 +128,7 @@ public final class RecipeTransferPacketHelper {
                         }
                     }
                     if (!alreadyAdded) {
-                        alternatives.add(new GenericStack(ingKey, count));
+                        alternatives.add(new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count)));
                     }
                 }
             }
@@ -138,10 +142,37 @@ public final class RecipeTransferPacketHelper {
         return slots;
     }
 
+    public static List<GenericStack> getEncodingOutputs(Object recipe, IRecipeSlotsView slotsView) {
+        List<GenericStack> outputs = new ArrayList<>();
+        int outputIndex = 0;
+        for (IRecipeSlotView slotView : slotsView.getSlotViews(RecipeIngredientRole.OUTPUT)) {
+            if (shouldSkipOutputSlotForEncoding(recipe, outputIndex, slotView)) {
+                outputIndex++;
+                continue;
+            }
+            if (isProbablyStochasticOutputSlot(slotView)) {
+                outputIndex++;
+                continue;
+            }
+            List<List<GenericStack>> singleSlot = getGenericStacks(new SingleRoleSlotsView(slotView), RecipeIngredientRole.OUTPUT);
+            if (!singleSlot.isEmpty()) {
+                List<GenericStack> list = singleSlot.getFirst();
+                outputs.add(list == null || list.isEmpty() ? null : list.getFirst());
+            }
+            outputIndex++;
+        }
+        return outputs;
+    }
+
+    public static List<GenericStack> getEncodingOutputs(IRecipeSlotsView slotsView) {
+        return getEncodingOutputs(null, slotsView);
+    }
+
     public static List<RequestedIngredient> getRequestedIngredients(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
         List<RequestedIngredient> ingredients = new ArrayList<>();
         for (IRecipeSlotView slotView : slotsView.getSlotViews(role)) {
-            List<ItemStack> itemStacks = slotView.getIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK).toList();
+            List<ItemStack> itemStacks = PullIngredientOrdering.preferSpecificComponentsFirst(
+                    slotView.getIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK).toList());
             if (!itemStacks.isEmpty()) {
                 // Determine the requested count, JEI slot view might have a count if there's a specific amount required.
                 // Usually it's 1 unless the ingredient has a different count (e.g., custom sizes).
@@ -210,5 +241,105 @@ public final class RecipeTransferPacketHelper {
 
     private static String stackKey(ItemStack stack) {
         return ItemStack.hashItemAndComponents(stack) + "#" + stack.getCount() + "#" + stack.getItem();
+    }
+
+    private static boolean isProbablyStochasticOutputSlot(IRecipeSlotView slotView) {
+        try {
+            Field tooltipCallbacksField = slotView.getClass().getDeclaredField("tooltipCallbacks");
+            tooltipCallbacksField.setAccessible(true);
+            List<?> callbacks = (List<?>) tooltipCallbacksField.get(slotView);
+            if (callbacks == null || callbacks.isEmpty()) {
+                return false;
+            }
+
+            Class<?> tooltipClass = Class.forName("mezz.jei.common.gui.JeiTooltip");
+            Object tooltip = tooltipClass.getConstructor().newInstance();
+            if (!(tooltip instanceof ITooltipBuilder tooltipBuilder)) {
+                return false;
+            }
+
+            for (Object callback : callbacks) {
+                if (callback == null) {
+                    continue;
+                }
+                Method onRichTooltip = callback.getClass().getMethod("onRichTooltip", IRecipeSlotView.class, ITooltipBuilder.class);
+                onRichTooltip.invoke(callback, slotView, tooltipBuilder);
+            }
+
+            @SuppressWarnings("deprecation")
+            List<Component> lines = tooltipBuilder.toLegacyToComponents();
+            for (Component line : lines) {
+                String text = line.getString();
+                String lower = text.toLowerCase(Locale.ROOT);
+                if (text.contains("%") || lower.contains("chance") || lower.contains("probab")
+                        || text.contains("概率") || text.contains("几率")) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    private static boolean shouldSkipOutputSlotForEncoding(Object recipe, int outputIndex, IRecipeSlotView slotView) {
+        if (isMekanismSawmillChanceOutput(recipe, outputIndex)) {
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isMekanismSawmillChanceOutput(Object recipe, int outputIndex) {
+        if (recipe == null || outputIndex <= 0) {
+            return false;
+        }
+        Object rawRecipe = unwrapRecipeHolder(recipe);
+        if (rawRecipe == null || !rawRecipe.getClass().getName().equals("mekanism.api.recipes.basic.BasicSawmillRecipe")
+                && !rawRecipe.getClass().getName().equals("mekanism.api.recipes.SawmillRecipe")) {
+            // Support subclasses too.
+            boolean sawmillType = false;
+            for (Class<?> type = rawRecipe.getClass(); type != null; type = type.getSuperclass()) {
+                if ("mekanism.api.recipes.SawmillRecipe".equals(type.getName())) {
+                    sawmillType = true;
+                    break;
+                }
+            }
+            if (!sawmillType) {
+                return false;
+            }
+        }
+        try {
+            Method getSecondaryChance = rawRecipe.getClass().getMethod("getSecondaryChance");
+            Object chanceValue = getSecondaryChance.invoke(rawRecipe);
+            if (chanceValue instanceof Number number) {
+                double chance = number.doubleValue();
+                return chance > 0 && chance < 1;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    private static Object unwrapRecipeHolder(Object recipe) {
+        if (recipe == null) {
+            return null;
+        }
+        try {
+            Method value = recipe.getClass().getMethod("value");
+            return value.invoke(recipe);
+        } catch (Throwable ignored) {
+            return recipe;
+        }
+    }
+
+    private record SingleRoleSlotsView(IRecipeSlotView slotView) implements IRecipeSlotsView {
+        @Override
+        public List<IRecipeSlotView> getSlotViews() {
+            return List.of(slotView);
+        }
+
+        @Override
+        public List<IRecipeSlotView> getSlotViews(RecipeIngredientRole role) {
+            return slotView.getRole() == role ? List.of(slotView) : List.of();
+        }
     }
 }

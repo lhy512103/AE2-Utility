@@ -31,6 +31,8 @@ import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 import com.lhy.ae2utility.network.PullMachineRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import com.lhy.ae2utility.util.MeIngredientExtraction;
+import com.lhy.ae2utility.util.PullIngredientOrdering;
 
 public final class MachinePullService {
     private static final int MAX_DETAIL_ITEMS = 5;
@@ -95,7 +97,8 @@ public final class MachinePullService {
             }
 
             List<ItemStack> extractedStacks = wirelessStorage != null && wirelessEnergy != null
-                    ? extractAlternatives(wirelessStorage, wirelessEnergy, wirelessActionSource, requested.alternatives(), missingAmount)
+                    ? MeIngredientExtraction.extractAlternatives(wirelessStorage, wirelessEnergy, wirelessActionSource,
+                            null, requested.alternatives(), missingAmount)
                     : List.of();
             int extractedCount = extractedStacks.stream().mapToInt(ItemStack::getCount).sum();
             if (extractedCount < missingAmount) {
@@ -145,10 +148,11 @@ public final class MachinePullService {
                 continue;
             }
 
-            List<ItemStack> alternatives = ingredient.alternatives().stream()
-                    .filter(stack -> stack != null && !stack.isEmpty())
-                    .map(ItemStack::copy)
-                    .toList();
+            List<ItemStack> alternatives = PullIngredientOrdering.preferSpecificComponentsFirst(
+                    ingredient.alternatives().stream()
+                            .filter(stack -> stack != null && !stack.isEmpty())
+                            .map(ItemStack::copy)
+                            .toList());
             if (alternatives.isEmpty()) {
                 sanitized.add(new RequestedIngredient(List.of(), 0));
                 continue;
@@ -253,32 +257,11 @@ public final class MachinePullService {
             if (ingredient.count() <= 0 || ingredient.alternatives().isEmpty()) {
                 continue;
             }
-            List<AEItemKey> alternatives = ingredient.alternatives().stream()
-                    .map(AEItemKey::of)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .toList();
-            if (alternatives.isEmpty()) {
-                return false;
-            }
-
+            var wideIngredient = MeIngredientExtraction.ingredientFromItemStacks(ingredient.alternatives());
             for (int unit = 0; unit < ingredient.count(); unit++) {
-                AEItemKey bestKey = null;
-                long bestAmount = 0;
-
-                for (AEItemKey candidate : alternatives) {
-                    long available = remaining.getOrDefault(candidate, 0L);
-                    if (available > bestAmount) {
-                        bestAmount = available;
-                        bestKey = candidate;
-                    }
-                }
-
-                if (bestKey == null || bestAmount <= 0) {
+                if (!MeIngredientExtraction.reserveOneUnit(remaining, ingredient.alternatives(), wideIngredient)) {
                     return false;
                 }
-
-                remaining.put(bestKey, bestAmount - 1);
             }
         }
 
@@ -394,34 +377,6 @@ public final class MachinePullService {
             playerInventory.setChanged();
         }
         return moved;
-    }
-
-    private static List<ItemStack> extractAlternatives(MEStorage storage, IEnergySource energy, IActionSource actionSource,
-            List<ItemStack> alternatives, int amount) {
-        Map<AEItemKey, Integer> extractedByKey = new LinkedHashMap<>();
-
-        for (int i = 0; i < amount; i++) {
-            AEItemKey extractedKey = null;
-            for (ItemStack alternative : alternatives) {
-                var candidate = AEItemKey.of(alternative);
-                if (candidate == null) {
-                    continue;
-                }
-                long extracted = StorageHelper.poweredExtraction(energy, storage, candidate, 1, actionSource);
-                if (extracted > 0) {
-                    extractedKey = candidate;
-                    extractedByKey.merge(candidate, 1, Integer::sum);
-                    break;
-                }
-            }
-            if (extractedKey == null) {
-                break;
-            }
-        }
-
-        return extractedByKey.entrySet().stream()
-                .map(entry -> entry.getKey().toStack(entry.getValue()))
-                .toList();
     }
 
     private static boolean matchesAnyAlternative(ItemStack stack, List<ItemStack> alternatives) {

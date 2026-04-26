@@ -14,7 +14,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.api.config.Actionable;
@@ -28,12 +30,17 @@ import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageHelper;
 import appeng.helpers.ICraftingGridMenu;
 import appeng.items.storage.ViewCellItem;
+import appeng.menu.SlotSemantics;
 import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.crafting.CraftConfirmMenu;
+import appeng.menu.me.items.PatternEncodingTermMenu;
+import appeng.parts.encoding.EncodingMode;
 import appeng.util.prioritylist.IPartitionList;
 
 import com.lhy.ae2utility.network.PullRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import com.lhy.ae2utility.util.MeIngredientExtraction;
+import com.lhy.ae2utility.util.PullIngredientOrdering;
 
 public final class TerminalPullService {
     private static final int MAX_DETAIL_ITEMS = 5;
@@ -71,9 +78,19 @@ public final class TerminalPullService {
                 ? gridNode.getGrid().getCraftingService()
                 : null;
         var playerInventory = menu.getPlayerInventory();
+
+        var craftingGrid = menu instanceof ICraftingGridMenu craftingGridMenu ? craftingGridMenu.getCraftingMatrix() : null;
+        if (menu instanceof PatternEncodingTermMenu patternEncodingMenu) {
+            clearPatternEncodingWorkingSlots(patternEncodingMenu, storage, energy, actionSource);
+        }
+        if (craftingGrid != null && !(menu instanceof PatternEncodingTermMenu)) {
+            if (returnCraftingMatrixToNetwork(craftingGrid, storage, energy, actionSource)) {
+                menu.slotsChanged(craftingGrid.toContainer());
+            }
+        }
+
         var playerInventorySnapshot = snapshotInventory(playerInventory.items);
         var reservedPlayerItems = new int[playerInventorySnapshot.size()];
-        var craftingGrid = menu instanceof ICraftingGridMenu craftingGridMenu ? craftingGridMenu.getCraftingMatrix() : null;
         var craftingGridSnapshot = craftingGrid != null ? snapshotInventory(craftingGrid) : List.<ItemStack>of();
         var reservedCraftingGridItems = craftingGrid != null ? new int[craftingGridSnapshot.size()] : null;
         int transferSets = payload.maxTransfer()
@@ -94,22 +111,18 @@ public final class TerminalPullService {
                 continue;
             }
 
-            List<AEItemKey> allowedAlternatives = filterAllowedAlternatives(requested.alternatives(), filter);
-            if (allowedAlternatives.isEmpty()) {
-                filteredItems.add(getDisplayStack(requested));
-                continue;
-            }
-
+            var wideIngredient = MeIngredientExtraction.ingredientFromItemStacks(requested.alternatives());
             int satisfiedByInventory = consumeFromPlayerInventory(playerInventorySnapshot, menu, requested.alternatives(),
-                    requested.count(), reservedPlayerItems);
+                    wideIngredient, requested.count(), reservedPlayerItems);
             int satisfiedByCraftingGrid = consumeFromCraftingGrid(craftingGridSnapshot, requested.alternatives(),
-                    requested.count() - satisfiedByInventory, reservedCraftingGridItems, ingredientIndex);
+                    wideIngredient, requested.count() - satisfiedByInventory, reservedCraftingGridItems, ingredientIndex);
             int missingAmount = requested.count() - satisfiedByInventory - satisfiedByCraftingGrid;
             if (missingAmount <= 0) {
                 continue;
             }
 
-            List<ItemStack> extractedStacks = extractAlternatives(storage, energy, actionSource, allowedAlternatives, missingAmount);
+            List<ItemStack> extractedStacks = MeIngredientExtraction.extractAlternatives(storage, energy, actionSource,
+                    filter, requested.alternatives(), missingAmount);
             int extractedCount = extractedStacks.stream().mapToInt(ItemStack::getCount).sum();
             int remainingToHandle = missingAmount - extractedCount;
             if (remainingToHandle > 0 && payload.craftMissing() && craftingService != null) {
@@ -181,10 +194,11 @@ public final class TerminalPullService {
                 continue;
             }
 
-            List<ItemStack> alternatives = ingredient.alternatives().stream()
-                    .filter(stack -> stack != null && !stack.isEmpty())
-                    .map(ItemStack::copy)
-                    .toList();
+            List<ItemStack> alternatives = PullIngredientOrdering.preferSpecificComponentsFirst(
+                    ingredient.alternatives().stream()
+                            .filter(stack -> stack != null && !stack.isEmpty())
+                            .map(ItemStack::copy)
+                            .toList());
             if (alternatives.isEmpty()) {
                 continue;
             }
@@ -251,36 +265,18 @@ public final class TerminalPullService {
         Map<AEItemKey, Long> remaining = new LinkedHashMap<>(availableByKey);
 
         for (RequestedIngredient ingredient : orderedIngredients) {
-            List<AEItemKey> alternatives = ingredient.alternatives().stream()
-                    .map(AEItemKey::of)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .toList();
-            if (alternatives.isEmpty()) {
+            if (ingredient.alternatives().isEmpty()) {
                 return false;
             }
-
+            var wideIngredient = MeIngredientExtraction.ingredientFromItemStacks(ingredient.alternatives());
             for (int unit = 0; unit < ingredient.count(); unit++) {
-                AEItemKey bestKey = null;
-                long bestAmount = 0;
-
-                for (AEItemKey candidate : alternatives) {
-                    long available = remaining.getOrDefault(candidate, 0L);
-                    if (available > bestAmount) {
-                        bestAmount = available;
-                        bestKey = candidate;
-                    }
-                }
-
-                if (bestKey == null || bestAmount <= 0) {
+                if (!MeIngredientExtraction.reserveOneUnit(remaining, ingredient.alternatives(), wideIngredient)) {
                     if (craftMissing && craftingService != null
                             && findCraftableAlternative(ingredient.alternatives(), filter, craftingService) != null) {
                         continue;
                     }
                     return false;
                 }
-
-                remaining.put(bestKey, bestAmount - 1);
             }
         }
 
@@ -301,7 +297,8 @@ public final class TerminalPullService {
     }
 
     private static int consumeFromPlayerInventory(List<ItemStack> inventorySnapshot, MEStorageMenu menu,
-            List<ItemStack> alternatives, int amount, int[] reservedPlayerItems) {
+            List<ItemStack> alternatives, @Nullable Ingredient wideIngredient, int amount,
+            int[] reservedPlayerItems) {
         int matched = 0;
         for (int i = 0; i < inventorySnapshot.size(); i++) {
             if (menu.isPlayerInventorySlotLocked(i)) {
@@ -309,7 +306,7 @@ public final class TerminalPullService {
             }
 
             ItemStack stack = inventorySnapshot.get(i);
-            if (stack.isEmpty() || !matchesAnyAlternative(stack, alternatives)) {
+            if (stack.isEmpty() || !matchesAnyAlternative(stack, alternatives, wideIngredient)) {
                 continue;
             }
 
@@ -328,7 +325,8 @@ public final class TerminalPullService {
         return matched;
     }
 
-    private static int consumeFromCraftingGrid(List<ItemStack> craftingGridSnapshot, List<ItemStack> alternatives, int amount,
+    private static int consumeFromCraftingGrid(List<ItemStack> craftingGridSnapshot, List<ItemStack> alternatives,
+            @Nullable Ingredient wideIngredient, int amount,
             @Nullable int[] reservedCraftingGridItems, int requestedSlot) {
         if (craftingGridSnapshot.isEmpty() || reservedCraftingGridItems == null || amount <= 0 || requestedSlot < 0
                 || requestedSlot >= craftingGridSnapshot.size()) {
@@ -336,7 +334,7 @@ public final class TerminalPullService {
         }
 
         ItemStack stack = craftingGridSnapshot.get(requestedSlot);
-        if (stack.isEmpty() || !matchesAnyAlternative(stack, alternatives)) {
+        if (stack.isEmpty() || !matchesAnyAlternative(stack, alternatives, wideIngredient)) {
             return 0;
         }
 
@@ -348,20 +346,6 @@ public final class TerminalPullService {
         int consumed = Math.min(available, amount);
         reservedCraftingGridItems[requestedSlot] += consumed;
         return consumed;
-    }
-
-    private static List<AEItemKey> filterAllowedAlternatives(List<ItemStack> alternatives, @Nullable IPartitionList filter) {
-        List<AEItemKey> allowed = new ArrayList<>();
-        for (ItemStack alternative : alternatives) {
-            var key = AEItemKey.of(alternative);
-            if (key == null) {
-                continue;
-            }
-            if (filter == null || filter.isListed(key)) {
-                allowed.add(key);
-            }
-        }
-        return allowed;
     }
 
     @Nullable
@@ -384,33 +368,18 @@ public final class TerminalPullService {
         return null;
     }
 
-    private static List<ItemStack> extractAlternatives(MEStorage storage, IEnergySource energy, IActionSource actionSource,
-            List<AEItemKey> alternatives, int amount) {
-        Map<AEItemKey, Integer> extractedByKey = new LinkedHashMap<>();
-
-        for (int i = 0; i < amount; i++) {
-            AEItemKey extractedKey = null;
-            for (AEItemKey candidate : alternatives) {
-                long extracted = StorageHelper.poweredExtraction(energy, storage, candidate, 1, actionSource);
-                if (extracted > 0) {
-                    extractedKey = candidate;
-                    extractedByKey.merge(candidate, 1, Integer::sum);
-                    break;
-                }
-            }
-            if (extractedKey == null) {
-                break;
-            }
-        }
-
-        return extractedByKey.entrySet().stream()
-                .map(entry -> entry.getKey().toStack(entry.getValue()))
-                .toList();
-    }
-
-    private static boolean matchesAnyAlternative(ItemStack stack, List<ItemStack> alternatives) {
+    private static boolean matchesAnyAlternative(ItemStack stack, List<ItemStack> alternatives,
+            @Nullable Ingredient wideIngredient) {
         for (ItemStack alternative : alternatives) {
             if (ItemStack.isSameItemSameComponents(stack, alternative)) {
+                return true;
+            }
+        }
+        if (wideIngredient != null && wideIngredient.test(stack)) {
+            return true;
+        }
+        for (ItemStack alternative : alternatives) {
+            if (!alternative.isEmpty() && ItemStack.isSameItem(stack, alternative)) {
                 return true;
             }
         }
@@ -511,6 +480,103 @@ public final class TerminalPullService {
             return IActionSource.ofPlayer(player, actionHost);
         }
         return IActionSource.ofPlayer(player);
+    }
+
+    /**
+     * 将样板编码终端当前模式下用于「工作区」的假槽物品塞回 ME，避免 JEI 拉取与原有幽灵/占位物品混在一起。
+     */
+    private static void clearPatternEncodingWorkingSlots(PatternEncodingTermMenu menu, MEStorage storage,
+            IEnergySource energy, IActionSource actionSource) {
+        List<Slot> toClear = switch (menu.getMode()) {
+            case CRAFTING -> List.copyOf(menu.getSlots(SlotSemantics.CRAFTING_GRID));
+            case SMITHING_TABLE -> {
+                List<Slot> list = new ArrayList<>();
+                list.addAll(menu.getSlots(SlotSemantics.SMITHING_TABLE_TEMPLATE));
+                list.addAll(menu.getSlots(SlotSemantics.SMITHING_TABLE_BASE));
+                list.addAll(menu.getSlots(SlotSemantics.SMITHING_TABLE_ADDITION));
+                yield list;
+            }
+            case STONECUTTING -> List.copyOf(menu.getSlots(SlotSemantics.STONECUTTING_INPUT));
+            case PROCESSING -> List.copyOf(menu.getSlots(SlotSemantics.PROCESSING_INPUTS));
+        };
+        boolean changed = false;
+        for (Slot slot : toClear) {
+            if (depositSlotToNetwork(slot, storage, energy, actionSource)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            refreshPatternEncodingAfterWorkingClear(menu);
+        }
+    }
+
+    private static void refreshPatternEncodingAfterWorkingClear(PatternEncodingTermMenu menu) {
+        if (menu.getMode() == EncodingMode.CRAFTING) {
+            try {
+                var method = PatternEncodingTermMenu.class.getDeclaredMethod("getAndUpdateOutput");
+                method.setAccessible(true);
+                method.invoke(menu);
+            } catch (ReflectiveOperationException ignored) {
+                menu.broadcastChanges();
+            }
+        } else {
+            menu.broadcastChanges();
+        }
+    }
+
+    private static boolean depositSlotToNetwork(Slot slot, MEStorage storage, IEnergySource energy,
+            IActionSource actionSource) {
+        ItemStack stack = slot.getItem();
+        if (stack.isEmpty()) {
+            return false;
+        }
+        AEItemKey key = AEItemKey.of(stack);
+        if (key == null) {
+            return false;
+        }
+        int count = stack.getCount();
+        long insertedLong = StorageHelper.poweredInsert(energy, storage, key, count, actionSource);
+        int inserted = (int) Math.min(insertedLong, count);
+        if (inserted <= 0) {
+            return false;
+        }
+        int leftover = count - inserted;
+        if (leftover <= 0) {
+            slot.set(ItemStack.EMPTY);
+        } else {
+            slot.set(stack.copyWithCount(leftover));
+        }
+        slot.setChanged();
+        return true;
+    }
+
+    private static boolean returnCraftingMatrixToNetwork(InternalInventory craftingGrid, MEStorage storage,
+            IEnergySource energy, IActionSource actionSource) {
+        boolean changed = false;
+        for (int i = 0; i < craftingGrid.size(); i++) {
+            ItemStack stack = craftingGrid.extractItem(i, Integer.MAX_VALUE, false);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            AEItemKey key = AEItemKey.of(stack);
+            if (key == null) {
+                craftingGrid.insertItem(i, stack, false);
+                continue;
+            }
+            long insertedLong = StorageHelper.poweredInsert(energy, storage, key, stack.getCount(), actionSource);
+            int inserted = (int) Math.min(insertedLong, stack.getCount());
+            int leftover = stack.getCount() - inserted;
+            if (leftover > 0) {
+                ItemStack overflow = craftingGrid.insertItem(i, stack.copyWithCount(leftover), false);
+                if (!overflow.isEmpty()) {
+                    craftingGrid.addItems(overflow, false);
+                }
+            }
+            if (inserted > 0) {
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     private static void openAutoCraftMenu(ServerPlayer player, MEStorageMenu menu, Object host,

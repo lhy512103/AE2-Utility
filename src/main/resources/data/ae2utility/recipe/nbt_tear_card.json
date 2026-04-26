@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "ae2:fuzzy_card" },
+    { "item": "minecraft:name_tag" },
+    { "item": "minecraft:amethyst_shard" }
+  ],
+  "result": {
+    "id": "ae2utility:nbt_tear_card",
+    "count": 1
+  }
+}

@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -33,8 +34,12 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
 
+import com.lhy.ae2utility.client.RecipeTreeScreen;
+import com.lhy.ae2utility.client.recipe_tree.RecipeTreeNodeViewModel;
+import com.lhy.ae2utility.client.recipe_tree.RecipeTreeRootContext;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import com.lhy.ae2utility.util.PullIngredientOrdering;
 
 public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implements IUniversalRecipeTransferHandler<C> {
     private final Class<? extends C> containerClass;
@@ -62,6 +67,12 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     public IRecipeTransferError transferRecipe(C container, Object recipe, IRecipeSlotsView recipeSlots, Player player,
             boolean maxTransfer, boolean doTransfer) {
         boolean craftMissing = Screen.hasControlDown();
+
+        if (doTransfer && maxTransfer) {
+            var currentScreen = Minecraft.getInstance().screen;
+            RecipeTreeOpenHelper.open(recipe, recipeSlots, currentScreen);
+            return null;
+        }
 
         if (container instanceof CraftingTermMenu craftingTermMenu
                 && recipe instanceof Recipe<?> mcRecipe
@@ -197,11 +208,11 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     }
 
     private static RequestedIngredient toRequestedIngredient(IRecipeSlotView slotView) {
-        List<ItemStack> alternatives = slotView.getItemStacks()
+        List<ItemStack> alternatives = PullIngredientOrdering.preferSpecificComponentsFirst(slotView.getItemStacks()
                 .filter(stack -> !stack.isEmpty())
                 .map(ItemStack::copy)
                 .distinct()
-                .toList();
+                .toList());
         int count = Math.max(getDisplayedStack(slotView).getCount(), 1);
         return new RequestedIngredient(alternatives, count);
     }
