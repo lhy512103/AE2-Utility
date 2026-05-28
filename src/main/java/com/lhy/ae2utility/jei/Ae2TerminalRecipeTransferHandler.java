@@ -1,7 +1,11 @@
 package com.lhy.ae2utility.jei;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.jetbrains.annotations.Nullable;
@@ -16,10 +20,14 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.integration.modules.itemlists.CraftingHelper;
+import appeng.menu.me.common.GridInventoryEntry;
 import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.items.CraftingTermMenu;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
@@ -87,7 +95,7 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
             return null;
         }
 
-        List<RequestedIngredient> requestedIngredients = collectRequestedIngredients(recipeSlots);
+        List<RequestedIngredient> requestedIngredients = collectRequestedIngredients(container, recipeSlots);
         if (requestedIngredients.isEmpty()) {
             return transferHelper.createUserErrorWithTooltip(
                     Component.translatable("message.ae2utility.no_item_inputs"));
@@ -132,10 +140,11 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
         }
     }
 
-    private static List<RequestedIngredient> collectRequestedIngredients(IRecipeSlotsView recipeSlots) {
+    private static List<RequestedIngredient> collectRequestedIngredients(MEStorageMenu menu, IRecipeSlotsView recipeSlots) {
+        Map<AEKey, Integer> ingredientPriorities = getIngredientPriorities(menu);
         return collectInputSlots(recipeSlots).stream()
                 .filter(Ae2TerminalRecipeTransferHandler::hasItemStack)
-                .map(Ae2TerminalRecipeTransferHandler::toRequestedIngredient)
+                .map(slotView -> toRequestedIngredient(ingredientPriorities, slotView))
                 .filter(ingredient -> !ingredient.alternatives().isEmpty())
                 .toList();
     }
@@ -150,14 +159,115 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
         return slotView.getDisplayedItemStack().isPresent() || slotView.getItemStacks().findAny().isPresent();
     }
 
-    private static RequestedIngredient toRequestedIngredient(IRecipeSlotView slotView) {
-        List<ItemStack> alternatives = PullIngredientOrdering.preferSpecificComponentsFirst(slotView.getItemStacks()
-                .filter(stack -> !stack.isEmpty())
-                .map(ItemStack::copy)
-                .distinct()
-                .toList());
+    private static RequestedIngredient toRequestedIngredient(Map<AEKey, Integer> ingredientPriorities, IRecipeSlotView slotView) {
+        List<ItemStack> alternatives = chooseRequestedAlternative(ingredientPriorities, slotView);
         int count = Math.max(getDisplayedStack(slotView).getCount(), 1);
         return new RequestedIngredient(alternatives, count);
+    }
+
+    private static List<ItemStack> chooseRequestedAlternative(Map<AEKey, Integer> ingredientPriorities, IRecipeSlotView slotView) {
+        List<ItemStack> visibleAlternatives = collectVisibleAlternatives(slotView);
+        if (visibleAlternatives.isEmpty()) {
+            return List.of();
+        }
+        if (visibleAlternatives.size() == 1) {
+            return List.of(visibleAlternatives.getFirst());
+        }
+
+        Ingredient ingredient = Ingredient.of(visibleAlternatives.stream().map(ItemStack::copy));
+        ItemStack best = chooseBestItem(ingredientPriorities, ingredient, visibleAlternatives);
+        return best.isEmpty() ? List.of() : List.of(best);
+    }
+
+    private static List<ItemStack> collectVisibleAlternatives(IRecipeSlotView slotView) {
+        List<ItemStack> visibleAlternatives = new ArrayList<>();
+        ItemStack displayed = getDisplayedStack(slotView);
+        if (!displayed.isEmpty()) {
+            visibleAlternatives.add(displayed.copy());
+        }
+        slotView.getItemStacks()
+                .filter(stack -> !stack.isEmpty())
+                .forEach(stack -> {
+                    ItemStack copy = stack.copy();
+                    if (!containsEquivalentStack(visibleAlternatives, copy)) {
+                        visibleAlternatives.add(copy);
+                    }
+                });
+        return visibleAlternatives;
+    }
+
+    private static ItemStack chooseBestItem(Map<AEKey, Integer> ingredientPriorities, Ingredient ingredient,
+            List<ItemStack> visibleAlternatives) {
+        for (ItemStack visibleAlternative : sortItemAlternatives(ingredientPriorities, visibleAlternatives)) {
+            if (ingredient.test(visibleAlternative)) {
+                return visibleAlternative.copy();
+            }
+        }
+
+        ItemStack[] items = ingredient.getItems();
+        return items.length > 0 ? items[0].copy() : ItemStack.EMPTY;
+    }
+
+    private static List<ItemStack> sortItemAlternatives(Map<AEKey, Integer> ingredientPriorities, List<ItemStack> alternatives) {
+        List<ItemStack> sorted = PullIngredientOrdering.preferSpecificComponentsFirst(alternatives);
+        if (sorted.size() <= 1) {
+            return sorted;
+        }
+
+        sorted = new ArrayList<>(sorted);
+        sorted.sort(Comparator
+                .comparingInt((ItemStack stack) -> getPriority(ingredientPriorities, AEItemKey.of(stack))).reversed()
+                .thenComparing(Comparator.comparingInt(PullIngredientOrdering::componentSpecificityRank).reversed())
+                .thenComparingLong(ItemStack::hashItemAndComponents));
+        return sorted;
+    }
+
+    private static Map<AEKey, Integer> getIngredientPriorities(MEStorageMenu menu) {
+        if (menu.getClientRepo() == null) {
+            return Map.of();
+        }
+
+        var orderedEntries = menu.getClientRepo().getAllEntries().stream()
+                .sorted(Comparator
+                        .comparing(GridInventoryEntry::isCraftable)
+                        .thenComparing(Ae2TerminalRecipeTransferHandler::isUndamaged)
+                        .thenComparing(GridInventoryEntry::getStoredAmount))
+                .map(GridInventoryEntry::getWhat)
+                .toList();
+
+        var result = new HashMap<AEKey, Integer>(orderedEntries.size());
+        for (int i = 0; i < orderedEntries.size(); i++) {
+            var key = orderedEntries.get(i);
+            if (key != null) {
+                result.put(key, i);
+            }
+        }
+
+        for (var item : menu.getPlayerInventory().items) {
+            var key = AEItemKey.of(item);
+            if (key != null) {
+                result.putIfAbsent(key, -1);
+            }
+        }
+
+        return result;
+    }
+
+    private static boolean isUndamaged(GridInventoryEntry entry) {
+        return !(entry.getWhat() instanceof AEItemKey itemKey) || !itemKey.isDamaged();
+    }
+
+    private static int getPriority(Map<AEKey, Integer> priorities, @Nullable AEKey key) {
+        return key == null ? Integer.MIN_VALUE : priorities.getOrDefault(key, Integer.MIN_VALUE);
+    }
+
+    private static boolean containsEquivalentStack(List<ItemStack> stacks, ItemStack candidate) {
+        for (ItemStack existing : stacks) {
+            if (ItemStack.isSameItemSameComponents(existing, candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ItemStack getDisplayedStack(IRecipeSlotView slotView) {

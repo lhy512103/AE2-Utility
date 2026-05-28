@@ -57,15 +57,13 @@ public class EncodePatternButtonController implements IIconButtonController {
     private static final int AE_ORANGE_BUTTON_HIGHLIGHT_COLOR = 0x80FFA500;
     private static final int AE_BLUE_SLOT_HIGHLIGHT_COLOR = 0x400000FF;
     private static final int AE_RED_SLOT_HIGHLIGHT_COLOR = 0x66FF0000;
-
-    /** {@link mezz.jei.gui.recipes.RecipeLayoutWithButtons#updateBounds} 写入的屏幕像素矩形 */
-    private ImmutableRect2i encodeButtonScreenBounds = ImmutableRect2i.EMPTY;
-
     /**
-     * 当前配方行是否在本页可见区域展示（JEI IconButton{@code #isVisible}）。仅在 true 时对 {@link CraftableStateCache}
-     * 取样条/箭头底色，避免为滚动区外或其它标签页的实例刷查询。
+     * 由 JEI 官方 {@link #drawExtras} 回调在按钮真正被绘制时刷新。
+     * 用于在不依赖 mixin 回读 IconButton 的前提下，判断这条 recipe 当前页是否可见。
      */
-    private boolean jeiEncodeRowOnVisiblePage = false;
+    private ImmutableRect2i encodeButtonScreenBounds = ImmutableRect2i.EMPTY;
+    private int visibleButtonGraceTicks = 0;
+
     private boolean cachedRecipeStructureReady = false;
     private List<GenericStack> cachedOutputs = List.of();
     private List<IRecipeSlotView> cachedInputSlots = List.of();
@@ -100,16 +98,6 @@ public class EncodePatternButtonController implements IIconButtonController {
         CONTROLLERS.put(recipeLayout, this);
     }
 
-    /** 由客户端 mixin 在每帧布局更新后同步；按钮隐藏时应传入 {@link ImmutableRect2i#EMPTY}。 */
-    public void syncEncodeButtonScreenBounds(ImmutableRect2i absoluteScreenArea) {
-        this.encodeButtonScreenBounds = absoluteScreenArea != null ? absoluteScreenArea : ImmutableRect2i.EMPTY;
-    }
-
-    /** 与 {@link #syncEncodeButtonScreenBounds} 同帧由 {@code MixinRecipeLayoutWithButtons} 写入。 */
-    public void syncJeiEncodeRowOnVisiblePage(boolean onVisiblePage) {
-        this.jeiEncodeRowOnVisiblePage = onVisiblePage;
-    }
-
     public boolean isMouseOverEncodeButton(double mouseX, double mouseY) {
         if (!isAvailable || encodeButtonScreenBounds.isEmpty()) {
             return false;
@@ -138,52 +126,57 @@ public class EncodePatternButtonController implements IIconButtonController {
         state.setVisible(isAvailable);
         state.setActive(isAvailable && hasBlankPattern); // We will show missing blank pattern in tooltip if clicked
 
+        if (visibleButtonGraceTicks > 0) {
+            visibleButtonGraceTicks--;
+        } else {
+            encodeButtonScreenBounds = ImmutableRect2i.EMPTY;
+        }
+
         encodeButtonBackdropColor = 0;
         Minecraft mc = Minecraft.getInstance();
 
         RecipesGui recipesGui = mc.screen instanceof RecipesGui rg ? rg : null;
-        boolean queryCraftableForThisRow = isAvailable && recipesGui != null && jeiEncodeRowOnVisiblePage;
+        boolean queryCraftableForThisRow = isAvailable && recipesGui != null && visibleButtonGraceTicks > 0;
 
         if (queryCraftableForThisRow) {
             IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
-            List<IRecipeSlotView> inputSlots =
-                    slotsView.getSlotViews(mezz.jei.api.recipe.RecipeIngredientRole.INPUT);
-            List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipeLayout.getRecipe(), slotsView);
+            analyzeRecipeSlotsIfNeeded(slotsView);
+            List<IRecipeSlotView> inputSlots = cachedInputSlots;
+            List<GenericStack> outputs = cachedOutputs;
 
-            boolean terminalMissing = false;
-            boolean terminalInputCraftable = false;
-            AbstractContainerMenu parent = recipesGui.getParentContainerMenu();
-            if (parent instanceof MEStorageMenu storageMenu && storageMenu.getClientRepo() != null) {
-                var preview = TerminalJeRecipeTransferPreview.compute(storageMenu, slotsView);
-                terminalMissing = preview.anyMissing();
-                terminalInputCraftable = preview.anyCraftable();
-            }
-
-            boolean outputHasNetworkPattern = false;
+            boolean outputHasExistingPattern = false;
             for (GenericStack alt : outputs) {
-                if (alt != null && CraftableStateCache.isCraftable(alt.what())) {
-                    outputHasNetworkPattern = true;
+                if (alt != null && alt.what() != null && CraftableStateCache.isCraftable(alt.what())) {
+                    outputHasExistingPattern = true;
                     break;
                 }
             }
 
             /*
-             * 编码箭头语义不等同于 AE「拉配方」按钮：JEI 仍能显示缺料黄时，
-             * 若产物已在网络 crafting 快照中可走样板（常见于刚上传成功后），应以蓝为先，否则黄会一直压住蓝。
-             * 无产物路径时再与拉料预览一致：缺料黄优先于输入可合成蓝。
+             * 编码箭头语义按“已有样板”解释：
+             * 蓝色：当前产物已存在对应样板/可 craftable；
+             * 橙色：当前产物无样板，但输入里至少有一种材料已有样板；
+             * 不高亮：输入与产物都无已有样板。
              */
-            if (outputHasNetworkPattern) {
-                encodeButtonBackdropColor = AE_BLUE_BUTTON_HIGHLIGHT_COLOR;
-            } else if (terminalMissing) {
-                encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
-            } else if (terminalInputCraftable) {
+            if (outputHasExistingPattern) {
                 encodeButtonBackdropColor = AE_BLUE_BUTTON_HIGHLIGHT_COLOR;
             } else {
-                for (IRecipeSlotView slotView : inputSlots) {
-                    GenericStack one = RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView);
-                    if (one != null && one.what() != null && CraftableStateCache.isCraftable(one.what())) {
-                        encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
-                        break;
+                boolean terminalInputCraftable = false;
+                AbstractContainerMenu parent = recipesGui.getParentContainerMenu();
+                if (parent instanceof MEStorageMenu storageMenu && storageMenu.getClientRepo() != null) {
+                    var preview = TerminalJeRecipeTransferPreview.compute(storageMenu, slotsView);
+                    terminalInputCraftable = preview.anyCraftable();
+                }
+
+                if (terminalInputCraftable) {
+                    encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
+                } else {
+                    for (IRecipeSlotView slotView : inputSlots) {
+                        GenericStack one = RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView);
+                        if (one != null && one.what() != null && CraftableStateCache.isCraftable(one.what())) {
+                            encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
+                            break;
+                        }
                     }
                 }
             }
@@ -231,6 +224,10 @@ public class EncodePatternButtonController implements IIconButtonController {
 
     @Override
     public void drawExtras(GuiGraphics guiGraphics, Rect2i buttonArea, int mouseX, int mouseY, float partialTick) {
+        encodeButtonScreenBounds = new ImmutableRect2i(
+                buttonArea.getX(), buttonArea.getY(), buttonArea.getWidth(), buttonArea.getHeight());
+        visibleButtonGraceTicks = 2;
+
         if (!isAvailable || !hasBlankPattern) {
             return;
         }
