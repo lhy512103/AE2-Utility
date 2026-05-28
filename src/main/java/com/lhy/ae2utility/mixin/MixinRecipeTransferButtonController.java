@@ -7,7 +7,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import com.lhy.ae2utility.jei.RecipeTreeOpenHelper;
+import com.lhy.ae2utility.compat.WcwtCompat;
+import com.lhy.ae2utility.jei.JeiRecipesBatchEncode;
 
 import appeng.menu.me.common.MEStorageMenu;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
@@ -36,16 +37,20 @@ public abstract class MixinRecipeTransferButtonController {
         if (!(parentContainer instanceof MEStorageMenu)) {
             return;
         }
+        if (WcwtCompat.isWcwtMenu(parentContainer)) {
+            return;
+        }
 
-        RecipeTreeOpenHelper.openFromLayout(recipeLayout, Minecraft.getInstance().screen);
+        JeiRecipesBatchEncode.run(true, true);
         cir.setReturnValue(true);
     }
 
     @Inject(method = "getTooltips", at = @At("TAIL"))
     private void ae2utility$appendRecipeTreeTooltip(ITooltipBuilder tooltip, CallbackInfo ci) {
         AbstractContainerMenu parentContainer = recipesGui.getParentContainerMenu();
-        if (parentContainer instanceof MEStorageMenu) {
-            tooltip.add(Component.translatable("jei.tooltip.ae2utility.transfer_shift_tree"));
+        if (parentContainer instanceof MEStorageMenu && !WcwtCompat.isWcwtMenu(parentContainer)) {
+            tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_page"));
+            tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_shift_hint"));
         }
     }
 }

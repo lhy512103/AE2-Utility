@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 
 public final class RecipeTreeInputViewModel {
     private final @Nullable RequestedIngredient requestedIngredient;
+    private final @Nullable String requestedIngredientSignature;
     private final List<DisplayOption> displayOptions;
     private final int amount;
     private final String amountText;
@@ -21,6 +22,7 @@ public final class RecipeTreeInputViewModel {
     public RecipeTreeInputViewModel(@Nullable RequestedIngredient requestedIngredient, List<DisplayOption> displayOptions, int amount,
             String amountText) {
         this.requestedIngredient = requestedIngredient == null ? null : requestedIngredient.copy();
+        this.requestedIngredientSignature = signatureOf(this.requestedIngredient);
         this.displayOptions = List.copyOf(new ArrayList<>(displayOptions));
         this.amount = Math.max(1, amount);
         this.amountText = amountText == null ? "" : amountText;
@@ -28,6 +30,25 @@ public final class RecipeTreeInputViewModel {
 
     public @Nullable RequestedIngredient requestedIngredient() {
         return requestedIngredient == null ? null : requestedIngredient.copy();
+    }
+
+    public @Nullable RequestedIngredient requestedIngredientView() {
+        return requestedIngredient;
+    }
+
+    public @Nullable String requestedIngredientSignature() {
+        return requestedIngredientSignature;
+    }
+
+    public @Nullable RequestedIngredient selectedRequestedIngredient() {
+        if (requestedIngredient == null) {
+            return null;
+        }
+        if (displayOptions.size() <= 1 || requestedIngredient.alternatives().isEmpty()) {
+            return requestedIngredient.copy();
+        }
+        List<ItemStack> orderedAlternatives = orderedAlternatives();
+        return new RequestedIngredient(orderedAlternatives, requestedIngredient.count());
     }
 
     public ItemStack displayStack() {
@@ -60,6 +81,19 @@ public final class RecipeTreeInputViewModel {
         return displayOptions;
     }
 
+    public List<DisplayOption> orderedDisplayOptions() {
+        if (displayOptions.size() <= 1) {
+            return displayOptions;
+        }
+        int size = displayOptions.size();
+        int start = Math.max(0, Math.min(selectedAlternativeIndex, size - 1));
+        List<DisplayOption> ordered = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            ordered.add(displayOptions.get((start + i) % size));
+        }
+        return List.copyOf(ordered);
+    }
+
     public RecipeTreeNodeViewModel child() {
         return child;
     }
@@ -90,6 +124,38 @@ public final class RecipeTreeInputViewModel {
         return selectedAlternativeIndex;
     }
 
+    public List<ItemStack> orderedAlternatives() {
+        if (requestedIngredient == null) {
+            return List.of();
+        }
+        List<ItemStack> ordered = orderedAlternativesView();
+        if (ordered.isEmpty()) {
+            return ordered;
+        }
+        List<ItemStack> copied = new ArrayList<>(ordered.size());
+        for (ItemStack stack : ordered) {
+            copied.add(stack.copy());
+        }
+        return List.copyOf(copied);
+    }
+
+    public List<ItemStack> orderedAlternativesView() {
+        if (requestedIngredient == null) {
+            return List.of();
+        }
+        List<ItemStack> alternatives = requestedIngredient.alternatives();
+        if (alternatives.size() <= 1) {
+            return alternatives;
+        }
+        int size = alternatives.size();
+        int start = Math.max(0, Math.min(selectedAlternativeIndex, size - 1));
+        List<ItemStack> ordered = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            ordered.add(alternatives.get((start + i) % size));
+        }
+        return List.copyOf(ordered);
+    }
+
     private @Nullable DisplayOption displayOption() {
         if (displayOptions.isEmpty()) {
             return null;
@@ -103,5 +169,19 @@ public final class RecipeTreeInputViewModel {
             label = label == null ? "" : label;
             itemStack = itemStack == null ? ItemStack.EMPTY : itemStack.copy();
         }
+    }
+
+    private static @Nullable String signatureOf(@Nullable RequestedIngredient ingredient) {
+        if (ingredient == null) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (ItemStack alternative : ingredient.alternatives()) {
+            if (!alternative.isEmpty()) {
+                parts.add("itemtype#" + alternative.getItem());
+            }
+        }
+        parts.sort(String::compareTo);
+        return "requested#" + String.join("|", parts);
     }
 }

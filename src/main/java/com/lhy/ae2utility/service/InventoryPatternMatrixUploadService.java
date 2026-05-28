@@ -4,12 +4,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
+import net.minecraft.core.BlockPos;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.network.UploadInventoryPatternsToMatrixPacket;
+import com.lhy.ae2utility.compat.WcwtCompat;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
@@ -103,6 +106,17 @@ public final class InventoryPatternMatrixUploadService {
         }
     }
 
+    /**
+     * JEI / {@link EncodePatternService} 在 EAEP {@code uploadPatternToMatrix} 返回 false 时的二次路径：
+     * 与 Alt+背包批量上传相同，直接向装配矩阵 {@link InternalInventory} 塞样板（含处理类等）。
+     */
+    public static boolean tryDirectMatrixInsert(ServerPlayer player, ItemStack pattern, IGrid grid) {
+        if (player == null || pattern == null || pattern.isEmpty() || grid == null) {
+            return false;
+        }
+        return uploadSinglePatternToMatrix(player, pattern, grid);
+    }
+
     private static boolean uploadSinglePatternToMatrix(ServerPlayer player, ItemStack pattern, IGrid grid) {
         List<InternalInventory> inventories = findDirectMatrixInventories(grid);
         InventoryPatternUploadDebug.info("matrix_upload", "direct inventories found={} pattern={}", inventories.size(), pattern);
@@ -138,6 +152,18 @@ public final class InventoryPatternMatrixUploadService {
                 }
             } catch (Throwable ignored) {
             }
+        } else if (WcwtCompat.isWcwtMenu(player.containerMenu)) {
+            try {
+                var host = WcwtCompat.extractTerminalHost(player.containerMenu);
+                if (host instanceof IActionHost actionHost && actionHost.getActionableNode() != null) {
+                    IGrid grid = actionHost.getActionableNode().getGrid();
+                    if (grid != null) {
+                        InventoryPatternUploadDebug.info("matrix_upload", "resolved from wcwt host");
+                        return grid;
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
         }
 
         try {
@@ -159,7 +185,7 @@ public final class InventoryPatternMatrixUploadService {
             return List.of();
         }
 
-        List<InternalInventory> result = new ArrayList<>();
+        List<MatrixInventoryEntry> result = new ArrayList<>();
         Set<Object> seenHosts = Collections.newSetFromMap(new IdentityHashMap<>());
 
         try {
@@ -176,19 +202,66 @@ public final class InventoryPatternMatrixUploadService {
                     }
 
                     InternalInventory exposed = getExposedInventory(machine);
+                    BlockPos approximatePos = approximateMachineWorldPos(machine);
                     if (exposed != null) {
-                        result.add(exposed);
-                        InventoryPatternUploadDebug.info("matrix_upload", "usable matrix machine={} inventoryAdded=true", machine.getClass().getName());
+                        result.add(new MatrixInventoryEntry(approximatePos, exposed));
+                        InventoryPatternUploadDebug.info("matrix_upload", "usable matrix machine={} pos={} inventoryAdded=true",
+                                machine.getClass().getName(), approximatePos.toShortString());
                     } else {
-                        InventoryPatternUploadDebug.info("matrix_upload", "usable matrix machine={} inventoryAdded=false", machine.getClass().getName());
+                        InventoryPatternUploadDebug.info("matrix_upload", "usable matrix machine={} pos={} inventoryAdded=false",
+                                machine.getClass().getName(), approximatePos.toShortString());
                     }
                 }
             }
+
+            /*
+             * 多台装配矩阵/核心共存时迭代顺序未定，会向「第一台」过量塞样板导致屏幕上出现零散空槽。
+             * 按方块坐标稳定排序，使插入顺序与多数合并界面从上到下、从前到后的观感更接近。
+             */
+            result.sort(Comparator.comparingInt(MatrixInventoryEntry::x)
+                    .thenComparingInt(MatrixInventoryEntry::y)
+                    .thenComparingInt(MatrixInventoryEntry::z));
         } catch (Throwable t) {
             InventoryPatternUploadDebug.warn("matrix_upload", "find inventories failed error={}", t.toString());
         }
 
-        return result;
+        ArrayList<InternalInventory> out = new ArrayList<>(result.size());
+        for (MatrixInventoryEntry entry : result) {
+            out.add(entry.inventory());
+        }
+        return out;
+    }
+
+    /**
+     * 配方树等与 JEI 顺序 Shift 批量区分：<code>preserveInputOrder == true</code> 可走供应器备选。
+     */
+    private static BlockPos approximateMachineWorldPos(Object machine) {
+        if (machine == null) {
+            return BlockPos.ZERO;
+        }
+        try {
+            Method getPos = machine.getClass().getMethod("getBlockPos");
+            Object pos = getPos.invoke(machine);
+            if (pos instanceof BlockPos blockPos) {
+                return blockPos;
+            }
+        } catch (Throwable ignored) {
+        }
+        return BlockPos.ZERO;
+    }
+
+    private record MatrixInventoryEntry(BlockPos position, InternalInventory inventory) {
+        int x() {
+            return position.getX();
+        }
+
+        int y() {
+            return position.getY();
+        }
+
+        int z() {
+            return position.getZ();
+        }
     }
 
     private static List<String> summarizeMachineClasses(IGrid grid) {

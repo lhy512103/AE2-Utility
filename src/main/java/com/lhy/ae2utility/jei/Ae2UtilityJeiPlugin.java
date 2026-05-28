@@ -16,6 +16,7 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.NbtTearCardScreen;
+import com.lhy.ae2utility.client.RecipeFinderScreen;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 
@@ -47,6 +48,7 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
         registration.addGhostIngredientHandler(NbtTearCardScreen.class, new NbtTearCardGhostHandler());
+        registration.addGhostIngredientHandler(RecipeFinderScreen.class, new RecipeFinderGhostHandler());
     }
 
     @Override
@@ -60,6 +62,7 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
                 new Ae2TerminalRecipeTransferHandler<>(CraftingTermMenu.class, CraftingTermMenu.TYPE, helper));
         registerHandler(registration,
                 new Ae2TerminalRecipeTransferHandler<>(WirelessCraftingTermMenu.class, WirelessCraftingTermMenu.TYPE, helper));
+        registration.addUniversalRecipeTransferHandler(new RecipeTreeJeiTransferHandler(helper));
 
         registerOptionalHandler(registration, helper, AE2_WTLIB_WCT_MENU);
         registerMachineHandlers(registration, helper);

@@ -1,9 +1,11 @@
 package com.lhy.ae2utility.jei;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -13,6 +15,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+
+import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.gui.inputs.IJeiUserInput;
@@ -27,6 +31,16 @@ import mezz.jei.api.runtime.IBookmarkOverlay;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.RegistryAccess;
+
+import mezz.jei.api.helpers.ICodecHelper;
+import mezz.jei.api.helpers.IGuiHelper;
+
+import mezz.jei.api.recipe.IRecipeManager;
+
+import com.mojang.serialization.Codec;
+
+import com.lhy.ae2utility.Ae2UtilityMod;
 
 /**
  * 通过反射操作 JEI 内部 {@code BookmarkList}，与 {@link com.lhy.ae2utility.network.RecipeTransferPacketHelper#getBookmarkKeys()} 一致。
@@ -83,14 +97,9 @@ public final class JeiBookmarkUtil {
                 if (slotView.isEmpty()) {
                     continue;
                 }
-                boolean anyCraftable = false;
-                for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
-                    AEKey key = keyFromTyped(typed);
-                    if (key != null && CraftableStateCache.isCraftable(key)) {
-                        anyCraftable = true;
-                        break;
-                    }
-                }
+                GenericStack one = RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView);
+                boolean anyCraftable =
+                        one != null && one.what() != null && CraftableStateCache.isCraftable(one.what());
                 if (anyCraftable) {
                     continue;
                 }
@@ -145,6 +154,81 @@ public final class JeiBookmarkUtil {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+    /**
+     * 清空全部 JEI 收藏（写入空列表并与 JEI 书签文件同步）。
+     *
+     * @return 清空前书签数量；JEI 未就绪或结构与当前版本不兼容时返回 {@code -1}
+     */
+    @SuppressWarnings("unchecked")
+    public static int clearAllBookmarks() {
+        IJeiRuntime runtime = Ae2UtilityJeiPlugin.getJeiRuntime();
+        if (runtime == null) {
+            return -1;
+        }
+        IBookmarkOverlay overlay = runtime.getBookmarkOverlay();
+        if (overlay == null) {
+            return -1;
+        }
+        try {
+            Object bookmarkList = getBookmarkList(overlay);
+            if (bookmarkList == null) {
+                return -1;
+            }
+            Field listField = bookmarkList.getClass().getDeclaredField("bookmarksList");
+            Field setField = bookmarkList.getClass().getDeclaredField("bookmarksSet");
+            listField.setAccessible(true);
+            setField.setAccessible(true);
+            List<Object> bookmarksList = (List<Object>) listField.get(bookmarkList);
+            int count = bookmarksList.size();
+            bookmarksList.clear();
+            Set<Object> bookmarksSet = (Set<Object>) setField.get(bookmarkList);
+            bookmarksSet.clear();
+
+            Method notify = bookmarkList.getClass().getDeclaredMethod("notifyListenersOfChange");
+            notify.setAccessible(true);
+            notify.invoke(bookmarkList);
+
+            Object bookmarkConfig = readDeclaredField(bookmarkList, "bookmarkConfig");
+            Method saveBookmarks = bookmarkConfig.getClass().getMethod(
+                    "saveBookmarks",
+                    IRecipeManager.class,
+                    IFocusFactory.class,
+                    IGuiHelper.class,
+                    IIngredientManager.class,
+                    RegistryAccess.class,
+                    ICodecHelper.class,
+                    List.class,
+                    Codec.class);
+            saveBookmarks.invoke(
+                    bookmarkConfig,
+                    readDeclaredField(bookmarkList, "recipeManager"),
+                    readDeclaredField(bookmarkList, "focusFactory"),
+                    readDeclaredField(bookmarkList, "guiHelper"),
+                    readDeclaredField(bookmarkList, "ingredientManager"),
+                    readDeclaredField(bookmarkList, "registryAccess"),
+                    readDeclaredField(bookmarkList, "codecHelper"),
+                    bookmarksList,
+                    readDeclaredField(bookmarkList, "bookmarkCodec"));
+
+            JeiBookmarkKeysCache.invalidate();
+            return count;
+        } catch (InvocationTargetException e) {
+            Throwable c = e.getCause();
+            Ae2UtilityMod.LOGGER.warn("clearAllBookmarks failed: {}", c != null ? c : e);
+            return -1;
+        } catch (Throwable t) {
+            Ae2UtilityMod.LOGGER.warn("clearAllBookmarks failed: {}", String.valueOf(t));
+            return -1;
+        }
+    }
+
+    private static Object readDeclaredField(Object target, String name)
+            throws NoSuchFieldException, IllegalAccessException {
+        Field f = target.getClass().getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(target);
     }
 
     private static AEKey keyFromTyped(ITypedIngredient<?> typed) {

@@ -2,12 +2,15 @@ package com.lhy.ae2utility.service;
 
 import java.lang.reflect.Method;
 
+import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
+import com.lhy.ae2utility.network.InventoryProviderUploadAckPacket;
 import com.lhy.ae2utility.network.UploadInventoryPatternToProviderPacket;
 
 import appeng.api.crafting.PatternDetailsHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class InventoryPatternProviderUploadService {
     private InventoryPatternProviderUploadService() {
@@ -19,20 +22,22 @@ public final class InventoryPatternProviderUploadService {
         }
 
         int slotIndex = payload.playerSlotIndex();
-        if (slotIndex < 0 || slotIndex >= player.getInventory().getContainerSize()) {
-            InventoryPatternUploadDebug.warn("provider_upload", "invalid slotIndex={} providerId={}", slotIndex, payload.providerId());
-            return;
-        }
-
-        ItemStack stack = player.getInventory().getItem(slotIndex);
-        if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
-            InventoryPatternUploadDebug.warn("provider_upload", "slot={} emptyOrNotPattern providerId={}", slotIndex, payload.providerId());
-            return;
-        }
-
-        ItemStack singlePattern = stack.copyWithCount(1);
-
+        boolean success = false;
         try {
+            if (slotIndex < 0 || slotIndex >= player.getInventory().getContainerSize()) {
+                InventoryPatternUploadDebug.warn("provider_upload", "invalid slotIndex={} providerId={}", slotIndex, payload.providerId());
+                return;
+            }
+
+            ItemStack stack = player.getInventory().getItem(slotIndex);
+            if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
+                InventoryPatternUploadDebug.warn("provider_upload", "slot={} emptyOrNotPattern providerId={}", slotIndex,
+                        payload.providerId());
+                return;
+            }
+
+            ItemStack singlePattern = stack.copyWithCount(1);
+
             Class<?> pendingUtil = Class.forName("com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil");
             Method clearPending = pendingUtil.getMethod("clearPendingCtrlQUpload", ServerPlayer.class);
             Method beginPending = pendingUtil.getMethod("beginPendingCtrlQUpload", ServerPlayer.class, ItemStack.class);
@@ -42,6 +47,7 @@ public final class InventoryPatternProviderUploadService {
             beginPending.invoke(null, player, singlePattern);
 
             boolean uploaded = (Boolean) uploadPending.invoke(null, player, payload.providerId());
+            EaepUploadDebugLog.info("UploadInventoryPatternToProvider uploadPendingCtrlQPattern returned={}", uploaded);
             if (!uploaded) {
                 clearPending.invoke(null, player);
                 InventoryPatternUploadDebug.warn("provider_upload", "upload failed slot={} providerId={}", slotIndex, payload.providerId());
@@ -52,10 +58,14 @@ public final class InventoryPatternProviderUploadService {
             player.getInventory().setItem(slotIndex, stack.isEmpty() ? ItemStack.EMPTY : stack);
             player.getInventory().setChanged();
             player.containerMenu.broadcastChanges();
-            InventoryPatternUploadDebug.info("provider_upload", "uploaded slot={} providerId={} remaining={}", slotIndex, payload.providerId(), stack.getCount());
+            InventoryPatternUploadDebug.info("provider_upload", "uploaded slot={} providerId={} remaining={}", slotIndex, payload.providerId(),
+                    stack.getCount());
+            success = true;
         } catch (Throwable t) {
             InventoryPatternUploadDebug.warn("provider_upload", "exception slot={} providerId={} error={}",
                     slotIndex, payload.providerId(), t.toString());
+        } finally {
+            PacketDistributor.sendToPlayer(player, new InventoryProviderUploadAckPacket(slotIndex, success));
         }
     }
 }

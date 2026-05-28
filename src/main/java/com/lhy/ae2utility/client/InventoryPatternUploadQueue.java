@@ -11,7 +11,9 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AESmithingTablePattern;
 import appeng.crafting.pattern.AEStonecuttingPattern;
+import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
+import com.lhy.ae2utility.integration.eaep.EaepProviderListRequest;
 import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.network.UploadInventoryPatternToProviderPacket;
 import net.minecraft.ChatFormatting;
@@ -21,9 +23,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import org.jetbrains.annotations.Nullable;
+
 public final class InventoryPatternUploadQueue {
     private static final int NEXT_PACKET_DELAY_TICKS = 4;
-    private static final String REQUEST_PACKET_CLASS = "com.extendedae_plus.network.RequestProvidersListC2SPacket";
     private static final String UNKNOWN_GROUP_KEY = "__ae2utility_unknown__";
 
     private static final Deque<Integer> PENDING_SLOTS = new ArrayDeque<>();
@@ -36,6 +39,8 @@ public final class InventoryPatternUploadQueue {
     private static String providerName = "";
     private static String currentSearchKey = "";
     private static String currentPatternName = "";
+
+    private static Integer awaitingUploadAckSlot;
 
     private record PendingGroup(List<Integer> slots, String searchKey) {
     }
@@ -61,22 +66,16 @@ public final class InventoryPatternUploadQueue {
             return;
         }
 
+        EaepUploadDebugLog.info("handleFallback remainingSlots={} groupCount={}", remainingSlots, PENDING_GROUPS.size());
         startNextSelection();
         InventoryPatternUploadDebug.info("handle_fallback", "provider list requested successfully for remaining slots={}", remainingSlots);
     }
 
     private static boolean requestProvidersList() {
-        try {
-            Class<?> packetClass = Class.forName(REQUEST_PACKET_CLASS);
-            java.lang.reflect.Field instanceField = packetClass.getDeclaredField("INSTANCE");
-            Object packet = instanceField.get(null);
-            PacketDistributor.sendToServer((net.minecraft.network.protocol.common.custom.CustomPacketPayload) packet);
-            InventoryPatternUploadDebug.info("request_providers", "packetClass={} sent", packetClass.getName());
-            return true;
-        } catch (Throwable t) {
-            InventoryPatternUploadDebug.warn("request_providers", "failed error={}", t.toString());
-            return false;
-        }
+        boolean ok = EaepProviderListRequest.trySendFromClient();
+        InventoryPatternUploadDebug.info(
+                "request_providers", ok ? "sent via EaepProviderListRequest" : "EaepProviderListRequest failed");
+        return ok;
     }
 
     public static List<Integer> collectEncodedPatternSlots(LocalPlayer player) {
@@ -108,6 +107,21 @@ public final class InventoryPatternUploadQueue {
         return selectingProvider;
     }
 
+    public static void startDirectUpload(List<Integer> slots, long chosenProviderId, String chosenProviderName) {
+        if (slots == null || slots.isEmpty()) {
+            return;
+        }
+        resetAll();
+        PENDING_SLOTS.addAll(slots);
+        totalPatterns = slots.size();
+        selectingProvider = false;
+        providerId = chosenProviderId;
+        providerName = chosenProviderName == null ? "" : chosenProviderName;
+        InventoryPatternUploadDebug.info("start_direct_upload", "slots={} providerId={} providerName={}",
+                slots, chosenProviderId, providerName);
+        sendNext();
+    }
+
     public static void cancelSelection() {
         if (selectingProvider) {
             InventoryPatternUploadDebug.info("cancel_selection", "selection cancelled while waiting provider");
@@ -132,6 +146,9 @@ public final class InventoryPatternUploadQueue {
         providerName = chosenProviderName == null ? "" : chosenProviderName;
         InventoryPatternUploadDebug.info("begin_uploading", "providerId={} providerName={} pendingSlots={}",
                 providerId, providerName, PENDING_SLOTS);
+        EaepUploadDebugLog.info(
+                "beginUploading providerId={} providerName={} pendingSlots={} totalPatterns={}",
+                providerId, providerName, PENDING_SLOTS, totalPatterns);
 
         LocalPlayer player = Minecraft.getInstance().player;
         if (player != null) {
@@ -146,6 +163,9 @@ public final class InventoryPatternUploadQueue {
         if (selectingProvider || PENDING_SLOTS.isEmpty()) {
             return;
         }
+        if (awaitingUploadAckSlot != null) {
+            return;
+        }
         if (waitTicks > 0) {
             waitTicks--;
             if (waitTicks == 0) {
@@ -154,8 +174,67 @@ public final class InventoryPatternUploadQueue {
         }
     }
 
+    public static void handleUploadAck(int slotIndex, boolean success) {
+        if (awaitingUploadAckSlot == null || awaitingUploadAckSlot.intValue() != slotIndex) {
+            return;
+        }
+        awaitingUploadAckSlot = null;
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (success) {
+            PENDING_SLOTS.pollFirst();
+            sentPatterns++;
+            waitTicks = PENDING_SLOTS.isEmpty() ? 0 : NEXT_PACKET_DELAY_TICKS;
+            if (PENDING_SLOTS.isEmpty()) {
+                finish();
+            }
+        } else {
+            onProviderUploadRejected(player);
+        }
+    }
+
+    /** 取消库存样板供应器批量、供应器选择与会话（含等待 ACK 的槽位）。 */
+    public static void cancelAll() {
+        resetAll();
+    }
+
+    /** 服务端取消数据包下发时：仅清状态，不在此发聊天提示。 */
+    public static void cancelAllQuiet() {
+        resetAll();
+    }
+
+    private static void onProviderUploadRejected(@Nullable LocalPlayer player) {
+        if (player == null) {
+            resetAll();
+            return;
+        }
+        if (!net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.inventory_upload_provider_failed_no_eaep").withStyle(ChatFormatting.RED),
+                    false);
+            resetAll();
+            return;
+        }
+        providerId = 0L;
+        providerName = "";
+        waitTicks = 0;
+        selectingProvider = true;
+        totalPatterns = PENDING_SLOTS.size();
+        if (!requestProvidersList()) {
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.inventory_upload_reopen_providers_failed").withStyle(ChatFormatting.RED),
+                    true);
+            resetAll();
+            return;
+        }
+        player.displayClientMessage(Component.translatable("message.ae2utility.inventory_upload_provider_full_retry")
+                .withStyle(ChatFormatting.GOLD), true);
+    }
+
     private static void sendNext() {
-        Integer nextSlot = PENDING_SLOTS.pollFirst();
+        if (awaitingUploadAckSlot != null) {
+            return;
+        }
+        Integer nextSlot = PENDING_SLOTS.peekFirst();
         if (nextSlot == null) {
             InventoryPatternUploadDebug.info("send_next", "queue empty, finishing");
             finish();
@@ -164,15 +243,14 @@ public final class InventoryPatternUploadQueue {
         LocalPlayer player = Minecraft.getInstance().player;
         currentPatternName = resolvePatternName(player, nextSlot.intValue());
         RecipeTreeUploadProgressState.setCurrent(currentPatternName, providerName.isBlank() ? currentSearchKey : providerName);
-        InventoryPatternUploadDebug.info("send_next", "sending playerSlotIndex={} remainingAfterPoll={}", nextSlot, PENDING_SLOTS);
+        InventoryPatternUploadDebug.info("send_next", "sending playerSlotIndex={} queueSizeIncludingHead={}", nextSlot,
+                PENDING_SLOTS.size());
+        EaepUploadDebugLog.info("sendNext playerSlot={} providerId={} remainingQueueSize={}", nextSlot, providerId,
+                PENDING_SLOTS.size());
+        awaitingUploadAckSlot = nextSlot;
         if (!sendInventoryUploadPacket(nextSlot.intValue(), providerId)) {
+            awaitingUploadAckSlot = null;
             finishWithError();
-            return;
-        }
-        sentPatterns++;
-        waitTicks = PENDING_SLOTS.isEmpty() ? 0 : NEXT_PACKET_DELAY_TICKS;
-        if (waitTicks == 0) {
-            finish();
         }
     }
 
@@ -270,6 +348,9 @@ public final class InventoryPatternUploadQueue {
         if (!currentSearchKey.isBlank()) {
             player.displayClientMessage(Component.literal("已按机器关键词筛选：" + currentSearchKey).withStyle(ChatFormatting.GRAY), true);
         }
+        EaepUploadDebugLog.info(
+                "startNextSelection searchKey={} slots={} selectingProvider={} totalPatterns={}",
+                currentSearchKey, group.slots(), selectingProvider, totalPatterns);
         InventoryPatternUploadDebug.info("start_next_selection", "searchKey={} slots={}", currentSearchKey, group.slots());
     }
 
@@ -337,6 +418,7 @@ public final class InventoryPatternUploadQueue {
     private static void resetSelectionState() {
         InventoryPatternUploadDebug.info("reset", "clearingState pending={} selectingProvider={} totalPatterns={} sentPatterns={} waitTicks={} providerId={} providerName={}",
                 PENDING_SLOTS, selectingProvider, totalPatterns, sentPatterns, waitTicks, providerId, providerName);
+        awaitingUploadAckSlot = null;
         PENDING_SLOTS.clear();
         selectingProvider = false;
         totalPatterns = 0;
@@ -352,5 +434,6 @@ public final class InventoryPatternUploadQueue {
         PENDING_GROUPS.clear();
         currentSearchKey = "";
         RecipeTreeUploadProgressState.clear();
+        EaepPendingProviderSearch.forgetResolvedFilterReuse();
     }
 }

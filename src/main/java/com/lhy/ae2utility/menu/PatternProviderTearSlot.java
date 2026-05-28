@@ -1,5 +1,7 @@
 package com.lhy.ae2utility.menu;
 
+import java.util.function.Predicate;
+
 import net.minecraft.world.item.ItemStack;
 import appeng.api.upgrades.Upgrades;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -14,13 +16,20 @@ import net.neoforged.neoforge.items.SlotItemHandler;
  * 在 {@code getUpgradeSlotCount} 和 {@code updateBeforeRender} 中正确计入本槽。
  */
 public final class PatternProviderTearSlot extends SlotItemHandler {
+    private final Predicate<ItemStack> validator;
+
     public PatternProviderTearSlot(IItemHandler handler, int index, int x, int y) {
+        this(handler, index, x, y, stack -> !stack.isEmpty() && Upgrades.isUpgradeCardItem(stack));
+    }
+
+    public PatternProviderTearSlot(IItemHandler handler, int index, int x, int y, Predicate<ItemStack> validator) {
         super(handler, index, x, y);
+        this.validator = validator;
     }
 
     @Override
     public boolean mayPlace(ItemStack stack) {
-        return !stack.isEmpty() && Upgrades.isUpgradeCardItem(stack);
+        return validator.test(stack);
     }
 
     @Override

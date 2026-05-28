@@ -6,12 +6,23 @@ import com.mojang.logging.LogUtils;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
+import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.client.Ae2UtilityKeyBindings;
 import com.lhy.ae2utility.client.ModClientSetup;
+import com.lhy.ae2utility.client.RemoteEncodeRules;
+import com.lhy.ae2utility.command.Ae2UtilityCommands;
+
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+
 import com.lhy.ae2utility.integration.ae2.Ae2UtilitySlotSemantics;
 import com.lhy.ae2utility.init.ModCommonSetup;
 import com.lhy.ae2utility.init.ModDataComponents;
@@ -25,16 +36,26 @@ public class Ae2UtilityMod {
     public static final String MOD_ID = "ae2utility";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Ae2UtilityMod(IEventBus modBus) {
+    public Ae2UtilityMod(IEventBus modBus, ModContainer modContainer) {
         Ae2UtilitySlotSemantics.bootstrap();
         ModItems.REG.register(modBus);
         ModDataComponents.REG.register(modBus);
         ModMenus.REG.register(modBus);
         modBus.addListener(ModNetworking::registerPayloads);
+        NeoForge.EVENT_BUS.addListener(RegisterCommandsEvent.class, Ae2UtilityCommands::register);
+        Ae2UtilityServerGameplay.register(modBus);
         modBus.addListener(FMLCommonSetupEvent.class, ModCommonSetup::onCommonSetup);
         modBus.addListener(BuildCreativeModeTabContentsEvent.class, ModSetup::onCreativeTab);
+        modContainer.registerConfig(ModConfig.Type.SERVER, Ae2UtilityServerConfig.SPEC);
         if (FMLEnvironment.dist == Dist.CLIENT) {
+            modContainer.registerConfig(ModConfig.Type.CLIENT, Ae2UtilityClientConfig.SPEC);
             modBus.addListener(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent.class, ModClientSetup::registerScreens);
+            modBus.addListener(net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent.class, Ae2UtilityKeyBindings::registerKeyMappings);
+            NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, Ae2UtilityMod::onClientLoggingOut);
         }
+    }
+
+    private static void onClientLoggingOut(@SuppressWarnings("unused") ClientPlayerNetworkEvent.LoggingOut event) {
+        RemoteEncodeRules.clearOnDisconnected();
     }
 }

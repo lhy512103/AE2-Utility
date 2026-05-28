@@ -8,6 +8,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.card.NbtTearFilter;
+import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 
 public final class ModDataComponents {
     public static final DeferredRegister.DataComponents REG = DeferredRegister.createDataComponents(Ae2UtilityMod.MOD_ID);
@@ -21,6 +22,16 @@ public final class ModDataComponents {
             "pattern_provider_search_key",
             builder -> builder.persistent(Codec.STRING)
                     .networkSynchronized(ByteBufCodecs.STRING_UTF8));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<RedstoneSignalCardMode>> REDSTONE_SIGNAL_CARD_MODE = REG.registerComponentType(
+            "redstone_signal_card_mode",
+            builder -> builder.persistent(RedstoneSignalCardMode.CODEC)
+                    .networkSynchronized(ByteBufCodecs.fromCodec(RedstoneSignalCardMode.CODEC)));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> REDSTONE_SIGNAL_HOLD_TICKS = REG.registerComponentType(
+            "redstone_signal_hold_ticks",
+            builder -> builder.persistent(com.mojang.serialization.Codec.INT)
+                    .networkSynchronized(ByteBufCodecs.VAR_INT));
 
     private ModDataComponents() {
     }

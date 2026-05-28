@@ -8,12 +8,16 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.menu.NbtTearCardMenu;
+import com.lhy.ae2utility.menu.RecipeFinderMenu;
 
 public final class ModMenus {
     public static final DeferredRegister<MenuType<?>> REG = DeferredRegister.create(Registries.MENU, Ae2UtilityMod.MOD_ID);
 
     public static final DeferredHolder<MenuType<?>, MenuType<NbtTearCardMenu>> NBT_TEAR_CARD = REG.register("nbt_tear_card",
             () -> IMenuTypeExtension.create(NbtTearCardMenu::fromNetwork));
+    public static final DeferredHolder<MenuType<?>, MenuType<RecipeFinderMenu>> RECIPE_FINDER = REG.register("recipe_finder",
+            () -> IMenuTypeExtension.create(RecipeFinderMenu::fromNetwork));
+
 
     private ModMenus() {
     }

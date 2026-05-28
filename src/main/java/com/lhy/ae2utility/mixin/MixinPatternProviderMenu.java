@@ -15,7 +15,9 @@ import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.menu.SlotSemantics;
 import appeng.menu.implementations.PatternProviderMenu;
 
+import com.lhy.ae2utility.compat.PatternProviderMenuCompat;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
+import com.lhy.ae2utility.item.RedstoneSignalCardItem;
 import com.lhy.ae2utility.menu.PatternProviderTearSlot;
 
 
@@ -36,9 +38,17 @@ public abstract class MixinPatternProviderMenu {
             return;
         }
         var handler = ((NbtTearLogicAccess) logic).ae2utility$getTearHandler();
+        boolean onlyAllowRedstoneCard = PatternProviderMenuCompat.isOverloadedPatternProviderMenu(this);
         // 纯 AE2 环境时，由 MixinAEBaseScreen 的回退逻辑自行绘制和定位。
         ((AEBaseMenuInvoker) (Object) this).ae2utility$addSlot(
-                new PatternProviderTearSlot(handler, 0, 181, 52),
+                new PatternProviderTearSlot(
+                        handler,
+                        0,
+                        181,
+                        52,
+                        stack -> onlyAllowRedstoneCard
+                                ? stack.getItem() instanceof RedstoneSignalCardItem
+                                : !stack.isEmpty() && appeng.api.upgrades.Upgrades.isUpgradeCardItem(stack)),
                 SlotSemantics.UPGRADE);
     }
 }

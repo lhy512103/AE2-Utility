@@ -6,6 +6,7 @@ import net.neoforged.neoforge.network.registration.HandlerThread;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.jei.MachineRecipeStateCache;
 import com.lhy.ae2utility.menu.NbtTearCardMenu;
+import com.lhy.ae2utility.service.EaepSequentialProviderDismissHandler;
 import com.lhy.ae2utility.service.InventoryPatternMatrixUploadService;
 import com.lhy.ae2utility.service.InventoryPatternProviderUploadService;
 import com.lhy.ae2utility.service.MachinePullService;
@@ -31,18 +32,33 @@ public final class ModNetworking {
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.UniversalPullService.handle(context.player(), payload)))
                 .playToServer(EncodePatternPacket.TYPE, EncodePatternPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.EncodePatternService.handle(context.player(), payload)))
+                .playToServer(BatchEncodePatternPacket.TYPE, BatchEncodePatternPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> {
+                            if (context.player() instanceof net.minecraft.server.level.ServerPlayer sp) {
+                                com.lhy.ae2utility.service.EncodePatternService.handleBatch(sp, payload.patterns());
+                            }
+                        }))
+                .playToServer(EaepSequentialProviderDismissPacket.TYPE, EaepSequentialProviderDismissPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(
+                                () -> EaepSequentialProviderDismissHandler.handle((net.minecraft.server.level.ServerPlayer) context.player())))
                 .playToServer(ClearPatternsPacket.TYPE, ClearPatternsPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.ClearPatternsService.handle(payload, context)))
                 .playToServer(QueryCraftableStatePacket.TYPE, QueryCraftableStatePacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.CraftableStateService.handle(context.player(), payload)))
+                .playToClient(SyncAe2UtilityEncodeRulesPacket.TYPE, SyncAe2UtilityEncodeRulesPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> SyncAe2UtilityEncodeRulesPacket.handle(payload)))
                 .playToClient(CraftableStatePacket.TYPE, CraftableStatePacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.jei.CraftableStateCache.handle(payload)))
                 .playToClient(InvalidateCraftableCachePacket.TYPE, InvalidateCraftableCachePacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.jei.CraftableStateCache.invalidateKeys(payload.keys())))
                 .playToClient(RecipeTreeUploadResultPacket.TYPE, RecipeTreeUploadResultPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> RecipeTreeUploadResultPacket.handle(payload)))
-                .playToClient(RecipeTreeOpenProvidersPacket.TYPE, RecipeTreeOpenProvidersPacket.STREAM_CODEC,
-                        (payload, context) -> context.enqueueWork(RecipeTreeOpenProvidersPacket::handle))
+                .playToClient(CancelClientUploadQueuesPacket.TYPE, CancelClientUploadQueuesPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> CancelClientUploadQueuesPacket.handle(payload)))
+                .playToClient(InventoryProviderUploadAckPacket.TYPE, InventoryProviderUploadAckPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> InventoryProviderUploadAckPacket.handle(payload)))
+                .playToClient(SyncEaepProviderSearchKeyPacket.TYPE, SyncEaepProviderSearchKeyPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> SyncEaepProviderSearchKeyPacket.handle(payload)))
                 .playToServer(UploadInventoryPatternsToMatrixPacket.TYPE, UploadInventoryPatternsToMatrixPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> InventoryPatternMatrixUploadService.handle((net.minecraft.server.level.ServerPlayer) context.player(), payload)))
                 .playToServer(UploadInventoryPatternToProviderPacket.TYPE, UploadInventoryPatternToProviderPacket.STREAM_CODEC,
@@ -51,8 +67,14 @@ public final class ModNetworking {
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.client.InventoryPatternUploadQueue.handleFallback(payload.slots())))
                 .playToServer(PullRecipeInputsPacket.TYPE, PullRecipeInputsPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> TerminalPullService.handle(context.player(), payload)))
+                .playToServer(RedstoneSignalCardConfigApplyPacket.TYPE, RedstoneSignalCardConfigApplyPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> RedstoneSignalCardConfigApplyPacket.applyOnServer(context.player(), payload)))
                 .playToServer(NbtTearGhostSlotPacket.TYPE, NbtTearGhostSlotPacket.STREAM_CODEC,
-                        (payload, context) -> context.enqueueWork(() -> handleNbtTearGhostSlot(context.player(), payload)));
+                        (payload, context) -> context.enqueueWork(() -> handleNbtTearGhostSlot(context.player(), payload)))
+                .playToServer(RecipeFinderSamplePacket.TYPE, RecipeFinderSamplePacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> handleRecipeFinderSample(context.player(), payload)))
+                .playToServer(RecipeFinderEncodePacket.TYPE, RecipeFinderEncodePacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> handleRecipeFinderEncode(context.player(), payload)));
     }
 
     private static void handleNbtTearGhostSlot(Player player, NbtTearGhostSlotPacket payload) {
@@ -61,5 +83,19 @@ public final class ModNetworking {
             return;
         }
         menu.applyGhostFilterSlot(payload.slotIndex(), payload.stack());
+    }
+
+    private static void handleRecipeFinderSample(Player player, RecipeFinderSamplePacket payload) {
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer
+                && serverPlayer.containerMenu instanceof com.lhy.ae2utility.menu.RecipeFinderMenu menu) {
+            menu.applySample(payload.stack());
+        }
+    }
+
+    private static void handleRecipeFinderEncode(Player player, RecipeFinderEncodePacket payload) {
+        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer
+                && serverPlayer.containerMenu instanceof com.lhy.ae2utility.menu.RecipeFinderMenu) {
+            com.lhy.ae2utility.service.EncodePatternService.handleBatch(serverPlayer, payload.patterns());
+        }
     }
 }

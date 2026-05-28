@@ -177,7 +177,8 @@ public final class RecipeTreeJeiLookup {
                 primaryOutputIngredient = displayed;
                 primaryOutput = extractItemStack(displayed, 1);
                 if (ingredientManager != null) {
-                    primaryOutputAmount = getIngredientAmount(ingredientManager, displayed, Math.max(1, primaryOutput.getCount()));
+                    primaryOutputAmount = resolveDisplayedIngredientAmount(ingredientManager, displayed,
+                            Math.max(1, primaryOutput.getCount()));
                 } else {
                     primaryOutputAmount = Math.max(1, primaryOutput.getCount());
                 }
@@ -198,7 +199,7 @@ public final class RecipeTreeJeiLookup {
             } else if (ingredientManager != null) {
                 ITypedIngredient<?> displayed = getDisplayedIngredient(slotView);
                 if (displayed != null) {
-                    amount = getIngredientAmount(ingredientManager, displayed, 1);
+                    amount = resolveDisplayedIngredientAmount(ingredientManager, displayed, 1);
                 }
             }
             inputs.add(new RecipeTreeInputViewModel(ingredient, displayOptions, amount, formatAmountText(slotView, amount)));
@@ -213,6 +214,23 @@ public final class RecipeTreeJeiLookup {
 
         return new RecipeTreeRecipeViewModel(primaryOutputIngredient, primaryOutput, primaryOutputAmount, resolvedTitle, subtitle,
                 subtitleIcon, recipeId, inputs);
+    }
+
+    /**
+     * JEI ingredient helpers may report {@code 1} for Mek chemical slots while the wrapped stack holds the real amount;
+     * prefer fluid/mek reflection amounts so totals match {@link #formatAmountText}.
+     */
+    private static int resolveDisplayedIngredientAmount(IIngredientManager ingredientManager, ITypedIngredient<?> displayed,
+            int fallbackCount) {
+        Object raw = displayed.getIngredient();
+        if (raw instanceof FluidStack fluidStack && !fluidStack.isEmpty()) {
+            return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, fluidStack.getAmount()));
+        }
+        long mek = GenericIngredientUtil.tryGetMekanismChemicalAmount(raw);
+        if (mek > 0L) {
+            return (int) Math.min(Integer.MAX_VALUE, mek);
+        }
+        return getIngredientAmount(ingredientManager, displayed, fallbackCount);
     }
 
     private static Component extractTitle(IRecipeSlotsView recipeSlots, Component fallback) {

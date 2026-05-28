@@ -121,14 +121,14 @@ public abstract class MixinNetworkCraftingProviders {
                 ItemStack card = access.ae2utility$getEffectiveTearCardStack();
                 if (card.isEmpty() || !(card.getItem() instanceof NbtTearCardItem)) {
                     NbtTearCardDebug.logFuzzyCraftSearch("provider_scan", whatToCraft, provider, false, "no_tear_card");
-                    continue;
+                } else {
+                    NbtTearFilter f = card.getOrDefault(ModDataComponents.NBT_TEAR_FILTER, NbtTearFilter.DEFAULT);
+                    if (NbtTearFilter.matchesUnlockExpected(candidateKey, whatToCraft, f)) {
+                        NbtTearCardDebug.logFuzzyCraftSearch("provider_scan", whatToCraft, provider, true, "tear_filter_match");
+                        return f;
+                    }
+                    NbtTearCardDebug.logFuzzyCraftSearch("provider_scan", whatToCraft, provider, false, "tear_filter_reject");
                 }
-                NbtTearFilter f = card.getOrDefault(ModDataComponents.NBT_TEAR_FILTER, NbtTearFilter.DEFAULT);
-                if (NbtTearFilter.matchesUnlockExpected(candidateKey, whatToCraft, f)) {
-                    NbtTearCardDebug.logFuzzyCraftSearch("provider_scan", whatToCraft, provider, true, "tear_filter_match");
-                    return f;
-                }
-                NbtTearCardDebug.logFuzzyCraftSearch("provider_scan", whatToCraft, provider, false, "tear_filter_reject");
             }
         }
         return null;

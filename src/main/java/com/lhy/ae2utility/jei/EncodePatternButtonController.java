@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.jei;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -8,31 +9,24 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.lhy.ae2utility.compat.WcwtCompat;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
-import appeng.core.definitions.AEItems;
-import appeng.helpers.IPatternTerminalMenuHost;
-import appeng.items.tools.powered.WirelessTerminalItem;
-import appeng.menu.SlotSemantics;
-import appeng.menu.me.common.GridInventoryEntry;
 import appeng.menu.me.common.MEStorageMenu;
-import appeng.menu.me.items.PatternEncodingTermMenu;
 
-import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.jei.RecipeTreeOpenHelper;
-import com.lhy.ae2utility.service.WirelessTerminalContextResolver;
-import com.lhy.ae2utility.network.EncodePatternPacket;
+import appeng.integration.modules.curios.CuriosIntegration;
+
+import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.service.WirelessEncodeTerminalItems;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
@@ -43,24 +37,44 @@ import mezz.jei.api.gui.inputs.IJeiUserInput;
 
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 
-import net.minecraft.world.inventory.Slot;
-
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
 import mezz.jei.api.gui.drawable.IDrawable;
 
+import mezz.jei.common.util.ImmutableRect2i;
+
+import mezz.jei.gui.recipes.RecipesGui;
+
 public class EncodePatternButtonController implements IIconButtonController {
     public static final Map<IRecipeLayoutDrawable<?>, EncodePatternButtonController> CONTROLLERS = new WeakHashMap<>();
-
-    /** JVM 参数 -Dae2utility.debugBlankPattern=true 时每约 2 秒打一条检测诊断到 latest.log */
-    private static long lastBlankPatternDebugGameTime = Long.MIN_VALUE;
 
     private final IRecipeLayoutDrawable<?> recipeLayout;
     private boolean isAvailable = false;
     private boolean hasBlankPattern = false;
 
-    private boolean isOutputCraftable = false;
-    private boolean isAnyInputCraftable = false;
+    private int encodeButtonBackdropColor;
+    private static final int AE_BLUE_BUTTON_HIGHLIGHT_COLOR = 0x804545FF;
+    private static final int AE_ORANGE_BUTTON_HIGHLIGHT_COLOR = 0x80FFA500;
+    private static final int AE_BLUE_SLOT_HIGHLIGHT_COLOR = 0x400000FF;
+    private static final int AE_RED_SLOT_HIGHLIGHT_COLOR = 0x66FF0000;
+
+    /** {@link mezz.jei.gui.recipes.RecipeLayoutWithButtons#updateBounds} 写入的屏幕像素矩形 */
+    private ImmutableRect2i encodeButtonScreenBounds = ImmutableRect2i.EMPTY;
+
+    /**
+     * 当前配方行是否在本页可见区域展示（JEI IconButton{@code #isVisible}）。仅在 true 时对 {@link CraftableStateCache}
+     * 取样条/箭头底色，避免为滚动区外或其它标签页的实例刷查询。
+     */
+    private boolean jeiEncodeRowOnVisiblePage = false;
+    private boolean cachedRecipeStructureReady = false;
+    private List<GenericStack> cachedOutputs = List.of();
+    private List<IRecipeSlotView> cachedInputSlots = List.of();
+    private Map<IRecipeSlotView, List<mezz.jei.api.ingredients.ITypedIngredient<?>>> cachedInputIngredients = Map.of();
+    private Map<IRecipeSlotView, Long> cachedInputCounts = Map.of();
+    private Map<IRecipeSlotView, GenericStack> cachedInputRepresentatives = Map.of();
+    private long cachedRepresentativeBookmarkSignature = Long.MIN_VALUE;
+    private long cachedInputCraftableSignature = Long.MIN_VALUE;
+    private Map<IRecipeSlotView, Boolean> cachedInputCraftableStates = Map.of();
 
     private final IDrawable ARROW_ICON = new IDrawable() {
         @Override
@@ -72,10 +86,9 @@ public class EncodePatternButtonController implements IIconButtonController {
             // 注意：JEI 在调用此方法前已经通过 poseStack.translate 移动了坐标，
             // 所以 xOffset/yOffset 始终为 0。背景色填充使用相对坐标即可。
             // 还原为半透明颜色
-            if (isOutputCraftable) {
-                guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 11, yOffset + 11, 0x804545FF); // BLUE_BUTTON_HIGHLIGHT_COLOR
-            } else if (isAnyInputCraftable) {
-                guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 11, yOffset + 11, 0x80FFA500); // ORANGE_BUTTON_HIGHLIGHT_COLOR
+            // 与 Ae2TerminalRecipeTransferHandler 同款：缺料橙 / 可合成蓝；无 ME 快照时回退 CraftableStateCache
+            if (encodeButtonBackdropColor != 0) {
+                guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 11, yOffset + 11, encodeButtonBackdropColor);
             }
 
             Icon.ARROW_UP.getBlitter().dest(xOffset, yOffset, 10, 10).blit(guiGraphics);
@@ -85,6 +98,23 @@ public class EncodePatternButtonController implements IIconButtonController {
     public EncodePatternButtonController(IRecipeLayoutDrawable<?> recipeLayout) {
         this.recipeLayout = recipeLayout;
         CONTROLLERS.put(recipeLayout, this);
+    }
+
+    /** 由客户端 mixin 在每帧布局更新后同步；按钮隐藏时应传入 {@link ImmutableRect2i#EMPTY}。 */
+    public void syncEncodeButtonScreenBounds(ImmutableRect2i absoluteScreenArea) {
+        this.encodeButtonScreenBounds = absoluteScreenArea != null ? absoluteScreenArea : ImmutableRect2i.EMPTY;
+    }
+
+    /** 与 {@link #syncEncodeButtonScreenBounds} 同帧由 {@code MixinRecipeLayoutWithButtons} 写入。 */
+    public void syncJeiEncodeRowOnVisiblePage(boolean onVisiblePage) {
+        this.jeiEncodeRowOnVisiblePage = onVisiblePage;
+    }
+
+    public boolean isMouseOverEncodeButton(double mouseX, double mouseY) {
+        if (!isAvailable || encodeButtonScreenBounds.isEmpty()) {
+            return false;
+        }
+        return encodeButtonScreenBounds.contains(mouseX, mouseY);
     }
 
     @Override
@@ -100,154 +130,103 @@ public class EncodePatternButtonController implements IIconButtonController {
             return;
         }
 
-        MEStorageMenu patternLikeMenu = resolveOpenPatternEncodingLikeMenu(player);
-        if (patternLikeMenu != null) {
-            isAvailable = true;
-            // 客户端不可靠判断 ME 是否有空白样板，与「仅背包有终端」分支一致，交给服务端 EncodePatternService
-            hasBlankPattern = true;
-        } else {
-            // 身上有待用的无线/通用终端（未打开 GUI）：客户端无法可靠得知是否已连 ME、库存里是否有空白样板
-            isAvailable = inventoryMayEncodeFromWirelessTerminal(player);
-            // 与已打开终端时一致：只要显示此按钮，就允许点击，由服务端 EncodePatternService 决定是否真有空白样板
-            hasBlankPattern = isAvailable;
-        }
-
-        debugLogBlankPatternState(player, patternLikeMenu, isAvailable, hasBlankPattern);
+        boolean mayEncode = playerMayEncodePatterns(player);
+        isAvailable = mayEncode;
+        // 客户端不可靠判断 ME 是否有空白样板，交给服务端 EncodePatternService
+        hasBlankPattern = mayEncode;
 
         state.setVisible(isAvailable);
         state.setActive(isAvailable && hasBlankPattern); // We will show missing blank pattern in tooltip if clicked
 
-        // Check pattern state for highlighting
-        isOutputCraftable = false;
-        isAnyInputCraftable = false;
-        
-        if (isAvailable) {
+        encodeButtonBackdropColor = 0;
+        Minecraft mc = Minecraft.getInstance();
+
+        RecipesGui recipesGui = mc.screen instanceof RecipesGui rg ? rg : null;
+        boolean queryCraftableForThisRow = isAvailable && recipesGui != null && jeiEncodeRowOnVisiblePage;
+
+        if (queryCraftableForThisRow) {
             IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
+            List<IRecipeSlotView> inputSlots =
+                    slotsView.getSlotViews(mezz.jei.api.recipe.RecipeIngredientRole.INPUT);
             List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipeLayout.getRecipe(), slotsView);
-            for (GenericStack alt : outputs) {
-                if (alt != null && CraftableStateCache.isCraftable(alt.what())) {
-                    isOutputCraftable = true;
-                    break;
-                }
-                if (isOutputCraftable) break;
+
+            boolean terminalMissing = false;
+            boolean terminalInputCraftable = false;
+            AbstractContainerMenu parent = recipesGui.getParentContainerMenu();
+            if (parent instanceof MEStorageMenu storageMenu && storageMenu.getClientRepo() != null) {
+                var preview = TerminalJeRecipeTransferPreview.compute(storageMenu, slotsView);
+                terminalMissing = preview.anyMissing();
+                terminalInputCraftable = preview.anyCraftable();
             }
 
-            if (!isOutputCraftable) {
-                List<List<GenericStack>> inputsLists = RecipeTransferPacketHelper.getGenericStacks(slotsView, mezz.jei.api.recipe.RecipeIngredientRole.INPUT);
-                for (List<GenericStack> list : inputsLists) {
-                    if (list != null) {
-                        for (GenericStack alt : list) {
-                            if (alt != null && CraftableStateCache.isCraftable(alt.what())) {
-                                isAnyInputCraftable = true;
-                                break;
-                            }
-                        }
+            boolean outputHasNetworkPattern = false;
+            for (GenericStack alt : outputs) {
+                if (alt != null && CraftableStateCache.isCraftable(alt.what())) {
+                    outputHasNetworkPattern = true;
+                    break;
+                }
+            }
+
+            /*
+             * 编码箭头语义不等同于 AE「拉配方」按钮：JEI 仍能显示缺料黄时，
+             * 若产物已在网络 crafting 快照中可走样板（常见于刚上传成功后），应以蓝为先，否则黄会一直压住蓝。
+             * 无产物路径时再与拉料预览一致：缺料黄优先于输入可合成蓝。
+             */
+            if (outputHasNetworkPattern) {
+                encodeButtonBackdropColor = AE_BLUE_BUTTON_HIGHLIGHT_COLOR;
+            } else if (terminalMissing) {
+                encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
+            } else if (terminalInputCraftable) {
+                encodeButtonBackdropColor = AE_BLUE_BUTTON_HIGHLIGHT_COLOR;
+            } else {
+                for (IRecipeSlotView slotView : inputSlots) {
+                    GenericStack one = RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView);
+                    if (one != null && one.what() != null && CraftableStateCache.isCraftable(one.what())) {
+                        encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
+                        break;
                     }
-                    if (isAnyInputCraftable) break;
                 }
             }
         }
     }
 
+    public static boolean playerMayEncodePatterns(LocalPlayer player) {
+        return JeiClientCacheContext.getPlayerMayEncodePatterns(player, () -> {
+            if (player == null) {
+                return false;
+            }
+            if (resolveOpenPatternEncodingLikeMenu(player) != null) {
+                return true;
+            }
+            if (!Ae2UtilityClientConfig.allowJeiPatternEncodeWithoutOpenTerminal()) {
+                return false;
+            }
+            return inventoryMayEncodeFromWirelessTerminal(player);
+        });
+    }
+
     private static @Nullable MEStorageMenu resolveOpenPatternEncodingLikeMenu(LocalPlayer player) {
-        if (player.containerMenu instanceof PatternEncodingTermMenu pem) {
-            return pem;
-        }
-        if (player.containerMenu instanceof MEStorageMenu me && me.getHost() instanceof IPatternTerminalMenuHost) {
+        if (player.containerMenu instanceof MEStorageMenu me && WcwtCompat.isPatternEncodingLikeMenu(player.containerMenu)) {
             return me;
         }
         return null;
     }
 
-    /** 主背包 + Curios：AE2/ae2wtlib 无线物品或注册名中含样板/通用终端关键词（兼容其它模组终端）。 */
     private static boolean inventoryMayEncodeFromWirelessTerminal(LocalPlayer player) {
-        if (scanSlotsForEncodeTerminal(player.getInventory().getContainerSize(),
-                i -> player.getInventory().getItem(i))) {
-            return true;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            if (WirelessEncodeTerminalItems.mayProvideWirelessEncoding(player.getInventory().getItem(i))) {
+                return true;
+            }
         }
-        var curios = player.getCapability(appeng.integration.modules.curios.CuriosIntegration.ITEM_HANDLER);
+        var curios = player.getCapability(CuriosIntegration.ITEM_HANDLER);
         if (curios != null) {
             for (int s = 0; s < curios.getSlots(); s++) {
-                if (isEncodeTerminalItemStack(curios.getStackInSlot(s))) {
+                if (WirelessEncodeTerminalItems.mayProvideWirelessEncoding(curios.getStackInSlot(s))) {
                     return true;
                 }
             }
         }
         return false;
-    }
-
-    private static boolean scanSlotsForEncodeTerminal(int size, java.util.function.IntFunction<net.minecraft.world.item.ItemStack> stackAt) {
-        for (int i = 0; i < size; i++) {
-            if (isEncodeTerminalItemStack(stackAt.apply(i))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isEncodeTerminalItemStack(net.minecraft.world.item.ItemStack stack) {
-        if (stack.isEmpty()) {
-            return false;
-        }
-        if (stack.getItem() instanceof WirelessTerminalItem) {
-            return true;
-        }
-        String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        return id.contains("pattern_encoding") || id.contains("universal_terminal");
-    }
-
-    private static void debugLogBlankPatternState(LocalPlayer player, @Nullable MEStorageMenu encodingMenu,
-            boolean available, boolean hasBlank) {
-        if (!Boolean.getBoolean("ae2utility.debugBlankPattern")) {
-            return;
-        }
-        var level = Minecraft.getInstance().level;
-        if (level == null) {
-            return;
-        }
-        long gameTime = level.getGameTime();
-        if (gameTime - lastBlankPatternDebugGameTime < 40L) {
-            return;
-        }
-        lastBlankPatternDebugGameTime = gameTime;
-
-        var screen = Minecraft.getInstance().screen;
-        var sb = new StringBuilder(256);
-        sb.append("[ae2utility blankPattern] available=").append(available).append(" hasBlank=").append(hasBlank);
-        sb.append(" menu=").append(player.containerMenu.getClass().getName());
-        sb.append(" screen=").append(screen != null ? screen.getClass().getName() : "null");
-        if (encodingMenu != null) {
-            AEItemKey blankKey = AEItemKey.of(AEItems.BLANK_PATTERN);
-            sb.append(" link=").append(encodingMenu.getLinkStatus());
-            sb.append(" blankKeyVisible=").append(encodingMenu.isKeyVisible(blankKey));
-            var repo = encodingMenu.getClientRepo();
-            sb.append(" clientRepoNull=").append(repo == null);
-            if (repo != null) {
-                int total = 0;
-                int blankStacks = 0;
-                for (GridInventoryEntry e : repo.getAllEntries()) {
-                    total++;
-                    if (e.getWhat() instanceof AEItemKey ik && AEItems.BLANK_PATTERN.is(ik.getReadOnlyStack())) {
-                        blankStacks++;
-                    }
-                }
-                sb.append(" repoEntries=").append(total).append(" repoBlankLike=").append(blankStacks);
-            }
-            int inBlankSlot = 0;
-            for (Slot s : encodingMenu.getSlots(SlotSemantics.BLANK_PATTERN)) {
-                if (s.hasItem() && AEItems.BLANK_PATTERN.is(s.getItem())) {
-                    inBlankSlot++;
-                }
-            }
-            sb.append(" blankSemanticSlotsWithItem=").append(inBlankSlot);
-        } else if (available) {
-            var res = WirelessTerminalContextResolver.resolve(player);
-            sb.append(" wireless=").append(res.status());
-            if (res.host() != null) {
-                sb.append(" link=").append(res.host().getLinkStatus());
-            }
-        }
-        Ae2UtilityMod.LOGGER.info(sb.toString());
     }
 
     @Override
@@ -258,6 +237,7 @@ public class EncodePatternButtonController implements IIconButtonController {
         // 悬停在编码箭头上时高亮输入槽（与 AE2 拉取配色一致）
         if (mouseX >= buttonArea.getX() && mouseX < buttonArea.getX() + buttonArea.getWidth()
                 && mouseY >= buttonArea.getY() && mouseY < buttonArea.getY() + buttonArea.getHeight()) {
+            refreshHoveredCraftableState();
             Rect2i recipeRect = this.recipeLayout.getRect();
             var poseStack = guiGraphics.pose();
             poseStack.pushPose();
@@ -267,32 +247,82 @@ public class EncodePatternButtonController implements IIconButtonController {
         }
     }
 
-    public void drawSlotHighlights(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    private void refreshHoveredCraftableState() {
         IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
+        analyzeRecipeSlotsIfNeeded(slotsView);
+        ensureInputRepresentativesUpToDate();
+        ensureInputCraftableStates();
+    }
 
-        for (IRecipeSlotView slotView : slotsView.getSlotViews(mezz.jei.api.recipe.RecipeIngredientRole.INPUT)) {
-            boolean hasPattern = false;
-            for (mezz.jei.api.ingredients.ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
-                Object ing = typed.getIngredient();
-                appeng.api.stacks.AEKey ingKey = null;
-                if (ing instanceof net.minecraft.world.item.ItemStack is && !is.isEmpty()) {
-                    ingKey = appeng.api.stacks.AEItemKey.of(is);
-                } else if (ing instanceof net.neoforged.neoforge.fluids.FluidStack fs && !fs.isEmpty()) {
-                    ingKey = appeng.api.stacks.AEFluidKey.of(fs);
-                }
-
-                if (ingKey != null && CraftableStateCache.isCraftable(ingKey)) {
-                    hasPattern = true;
-                    break;
-                }
-            }
-
+    public void drawSlotHighlights(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        for (IRecipeSlotView slotView : cachedInputSlots) {
+            boolean hasPattern = Boolean.TRUE.equals(cachedInputCraftableStates.get(slotView));
             if (hasPattern) {
-                slotView.drawHighlight(guiGraphics, 1073742079);
+                slotView.drawHighlight(guiGraphics, AE_BLUE_SLOT_HIGHLIGHT_COLOR);
             } else if (!slotView.isEmpty()) {
-                slotView.drawHighlight(guiGraphics, 1727987712);
+                slotView.drawHighlight(guiGraphics, AE_RED_SLOT_HIGHLIGHT_COLOR);
             }
         }
+    }
+
+    private void analyzeRecipeSlotsIfNeeded(IRecipeSlotsView slotsView) {
+        if (cachedRecipeStructureReady) {
+            return;
+        }
+
+        cachedRecipeStructureReady = true;
+        cachedRepresentativeBookmarkSignature = Long.MIN_VALUE;
+        cachedInputCraftableSignature = Long.MIN_VALUE;
+        cachedOutputs = RecipeTransferPacketHelper.getEncodingOutputs(recipeLayout.getRecipe(), slotsView);
+
+        List<IRecipeSlotView> inputSlots = slotsView.getSlotViews(mezz.jei.api.recipe.RecipeIngredientRole.INPUT);
+        Map<IRecipeSlotView, List<mezz.jei.api.ingredients.ITypedIngredient<?>>> ingredientMap = new IdentityHashMap<>(inputSlots.size());
+        Map<IRecipeSlotView, Long> countMap = new IdentityHashMap<>(inputSlots.size());
+        for (IRecipeSlotView slotView : inputSlots) {
+            List<mezz.jei.api.ingredients.ITypedIngredient<?>> allIngredients = slotView.getAllIngredients().toList();
+            ingredientMap.put(slotView, List.copyOf(allIngredients));
+            countMap.put(slotView, RecipeTransferPacketHelper.resolveEncodeSlotDisplayedCount(slotView, allIngredients));
+        }
+
+        cachedInputSlots = List.copyOf(inputSlots);
+        cachedInputIngredients = ingredientMap;
+        cachedInputCounts = countMap;
+        cachedInputRepresentatives = Map.of();
+        cachedInputCraftableStates = Map.of();
+    }
+
+    private void ensureInputRepresentativesUpToDate() {
+        long bookmarkSignature = JeiBookmarkKeysCache.getBookmarkSignature();
+        if (cachedRepresentativeBookmarkSignature == bookmarkSignature) {
+            return;
+        }
+
+        List<appeng.api.stacks.AEKey> bookmarkKeys = RecipeTransferPacketHelper.getBookmarkKeys();
+        Map<IRecipeSlotView, GenericStack> representatives = new IdentityHashMap<>(cachedInputSlots.size());
+        for (IRecipeSlotView slotView : cachedInputSlots) {
+            List<mezz.jei.api.ingredients.ITypedIngredient<?>> allIngredients = cachedInputIngredients.get(slotView);
+            long count = cachedInputCounts.getOrDefault(slotView, 1L);
+            representatives.put(slotView,
+                    RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView, allIngredients, bookmarkKeys, count));
+        }
+        cachedInputRepresentatives = representatives;
+        cachedRepresentativeBookmarkSignature = bookmarkSignature;
+        cachedInputCraftableSignature = Long.MIN_VALUE;
+    }
+
+    private void ensureInputCraftableStates() {
+        if (cachedInputCraftableSignature == cachedRepresentativeBookmarkSignature) {
+            return;
+        }
+
+        Map<IRecipeSlotView, Boolean> states = new IdentityHashMap<>(cachedInputSlots.size());
+        for (IRecipeSlotView slotView : cachedInputSlots) {
+            GenericStack one = cachedInputRepresentatives.get(slotView);
+            boolean craftable = one != null && one.what() != null && CraftableStateCache.isCraftable(one.what());
+            states.put(slotView, craftable);
+        }
+        cachedInputCraftableStates = states;
+        cachedInputCraftableSignature = cachedRepresentativeBookmarkSignature;
     }
 
     @Override
@@ -335,71 +365,16 @@ public class EncodePatternButtonController implements IIconButtonController {
             }
         }
 
-        List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(slotsView, mezz.jei.api.recipe.RecipeIngredientRole.INPUT);
-        List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipeLayout.getRecipe(), slotsView);
-
-        Object recipe = recipeLayout.getRecipe();
-        ResourceLocation recipeId = null;
-        if (recipe instanceof RecipeHolder<?> holder) {
-            recipeId = holder.id();
-        }
-
-        // Ctrl+Shift：强制走 EAEP 的 Shift 上传；Ctrl+左键（不按 Shift）：编码结果进背包，不按 Shift 上传
         boolean shiftDown = Screen.hasShiftDown();
         if (ctrlShiftUpload) {
             shiftDown = true;
         }
-        String providerSearchKey = "";
+        final boolean shiftForPacket = shiftDown;
 
-        if (shiftDown && net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
-            try {
-                // Set the EAEP search key before sending the packet
-                Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-                if (recipe instanceof RecipeHolder<?> holder && holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
-                    java.lang.reflect.Method preset = uploadUtil.getMethod("presetCraftingProviderSearchKey");
-                    preset.invoke(null);
-                    java.lang.reflect.Field defaultKey = uploadUtil.getField("DEFAULT_CRAFTING_SEARCH_KEY");
-                    providerSearchKey = (String) defaultKey.get(null);
-                } else {
-                    String name = null;
-                    if (recipe instanceof RecipeHolder<?> holder) {
-                        java.lang.reflect.Method mapRecipe = uploadUtil.getMethod("mapRecipeTypeToSearchKey", net.minecraft.world.item.crafting.Recipe.class);
-                        name = (String) mapRecipe.invoke(null, holder.value());
-                    } else {
-                        java.lang.reflect.Method deriveKey = uploadUtil.getMethod("deriveSearchKeyFromUnknownRecipe", Object.class);
-                        name = (String) deriveKey.invoke(null, recipe);
-                    }
-                    if (name != null && !name.isEmpty()) {
-                        java.lang.reflect.Method setName = uploadUtil.getMethod("setLastProcessingName", String.class);
-                        setName.invoke(null, name);
-                        providerSearchKey = name;
-                    }
-                }
-            } catch (Throwable e) {
-                // Ignore error silently to clean up logs
-            }
-        }
-
-        PacketDistributor.sendToServer(new EncodePatternPacket(
-                inputs,
-                outputs,
-                recipeId,
-                "",
-                providerSearchKey,
-                providerSearchKey,
-                shiftDown,
-                JeiPatternSubstitutionUi.isItemSubstituteOn(),
-                JeiPatternSubstitutionUi.isFluidSubstituteOn()));
-
-        if (shiftDown && net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
-            try {
-                Class<?> packetClass = Class.forName("com.extendedae_plus.network.RequestProvidersListC2SPacket");
-                Object instance = packetClass.getDeclaredField("INSTANCE").get(null);
-                PacketDistributor.sendToServer((net.minecraft.network.protocol.common.custom.CustomPacketPayload) instance);
-            } catch (Exception e) {
-                // Ignore error silently to clean up logs
-            }
-        }
+        JeiEncodePacketFactory.tryCreate(recipeLayout, shiftForPacket, false, 0).ifPresent(packet -> {
+            PacketDistributor.sendToServer(packet);
+            JeiEncodePacketFactory.sendEaepProviderRefreshIfNeeded(shiftForPacket);
+        });
         return true;
     }
 

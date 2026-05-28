@@ -17,29 +17,21 @@ import appeng.crafting.inv.ListCraftingInventory;
 import appeng.me.service.CraftingService;
 
 import com.lhy.ae2utility.card.NbtTearCardThreadLocal;
-import com.lhy.ae2utility.card.NbtTearCraftingContext;
 import com.lhy.ae2utility.card.NbtTearFilter;
-import com.lhy.ae2utility.card.NbtTearNetworkHelper;
 import com.lhy.ae2utility.card.NbtTearSimulationEnv;
 
 @Mixin(value = CraftingCpuLogic.class, remap = false)
 public class MixinCraftingCpuLogic {
 
-    /**
-     * Before the CPU dispatches pattern inputs, publish a global tear filter so that
-     * {@link MixinAEProcessingPatternInput} can relax NBT checks during extractPatternInputs.
-     */
     @Inject(method = "executeCrafting", at = @At("HEAD"))
     private void ae2utility$pushGlobalFilter(int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level,
             CallbackInfoReturnable<Integer> cir) {
         NbtTearSimulationEnv.beginCpuExtract(craftingService);
-        NbtTearCraftingContext.set(NbtTearNetworkHelper.computeGlobalFilter(craftingService));
     }
 
     @Inject(method = "executeCrafting", at = @At("RETURN"))
     private void ae2utility$popGlobalFilter(CallbackInfoReturnable<Integer> cir) {
         NbtTearSimulationEnv.clear();
-        NbtTearCraftingContext.clear();
     }
 
     // -----------------------------------------------------------------------

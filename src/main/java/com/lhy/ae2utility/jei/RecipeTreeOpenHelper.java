@@ -1,6 +1,6 @@
 package com.lhy.ae2utility.jei;
 
-import com.lhy.ae2utility.client.RecipeTreeScreen;
+import com.lhy.ae2utility.client.RecipeTreeOverviewScreen;
 import com.lhy.ae2utility.client.recipe_tree.RecipeTreeNodeViewModel;
 import com.lhy.ae2utility.client.recipe_tree.RecipeTreeRootContext;
 
@@ -20,7 +20,8 @@ public final class RecipeTreeOpenHelper {
 
     public static void open(Object recipe, IRecipeSlotsView recipeSlots, Screen returnScreen) {
         var rootRecipe = RecipeTreeJeiLookup.createRootSnapshot(recipe, recipeSlots);
-        Minecraft.getInstance().setScreen(new RecipeTreeScreen(
-                new RecipeTreeRootContext(new RecipeTreeNodeViewModel(rootRecipe, null), returnScreen)));
+        Minecraft.getInstance().setScreen(new RecipeTreeOverviewScreen(
+                new RecipeTreeRootContext(new RecipeTreeNodeViewModel(rootRecipe, null), returnScreen),
+                returnScreen));
     }
 }

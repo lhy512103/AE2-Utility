@@ -10,6 +10,8 @@ public final class ModSetup {
     public static void onCreativeTab(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
             event.accept(ModItems.NBT_TEAR_CARD);
+            event.accept(ModItems.REDSTONE_SIGNAL_CARD);
+            event.accept(ModItems.RECIPE_FINDER);
         }
     }
 }

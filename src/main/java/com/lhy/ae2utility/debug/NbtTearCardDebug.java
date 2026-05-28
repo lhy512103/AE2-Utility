@@ -4,12 +4,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import net.minecraft.world.item.ItemStack;
+
+import com.lhy.ae2utility.Ae2UtilityMod;
 
 /**
- * NBT 撕裂卡解锁比较调试：默认在日志中输出（服务端 / 集成服逻辑线程）。
- * 关闭请设 JVM 参数 {@code -Dae2utility.debugNbtTear=false}；确认无问题后可改回 {@link #isEnabled()} 默认 false。
+ * NBT 撕裂卡解锁比较调试（服务端 / 集成服逻辑线程）。
+ * 默认关闭；需要时在 JVM 参数中加 {@code -Dae2utility.debugNbtTear=true}。
  *
- * <h2>复现步骤（便于在 latest.log 中看到 {@code onStackReturnedToNetwork} / 本类调试行）</h2>
+ * <h2>复现步骤（需先启用上述 JVM 参数，便于在 latest.log 中看到调试行）</h2>
  * <ol>
  * <li>样板供应器设置「锁定合成」为 <strong>LOCK_UNTIL_RESULT</strong>（等合成结果后再解锁）。</li>
  * <li>在撕裂卡槽放入 NBT 撕裂卡（可先测白名单为空，再测带白名单）。</li>
@@ -39,12 +42,22 @@ public final class NbtTearCardDebug {
             boolean finalResult,
             boolean hasCard,
             String filterSummary) {
+        if (!isEnabled()) {
+            return;
+        }
+        Ae2UtilityMod.LOGGER.info("[NBT_TEAR][unlock_compare] unlock={} returned={} vanillaEquals={} finalResult={} hasCard={} filter={}",
+                summarizeKey(unlockWhat), summarizeKey(returnedKey), vanillaEquals, finalResult, hasCard, filterSummary);
     }
 
     /**
      * 已处于「等合成结果」且键不匹配，但服务端撕裂卡槽为空或非撕裂卡（常见于未同步到服务端或未换 jar）。
      */
     public static void logSkipNoTearCard(Object unlockWhat, Object returnedKey, boolean slotEmpty) {
+        if (!isEnabled()) {
+            return;
+        }
+        Ae2UtilityMod.LOGGER.info("[NBT_TEAR][unlock_skip_no_card] unlock={} returned={} slotEmpty={}",
+                summarizeKey(unlockWhat), summarizeKey(returnedKey), slotEmpty);
     }
 
     /**
@@ -68,30 +81,59 @@ public final class NbtTearCardDebug {
             return;
         }
         HEAD_MISMATCH_LAST_MS.put(fp, now);
+        Ae2UtilityMod.LOGGER.info(
+                "[NBT_TEAR][returned_head_mismatch] unlock={} returned={} tearSlotEmpty={} hasTearCardItem={}",
+                summarizeKey(uw), summarizeKey(rw), tearSlotEmpty, hasTearCardItem);
     }
 
     public static void logGlobalFilter(String stage, Object filter) {
         if (!isEnabled()) {
             return;
         }
+        Ae2UtilityMod.LOGGER.info("[NBT_TEAR][global_filter] stage={} filter={}", stage, summarize(filter));
     }
 
     public static void logFuzzyCraftSearch(String stage, Object wanted, Object candidate, boolean accepted, String reason) {
         if (!isEnabled()) {
             return;
         }
+        Ae2UtilityMod.LOGGER.info("[NBT_TEAR][fuzzy] stage={} wanted={} candidate={} accepted={} reason={}",
+                stage, summarizeKey(wanted), summarize(candidate), accepted, reason);
     }
 
     public static void logPatternInputCheck(Object template, Object input, Object filter, boolean exact, boolean fuzzy, boolean result) {
         if (!isEnabled()) {
             return;
         }
+        Ae2UtilityMod.LOGGER.info("[NBT_TEAR][pattern_input] template={} input={} filter={} exact={} fuzzy={} result={}",
+                summarizeKey(template), summarizeKey(input), summarize(filter), exact, fuzzy, result);
     }
 
     public static void logMissingIngredient(Object what, long amount) {
         if (!isEnabled()) {
             return;
         }
+        Ae2UtilityMod.LOGGER.info("[NBT_TEAR][missing] what={} amount={}", summarizeKey(what), amount);
+    }
+
+    public static void logPatternContext(String stage, Object pattern, Object craftingService, Object template, Object input,
+            String reason) {
+        if (!isEnabled()) {
+            return;
+        }
+        Ae2UtilityMod.LOGGER.info(
+                "[NBT_TEAR][pattern_context] stage={} pattern={} craftingService={} template={} input={} reason={}",
+                stage, summarize(pattern), summarize(craftingService), summarizeKey(template), summarizeKey(input), reason);
+    }
+
+    public static void logProviderCheck(String stage, Object pattern, Object provider, Object card, Object filter,
+            boolean accepted, String reason) {
+        if (!isEnabled()) {
+            return;
+        }
+        Ae2UtilityMod.LOGGER.info(
+                "[NBT_TEAR][provider_check] stage={} pattern={} provider={} card={} filter={} accepted={} reason={}",
+                stage, summarize(pattern), summarize(provider), summarize(card), summarize(filter), accepted, reason);
     }
 
     private static String summarizeKey(Object k) {
@@ -102,5 +144,18 @@ public final class NbtTearCardDebug {
             return ak.getClass().getSimpleName() + "[" + ak + "]";
         }
         return k.getClass().getName() + "[" + k + "]";
+    }
+
+    private static String summarize(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof AEKey) {
+            return summarizeKey(value);
+        }
+        if (value instanceof ItemStack stack) {
+            return "ItemStack[" + stack + "]";
+        }
+        return value.getClass().getName() + "[" + value + "]";
     }
 }

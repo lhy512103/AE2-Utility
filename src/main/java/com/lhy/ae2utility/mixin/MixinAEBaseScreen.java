@@ -13,18 +13,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
 
 import appeng.client.gui.AEBaseScreen;
-import appeng.client.gui.implementations.PatternProviderScreen;
-import appeng.menu.SlotSemantics;
-import appeng.menu.implementations.PatternProviderMenu;
 
 import com.lhy.ae2utility.client.gui.PatternProviderTearSlotChrome;
 import com.lhy.ae2utility.menu.PatternProviderTearSlot;
 
 /**
- * AE2 的 {@link PatternProviderScreen} 未重写 {@code render}，方法在父类 {@link AEBaseScreen} 上，
- * 故将撕裂卡槽位修正与铬框绘制注入 {@code AEBaseScreen}，并对 {@link PatternProviderScreen} 做类型判断。
+ * 撕裂卡槽的坐标修正与空槽铬框绘制统一注入 {@link AEBaseScreen}，
+ * 仅对菜单里实际存在 {@link PatternProviderTearSlot} 的界面生效。
  * <p>
- * 仅在纯 AE2 环境下才添加撕裂卡槽，本 Mixin 执行右上角定位和自绘铬框。
+ * 这样除了 AE2 原版样板供应器，也能覆盖 AdvancedAE 等复用 AEBaseScreen 的界面。
  */
 @Mixin(AEBaseScreen.class)
 public abstract class MixinAEBaseScreen {
@@ -59,23 +56,14 @@ public abstract class MixinAEBaseScreen {
                     target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
                     shift = At.Shift.BEFORE))
     private void ae2utility$repositionTearAfterWidgets(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        if ((Object) this instanceof PatternProviderScreen<?>) {
+        if (ae2utility$findPatternProviderTearSlot() != null) {
             ae2utility$repositionPatternProviderTearSlot();
         }
     }
 
     private void ae2utility$repositionPatternProviderTearSlot() {
-        if (!((Object) this instanceof PatternProviderScreen<?> screen)) {
-            return;
-        }
-        PatternProviderMenu menu = screen.getMenu();
-        PatternProviderTearSlot tear = null;
-        for (Slot s : menu.slots) {
-            if (s instanceof PatternProviderTearSlot pts) {
-                tear = pts;
-                break;
-            }
-        }
+        AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
+        PatternProviderTearSlot tear = ae2utility$findPatternProviderTearSlot();
         if (tear == null) {
             return;
         }
@@ -86,7 +74,7 @@ public abstract class MixinAEBaseScreen {
     }
 
     /** 无升级面板时：固定于对话框内背景右上角。 */
-    private void ae2utility$positionTearDialogTopRightVanilla(PatternProviderScreen<?> screen, SlotMutablePosAccessor pos) {
+    private void ae2utility$positionTearDialogTopRightVanilla(AEBaseScreen<?> screen, SlotMutablePosAccessor pos) {
         var inv = (AEBaseScreenInvoker) (Object) this;
         var inner = inv.ae2utility$getBounds(false);
         int w = inner.getWidth();
@@ -102,15 +90,10 @@ public abstract class MixinAEBaseScreen {
     @Inject(method = "renderBg", at = @At("TAIL"))
     private void ae2utility$drawPatternProviderTearChrome(GuiGraphics graphics, float partialTick, int mouseX, int mouseY,
             CallbackInfo ci) {
-        if (!((Object) this instanceof PatternProviderScreen<?> screen)) {
-            return;
-        }
-        PatternProviderMenu menu = screen.getMenu();
-        for (Slot slot : menu.slots) {
-            if (slot instanceof PatternProviderTearSlot) {
-                PatternProviderTearSlotChrome.draw(graphics, screen.getGuiLeft() + slot.x + 2, screen.getGuiTop() + slot.y);
-                return;
-            }
+        AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
+        PatternProviderTearSlot tear = ae2utility$findPatternProviderTearSlot();
+        if (tear != null) {
+            PatternProviderTearSlotChrome.draw(graphics, screen.getGuiLeft() + tear.x + 2, screen.getGuiTop() + tear.y);
         }
     }
 
@@ -120,17 +103,8 @@ public abstract class MixinAEBaseScreen {
     @Inject(method = "render", at = @At("TAIL"))
     private void ae2utility$patternProviderTearOverlays(GuiGraphics graphics, int mouseX, int mouseY, float partialTick,
             CallbackInfo ci) {
-        if (!((Object) this instanceof PatternProviderScreen<?> screen)) {
-            return;
-        }
-        PatternProviderMenu menu = screen.getMenu();
-        PatternProviderTearSlot tear = null;
-        for (Slot s : menu.slots) {
-            if (s instanceof PatternProviderTearSlot pts) {
-                tear = pts;
-                break;
-            }
-        }
+        AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
+        PatternProviderTearSlot tear = ae2utility$findPatternProviderTearSlot();
         if (tear == null) {
             return;
         }
@@ -139,10 +113,20 @@ public abstract class MixinAEBaseScreen {
         }
     }
 
-    private static boolean ae2utility$isMouseOverSlot(PatternProviderScreen<?> screen, Slot slot, int mouseX, int mouseY) {
+    private static boolean ae2utility$isMouseOverSlot(AEBaseScreen<?> screen, Slot slot, int mouseX, int mouseY) {
         int x = screen.getGuiLeft() + slot.x + 2;
         int y = screen.getGuiTop() + slot.y;
         return mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18;
+    }
+
+    private PatternProviderTearSlot ae2utility$findPatternProviderTearSlot() {
+        AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot instanceof PatternProviderTearSlot pts) {
+                return pts;
+            }
+        }
+        return null;
     }
 
     @Inject(method = "renderSlotHighlight", at = @At("HEAD"), cancellable = true)

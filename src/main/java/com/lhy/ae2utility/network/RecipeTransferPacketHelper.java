@@ -6,7 +6,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import org.jetbrains.annotations.Nullable;
+
+import com.lhy.ae2utility.jei.JeiBookmarkKeysCache;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
 import com.lhy.ae2utility.util.PullIngredientOrdering;
@@ -25,121 +31,183 @@ import mezz.jei.api.recipe.RecipeIngredientRole;
 import net.minecraft.network.chat.Component;
 
 public final class RecipeTransferPacketHelper {
+    private static final ConcurrentMap<StochasticOutputCacheKey, Boolean> STOCHASTIC_OUTPUT_CACHE = new ConcurrentHashMap<>();
+
     private RecipeTransferPacketHelper() {
     }
 
     public static List<AEKey> getBookmarkKeys() {
-        mezz.jei.api.runtime.IJeiRuntime runtime = com.lhy.ae2utility.jei.Ae2UtilityJeiPlugin.getJeiRuntime();
-        if (runtime == null) return List.of();
-        
-        mezz.jei.api.runtime.IBookmarkOverlay overlay = runtime.getBookmarkOverlay();
-        if (overlay == null) return List.of();
-        
-        try {
-            java.lang.reflect.Field bookmarkListField = overlay.getClass().getDeclaredField("bookmarkList");
-            bookmarkListField.setAccessible(true);
-            Object bookmarkList = bookmarkListField.get(overlay);
-            
-            java.lang.reflect.Method getElementsMethod = bookmarkList.getClass().getMethod("getElements");
-            List<?> elements = (List<?>) getElementsMethod.invoke(bookmarkList);
-            
-            List<AEKey> bookmarks = new ArrayList<>();
-            for (Object element : elements) {
-                java.lang.reflect.Method getTypedIngredientMethod = element.getClass().getMethod("getTypedIngredient");
-                mezz.jei.api.ingredients.ITypedIngredient<?> typedIngredient = (mezz.jei.api.ingredients.ITypedIngredient<?>) getTypedIngredientMethod.invoke(element);
-                if (typedIngredient != null) {
-                    AEKey key = GenericIngredientUtil.toAEKey(typedIngredient.getIngredient());
-                    if (key != null) {
-                        bookmarks.add(key);
-                    }
-                }
-            }
-            return bookmarks;
-        } catch (Throwable e) {
-            return List.of();
-        }
+        return JeiBookmarkKeysCache.getBookmarkKeys();
     }
 
     public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
         List<List<GenericStack>> slots = new ArrayList<>();
         List<AEKey> bookmarkedKeys = getBookmarkKeys();
-        
+
         for (IRecipeSlotView slotView : slotsView.getSlotViews(role)) {
-            List<GenericStack> alternatives = new ArrayList<>();
-            
-            // Determine the requested count for this slot
-            long count = 1;
-            List<ItemStack> itemStacks = slotView.getIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK).toList();
-            for (ItemStack stack : itemStacks) {
-                if (!stack.isEmpty() && stack.getCount() > 1) {
-                    count = stack.getCount();
-                    break;
-                }
-            }
-            if (count == 1) {
-                List<FluidStack> fluidStacks = slotView.getIngredients(mezz.jei.api.neoforge.NeoForgeTypes.FLUID_STACK).toList();
-                for (FluidStack stack : fluidStacks) {
-                    if (!stack.isEmpty() && stack.getAmount() > 1) {
-                        count = stack.getAmount();
-                        break;
-                    }
-                }
-            }
-            if (count == 1) {
-                for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
-                    long chemicalAmount = GenericIngredientUtil.tryGetMekanismChemicalAmount(typed.getIngredient());
-                    if (chemicalAmount > 1) {
-                        count = chemicalAmount;
-                        break;
-                    }
-                }
-            }
-            
-            // 1. Try to find a match in bookmarks first
-            GenericStack bookmarkedStack = null;
-            for (AEKey bookmarkedKey : bookmarkedKeys) {
-                if (bookmarkedStack != null) break;
-                for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
-                    Object ing = typed.getIngredient();
-                    AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
-                    if (ingKey != null && ingKey.equals(bookmarkedKey)) {
-                        bookmarkedStack = new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count));
-                        break;
-                    }
-                }
-            }
-            
-            if (bookmarkedStack != null) {
-                alternatives.add(bookmarkedStack);
-                slots.add(alternatives);
-                continue;
-            }
-            
-            // 2. If no bookmark, collect all alternatives in static order
-            for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
-                Object ing = typed.getIngredient();
-                AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
-                if (ingKey != null) {
-                    boolean alreadyAdded = false;
-                    for (GenericStack existing : alternatives) {
-                        if (existing.what().equals(ingKey)) {
-                            alreadyAdded = true;
-                            break;
-                        }
-                    }
-                    if (!alreadyAdded) {
-                        alternatives.add(new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count)));
-                    }
-                }
-            }
-            
+            List<GenericStack> alternatives = collectEncodeAlternativesForInputSlot(slotView, bookmarkedKeys);
             if (alternatives.isEmpty()) {
-                slots.add(null);
+                slots.add(isEffectivelyEmptySlot(slotView) ? List.of() : null);
             } else {
                 slots.add(alternatives);
             }
         }
         return slots;
+    }
+
+    /**
+     * 构建与编码发包一致的单个输入槽备选列表（书签命中则仅此一项），供客户端预览与服务端共用选股数据源。
+     */
+    public static List<GenericStack> collectEncodeAlternativesForInputSlot(IRecipeSlotView slotView) {
+        return collectEncodeAlternativesForInputSlot(slotView, getBookmarkKeys());
+    }
+
+    /**
+     * 在槽内原料顺序下找到与选定 {@link GenericStack} 键一致的首个展示原料（与发包侧去重顺序一致）。
+     */
+    public static Optional<ITypedIngredient<?>> findTypedIngredientMatchingChosen(IRecipeSlotView slotView, GenericStack chosen) {
+        if (chosen == null || chosen.what() == null) {
+            return Optional.empty();
+        }
+        for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
+            Object ing = typed.getIngredient();
+            AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
+            if (ingKey != null && ingKey.equals(chosen.what())) {
+                return Optional.of(typed);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * 用于 JEI 样板高亮/UI：每个输入槽<strong>只取一条</strong>（书签命中时与 {@link #collectEncodeAlternativesForInputSlot} 一致；
+     * 否则取 {@link IRecipeSlotView#getDisplayedIngredient()}，无则取 {@link IRecipeSlotView#getAllIngredients()} 的首项），
+     * 避免对整组 tag 替补逐键 {@link com.lhy.ae2utility.jei.CraftableStateCache#isCraftable}。
+     */
+    public static @Nullable GenericStack genericStackForCraftableHighlightInputSlot(IRecipeSlotView slotView) {
+        List<AEKey> bookmarkedKeys = getBookmarkKeys();
+        long count = resolveEncodeSlotDisplayedCount(slotView);
+        List<ITypedIngredient<?>> allIngredients = slotView.getAllIngredients().toList();
+
+        return genericStackForCraftableHighlightInputSlot(slotView, allIngredients, bookmarkedKeys, count);
+    }
+
+    public static @Nullable GenericStack genericStackForCraftableHighlightInputSlot(IRecipeSlotView slotView,
+            List<ITypedIngredient<?>> allIngredients, List<AEKey> bookmarkedKeys, long count) {
+        for (AEKey bookmarkedKey : bookmarkedKeys) {
+            for (ITypedIngredient<?> typed : allIngredients) {
+                Object ing = typed.getIngredient();
+                AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
+                if (ingKey != null && ingKey.equals(bookmarkedKey)) {
+                    return new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count));
+                }
+            }
+        }
+
+        ITypedIngredient<?> typed = slotView.getDisplayedIngredient().orElseGet(() -> allIngredients.isEmpty() ? null : allIngredients.getFirst());
+        if (typed == null) {
+            return null;
+        }
+        return GenericIngredientUtil.toGenericStack(typed.getIngredient(), count);
+    }
+
+    public static long resolveEncodeSlotDisplayedCount(IRecipeSlotView slotView, List<ITypedIngredient<?>> allIngredients) {
+        long count = 1;
+        List<ItemStack> itemStacks = slotView.getIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK).toList();
+        for (ItemStack stack : itemStacks) {
+            if (!stack.isEmpty() && stack.getCount() > 1) {
+                count = stack.getCount();
+                break;
+            }
+        }
+        if (count == 1) {
+            List<FluidStack> fluidStacks = slotView.getIngredients(mezz.jei.api.neoforge.NeoForgeTypes.FLUID_STACK).toList();
+            for (FluidStack stack : fluidStacks) {
+                if (!stack.isEmpty() && stack.getAmount() > 1) {
+                    count = stack.getAmount();
+                    break;
+                }
+            }
+        }
+        if (count == 1) {
+            for (ITypedIngredient<?> typed : allIngredients) {
+                long chemicalAmount = GenericIngredientUtil.tryGetMekanismChemicalAmount(typed.getIngredient());
+                if (chemicalAmount > 1) {
+                    count = chemicalAmount;
+                    break;
+                }
+            }
+        }
+        return count;
+    }
+
+    private static List<GenericStack> collectEncodeAlternativesForInputSlot(IRecipeSlotView slotView, List<AEKey> bookmarkedKeys) {
+        List<GenericStack> alternatives = new ArrayList<>();
+
+        long count = resolveEncodeSlotDisplayedCount(slotView);
+
+        GenericStack bookmarkedStack = null;
+        for (AEKey bookmarkedKey : bookmarkedKeys) {
+            if (bookmarkedStack != null) {
+                break;
+            }
+            for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
+                Object ing = typed.getIngredient();
+                AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
+                if (ingKey != null && ingKey.equals(bookmarkedKey)) {
+                    bookmarkedStack = new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count));
+                    break;
+                }
+            }
+        }
+
+        if (bookmarkedStack != null) {
+            alternatives.add(bookmarkedStack);
+            return alternatives;
+        }
+
+        for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
+            Object ing = typed.getIngredient();
+            AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
+            if (ingKey != null) {
+                boolean alreadyAdded = false;
+                for (GenericStack existing : alternatives) {
+                    if (existing.what().equals(ingKey)) {
+                        alreadyAdded = true;
+                        break;
+                    }
+                }
+                if (!alreadyAdded) {
+                    alternatives.add(new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count)));
+                }
+            }
+        }
+
+        return alternatives;
+    }
+
+    private static boolean isEffectivelyEmptySlot(IRecipeSlotView slotView) {
+        if (slotView.isEmpty()) {
+            return true;
+        }
+        for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
+            Object ingredient = typed.getIngredient();
+            if (ingredient instanceof ItemStack stack && stack.isEmpty()) {
+                continue;
+            }
+            if (ingredient instanceof FluidStack fluid && fluid.isEmpty()) {
+                continue;
+            }
+            if (GenericIngredientUtil.tryGetMekanismChemicalAmount(ingredient) <= 0) {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private static long resolveEncodeSlotDisplayedCount(IRecipeSlotView slotView) {
+        return resolveEncodeSlotDisplayedCount(slotView, slotView.getAllIngredients().toList());
     }
 
     public static List<GenericStack> getEncodingOutputs(Object recipe, IRecipeSlotsView slotsView) {
@@ -244,6 +312,14 @@ public final class RecipeTransferPacketHelper {
     }
 
     private static boolean isProbablyStochasticOutputSlot(IRecipeSlotView slotView) {
+        StochasticOutputCacheKey cacheKey = buildStochasticOutputCacheKey(slotView);
+        if (cacheKey != null) {
+            return STOCHASTIC_OUTPUT_CACHE.computeIfAbsent(cacheKey, ignored -> detectStochasticOutputSlot(slotView));
+        }
+        return detectStochasticOutputSlot(slotView);
+    }
+
+    private static boolean detectStochasticOutputSlot(IRecipeSlotView slotView) {
         try {
             Field tooltipCallbacksField = slotView.getClass().getDeclaredField("tooltipCallbacks");
             tooltipCallbacksField.setAccessible(true);
@@ -279,6 +355,21 @@ public final class RecipeTransferPacketHelper {
         } catch (Throwable ignored) {
         }
         return false;
+    }
+
+    private static @Nullable StochasticOutputCacheKey buildStochasticOutputCacheKey(IRecipeSlotView slotView) {
+        ITypedIngredient<?> displayed =
+                slotView.getDisplayedIngredient().orElseGet(() -> slotView.getAllIngredients().findFirst().orElse(null));
+        if (displayed == null) {
+            return null;
+        }
+
+        AEKey key = GenericIngredientUtil.toAEKey(displayed.getIngredient());
+        if (key == null) {
+            return null;
+        }
+
+        return new StochasticOutputCacheKey(slotView.getClass().getName(), key);
     }
 
     private static boolean shouldSkipOutputSlotForEncoding(Object recipe, int outputIndex, IRecipeSlotView slotView) {
@@ -341,5 +432,8 @@ public final class RecipeTransferPacketHelper {
         public List<IRecipeSlotView> getSlotViews(RecipeIngredientRole role) {
             return slotView.getRole() == role ? List.of(slotView) : List.of();
         }
+    }
+
+    private record StochasticOutputCacheKey(String slotViewClass, AEKey displayedKey) {
     }
 }

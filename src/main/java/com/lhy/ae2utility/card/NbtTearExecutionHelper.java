@@ -54,9 +54,6 @@ public final class NbtTearExecutionHelper {
 
         NbtTearFilter filter = NbtTearCardThreadLocal.get();
         if (filter == null) {
-            filter = NbtTearCraftingContext.get();
-        }
-        if (filter == null) {
             NbtTearCardDebug.logFuzzyCraftSearch("push_inputs", expectedKey, null, false, "filter_null");
             return null;
         }

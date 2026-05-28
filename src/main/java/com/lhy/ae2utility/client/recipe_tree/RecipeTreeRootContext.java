@@ -2,9 +2,11 @@ package com.lhy.ae2utility.client.recipe_tree;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -12,8 +14,6 @@ import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-
 public final class RecipeTreeRootContext {
     private final RecipeTreeNodeViewModel root;
     private final @Nullable Screen returnScreen;
@@ -38,27 +38,18 @@ public final class RecipeTreeRootContext {
     }
 
     public List<RequestedIngredient> collectRequestedIngredients() {
-        List<RequestedIngredient> rawLeaves = new ArrayList<>();
-        root.collectLeaves(1, rawLeaves);
-
-        Map<String, RequestedIngredient> merged = new LinkedHashMap<>();
-        for (RequestedIngredient ingredient : rawLeaves) {
-            String signature = signatureOf(ingredient);
-            RequestedIngredient previous = merged.get(signature);
-            if (previous == null) {
-                merged.put(signature, ingredient.copy());
-            } else {
-                merged.put(signature, new RequestedIngredient(previous.alternatives(),
-                        safeAdd(previous.count(), ingredient.count())));
-            }
+        Map<String, RecipeTreeNodeViewModel.LeafAccumulator> merged = new LinkedHashMap<>();
+        root.collectLeavesMerged(1, merged);
+        List<RequestedIngredient> requestedIngredients = new java.util.ArrayList<>(merged.size());
+        for (RecipeTreeNodeViewModel.LeafAccumulator accumulator : merged.values()) {
+            requestedIngredients.add(accumulator.toRequestedIngredient());
         }
-        return List.copyOf(merged.values());
+        return List.copyOf(requestedIngredients);
     }
 
     public List<RecipeTreeRecipeViewModel> collectSelectedRecipes() {
         List<RecipeTreeRecipeViewModel> raw = new ArrayList<>();
-        root.collectSelectedRecipes(raw);
-
+        collectSelectedRecipes(root, raw, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
         List<RecipeTreeRecipeViewModel> unique = new ArrayList<>();
         outer: for (RecipeTreeRecipeViewModel candidate : raw) {
             for (RecipeTreeRecipeViewModel existing : unique) {
@@ -100,19 +91,17 @@ public final class RecipeTreeRootContext {
         this.disableExistingPatternExpansion = disableExistingPatternExpansion;
     }
 
-    private static int safeAdd(int left, int right) {
-        long value = (long) left + (long) right;
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, value));
-    }
-
-    private static String signatureOf(RequestedIngredient ingredient) {
-        List<String> parts = new ArrayList<>();
-        for (ItemStack alternative : ingredient.alternatives()) {
-            if (!alternative.isEmpty()) {
-                parts.add("itemtype#" + alternative.getItem());
+    private void collectSelectedRecipes(RecipeTreeNodeViewModel node, List<RecipeTreeRecipeViewModel> recipes,
+            Set<RecipeTreeNodeViewModel> visitedNodes) {
+        if (!visitedNodes.add(node)) {
+            return;
+        }
+        recipes.add(node.recipe());
+        for (RecipeTreeInputViewModel input : node.recipe().inputs()) {
+            RecipeTreeNodeViewModel child = input.child();
+            if (child != null) {
+                collectSelectedRecipes(child, recipes, visitedNodes);
             }
         }
-        parts.sort(String::compareTo);
-        return String.join("|", parts);
     }
 }

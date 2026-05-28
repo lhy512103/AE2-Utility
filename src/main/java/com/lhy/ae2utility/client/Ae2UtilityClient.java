@@ -6,33 +6,33 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.api.crafting.PatternDetailsHelper;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
+import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
+import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
+import com.lhy.ae2utility.jei.ClientRepoCraftableIndex;
 import com.lhy.ae2utility.jei.CraftableStateCache;
-import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
-
-import mezz.jei.gui.recipes.RecipesGui;
+import com.lhy.ae2utility.jei.JeiClientCacheContext;
 
 @EventBusSubscriber(modid = Ae2UtilityMod.MOD_ID, value = Dist.CLIENT)
 public class Ae2UtilityClient {
 
     @SubscribeEvent
     public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        JeiClientCacheContext.advanceClientTick();
+        ClientRepoCraftableIndex.advanceClientTick();
         CraftableStateCache.tick();
         InventoryPatternUploadQueue.tick();
         RecipeTreeUploadQueue.tick();
     }
 
     @SubscribeEvent
-    public static void onMouseClick(net.neoforged.neoforge.client.event.ScreenEvent.MouseButtonPressed.Pre event) {
-        if (event.getScreen() instanceof RecipesGui && JeiPatternSubstitutionUi.handleClick(event.getMouseX(), event.getMouseY())) {
-            net.minecraft.client.Minecraft.getInstance().getSoundManager().play(
-                    net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
-            event.setCanceled(true);
-        }
+    public static void onKeyInput(InputEvent.Key event) {
+        Ae2UtilityKeyBindings.onKey(event);
     }
 
     @SubscribeEvent

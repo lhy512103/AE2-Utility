@@ -56,7 +56,7 @@ Main features of AE2: Utility:
 4. Adds a Recipe Tree feature, opened by `Alt + Left click` on the JEI encode button.
    - Encodes all selected sub-recipes in one pass and consumes matching blank patterns.
    - When ExtendedAE-Plus is installed, all selected patterns can be encoded and uploaded in batch.
-   - Unmapped machine patterns are handled one by one through the provider selection screen; cancelling sends the pattern back to the player and bookmarks the related recipe in JEI.
+   - Unmapped recipe-tree sequential uploads can still bookmark failed recipes in JEI for follow-up. **JEI Ctrl+Shift page/category batch** does **not** auto-bookmark every failed upload (avoids flooding JEI bookmarks when the assembly matrix is full).
    - Shows success / failure feedback after batch upload.
    - Probabilistic outputs are hidden by default.
    - Existing patterns in the ME network disable duplicate selection automatically.
