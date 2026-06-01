@@ -38,6 +38,12 @@ public final class CraftableStateCache {
      */
     private static volatile boolean recipeTreeOverlayCachesStale;
 
+    /**
+     * 每当可合成快照发生变化（收到回包 / 主动失效）即自增。供多个只读消费者（如 JEI 编码箭头按钮）
+     * 判断自身缓存是否需要重算，而无需像 {@link #pollRecipeTreeOverlayCachesStale()} 那样「消费一次即清零」。
+     */
+    private static volatile long cacheVersion;
+
     private static final Map<AEKey, CacheEntry> CACHE = new HashMap<>();
     private static final Set<AEKey> PENDING_REQUESTS = new HashSet<>();
     private static long lastRequestTime = 0L;
@@ -132,6 +138,7 @@ public final class CraftableStateCache {
             CACHE.put(key, new CacheEntry(false, now));
         }
         recipeTreeOverlayCachesStale = true;
+        cacheVersion++;
     }
 
     /** 丢弃缓存与待发队列中的条目，使下一帧起重新向服务器查询（用于样板写入网络后刷新 JEI 按钮状态）。 */
@@ -145,6 +152,12 @@ public final class CraftableStateCache {
             PENDING_REQUESTS.remove(key);
         }
         recipeTreeOverlayCachesStale = true;
+        cacheVersion++;
+    }
+
+    /** 可合成快照版本号，仅在内容变化时自增；只读，不清零，可多消费者共用。 */
+    public static long cacheVersion() {
+        return cacheVersion;
     }
 
     /** @return true 并已清除标记（每帧至多消费一次）。 */

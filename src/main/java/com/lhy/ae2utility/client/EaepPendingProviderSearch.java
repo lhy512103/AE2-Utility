@@ -22,6 +22,12 @@ public final class EaepPendingProviderSearch {
     private static volatile String lastSyncedResolvedFilterMirror = "";
     private static volatile boolean hasPending;
     private static volatile String pendingResolvedFilter = "";
+    /** 最近一次由 ae2utility 自动写入搜索框的内容；用于识别后续是否被用户手动改动。 */
+    private static volatile String lastAutoAppliedFilter = "";
+    /** 当前会话内用户一旦手动修改/清空搜索框，就不再自动回填，直到开始新会话。 */
+    private static volatile boolean suppressAutoReuseUntilForget;
+    /** 当前这次 ProviderSelectScreen 打开后，是否仍允许“晚到的同步包”直接补写搜索框。 */
+    private static volatile boolean allowLateDirectApplyForCurrentScreen;
 
     private EaepPendingProviderSearch() {
     }
@@ -31,6 +37,10 @@ public final class EaepPendingProviderSearch {
         lastSyncedResolvedFilterMirror = "";
         hasPending = false;
         pendingResolvedFilter = "";
+        lastAutoAppliedFilter = "";
+        suppressAutoReuseUntilForget = false;
+        allowLateDirectApplyForCurrentScreen = false;
+        EaepRememberedProviderChoice.forget();
     }
 
     /**
@@ -49,6 +59,11 @@ public final class EaepPendingProviderSearch {
      * 若玩家在二次 {@code init} 前已输入内容，外层应配合 {@link EditBox#getValue()} 空白判断再写入。
      */
     public static @Nullable String populateSearchBoxFilterPreference() {
+        allowLateDirectApplyForCurrentScreen = true;
+        if (suppressAutoReuseUntilForget) {
+            hasPending = false;
+            return null;
+        }
         if (hasPending) {
             hasPending = false;
             String v = pendingResolvedFilter != null ? pendingResolvedFilter : "";
@@ -60,11 +75,37 @@ public final class EaepPendingProviderSearch {
         return lastSyncedResolvedFilterMirror.isBlank() ? null : lastSyncedResolvedFilterMirror;
     }
 
+    public static void markAutoAppliedFilter(@Nullable String resolvedFilter) {
+        String applied = resolvedFilter != null ? resolvedFilter : "";
+        lastAutoAppliedFilter = applied;
+        allowLateDirectApplyForCurrentScreen = true;
+    }
+
+    public static void observeCurrentSearchBoxValue(@Nullable String currentValue) {
+        if (suppressAutoReuseUntilForget) {
+            return;
+        }
+        String current = currentValue != null ? currentValue : "";
+        if (lastAutoAppliedFilter.isBlank()) {
+            return;
+        }
+        if (!current.equals(lastAutoAppliedFilter)) {
+            suppressAutoReuseUntilForget = true;
+            allowLateDirectApplyForCurrentScreen = false;
+            EaepUploadDebugLog.info("provider search auto reuse suppressed currentLen={} autoLen={}",
+                    current.length(), lastAutoAppliedFilter.length());
+        }
+    }
+
     /**
      * 同步包若晚于界面 {@code init}，{@link #populateSearchBoxFilterPreference()} 可能尚未执行；此处对已打开的供应器界面直接写入。
      */
     public static void applyResolvedFilterToOpenScreen(String resolvedFilter) {
         if (resolvedFilter == null || resolvedFilter.isBlank()) {
+            return;
+        }
+        if (suppressAutoReuseUntilForget) {
+            EaepUploadDebugLog.info("applyResolvedFilterToOpenScreen skip suppressed len={}", resolvedFilter.length());
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -80,7 +121,17 @@ public final class EaepPendingProviderSearch {
             Object box = f.get(screen);
             if (box instanceof EditBox eb) {
                 String prev = eb.getValue();
+                boolean canApply = prev.isBlank() && allowLateDirectApplyForCurrentScreen
+                        || (!lastAutoAppliedFilter.isBlank() && prev.equals(lastAutoAppliedFilter));
+                if (!canApply) {
+                    EaepUploadDebugLog.info(
+                            "applyResolvedFilterToOpenScreen skip overwrite prevLen={} autoLen={} allowLate={}",
+                            prev.length(), lastAutoAppliedFilter.length(), allowLateDirectApplyForCurrentScreen);
+                    return;
+                }
                 eb.setValue(resolvedFilter);
+                lastAutoAppliedFilter = resolvedFilter;
+                allowLateDirectApplyForCurrentScreen = true;
                 EaepUploadDebugLog.info("applyResolvedFilterToOpenScreen setValue len={} prevLen={}", resolvedFilter.length(),
                         prev.length());
             }

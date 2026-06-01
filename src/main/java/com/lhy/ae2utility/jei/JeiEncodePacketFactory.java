@@ -11,7 +11,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.RecipeHolder;
 
 import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.api.stacks.GenericStack;
 
@@ -56,6 +55,8 @@ public final class JeiEncodePacketFactory {
 
         String providerSearchKey = computeEaepProviderSearchKey(recipe, shiftUpload);
 
+        boolean craftingCategoryHint = isCraftingCategory(recipeLayout, recipe, inputs);
+
         return Optional.of(new EncodePatternPacket(
                 inputs,
                 outputs,
@@ -69,7 +70,31 @@ public final class JeiEncodePacketFactory {
                 false,
                 false,
                 jeiFullCategoryBatch,
-                bulkEncodeSessionId));
+                bulkEncodeSessionId,
+                craftingCategoryHint));
+    }
+
+    /**
+     * 是否应按「工作台合成」处理：与原版 AE2 的判断保持同一边界，只有能放进 3x3 的配方才提示服务端做
+     * 合成 fallback。Create 动力合成器这类超过 3x3 的 JEI 页面即使长得像合成网格，也应保持处理样板路径。
+     */
+    private static boolean isCraftingCategory(IRecipeLayoutDrawable<?> recipeLayout, Object recipe,
+            List<List<GenericStack>> inputs) {
+        long meaningfulInputs = inputs.stream()
+                .filter(slot -> slot != null && !slot.isEmpty())
+                .count();
+        if (meaningfulInputs > 9) {
+            return false;
+        }
+        if (recipe instanceof RecipeHolder<?> holder
+                && holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
+            return true;
+        }
+        try {
+            return recipeLayout.getRecipeCategory().getRecipeType().equals(mezz.jei.api.constants.RecipeTypes.CRAFTING);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private static String derivePatternName(@Nullable ResourceLocation recipeId, List<GenericStack> outputs) {
@@ -86,18 +111,6 @@ public final class JeiEncodePacketFactory {
             }
         }
         return recipeId != null ? recipeId.toString() : "-";
-    }
-
-    public static void sendEaepProviderRefreshIfNeeded(boolean shiftUpload) {
-        if (!shiftUpload || !ModList.get().isLoaded("extendedae_plus")) {
-            return;
-        }
-        try {
-            Class<?> packetClass = Class.forName("com.extendedae_plus.network.RequestProvidersListC2SPacket");
-            Object instance = packetClass.getDeclaredField("INSTANCE").get(null);
-            PacketDistributor.sendToServer((net.minecraft.network.protocol.common.custom.CustomPacketPayload) instance);
-        } catch (Exception ignored) {
-        }
     }
 
     /**

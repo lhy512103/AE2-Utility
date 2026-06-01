@@ -74,6 +74,7 @@ public class MixinRecipeSlotEncodeShiftPin {
         List<GenericStack> alts = RecipeTransferPacketHelper.collectEncodeAlternativesForInputSlot(view);
         MEStorage me = EncodePatternPreviewStorage.resolveMeStorage(mc);
         GenericStack chosen = EncodePatternInputChooser.pickEncodedInput(alts, me,
+                com.lhy.ae2utility.jei.CraftableStateCache::isCraftable,
                 EncodePatternPreviewStorage.jeiEncodePreserveInputOrder());
         if (chosen == null) {
             return;

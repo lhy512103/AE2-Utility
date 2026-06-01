@@ -106,7 +106,6 @@ public final class JeiRecipesBatchEncode {
                         false);
                 return;
             }
-            JeiEncodePacketFactory.sendEaepProviderRefreshIfNeeded(true);
         } else {
             for (EncodePatternPacket packet : packets) {
                 PacketDistributor.sendToServer(packet);

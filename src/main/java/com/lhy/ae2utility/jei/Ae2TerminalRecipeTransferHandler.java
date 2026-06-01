@@ -39,6 +39,7 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.compat.JeictCompat;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 import com.lhy.ae2utility.util.PullIngredientOrdering;
@@ -82,7 +83,7 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
 
         if (doTransfer && maxTransfer) {
             var currentScreen = Minecraft.getInstance().screen;
-            RecipeTreeOpenHelper.open(recipe, recipeSlots, currentScreen);
+            JeictCompat.open(recipe, recipeSlots, currentScreen);
             return null;
         }
 

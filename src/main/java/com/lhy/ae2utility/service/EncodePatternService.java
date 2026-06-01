@@ -21,9 +21,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.SmithingRecipe;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
 
@@ -270,25 +272,25 @@ public final class EncodePatternService {
     }
 
     private static EncodeComputation computeEncodedPattern(ServerPlayer serverPlayer, EncodePatternPacket payload,
-            List<GenericStack> in, List<GenericStack> out) {
+            List<GenericStack> in, List<GenericStack> out, @Nullable MEStorage inventory,
+            @Nullable java.util.function.Predicate<AEKey> craftable) {
         ItemStack encodedPattern = ItemStack.EMPTY;
         boolean canUploadToMatrix = false;
+        // 一旦把配方识别为合成/锻造/切石这类「结构化」配方，就绝不能再静默回退成处理样板，
+        // 否则会出现「合成样板被写成处理样板」（原版 AE 编码终端不会这样）。
+        boolean recognizedStructured = false;
 
         int meaningfulInputCount = countMeaningfulInputs(in);
 
         if (payload.recipeId() != null) {
             var recipeHolder = serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId()).orElse(null);
             if (recipeHolder != null) {
-                if (recipeHolder.value() instanceof CraftingRecipe && meaningfulInputCount <= 9) {
-                    ItemStack[] inArray = new ItemStack[9];
-                    Arrays.fill(inArray, ItemStack.EMPTY);
-                    var ingredients3x3 = appeng.util.CraftingRecipeUtil.ensure3by3CraftingMatrix(recipeHolder.value());
-
-                    if (in.size() == 9) {
-                        mapSparseCraftingInputs(in, inArray);
-                    } else {
-                        mapCompactCraftingInputs(in, ingredients3x3, inArray);
-                    }
+                if (recipeHolder.value() instanceof CraftingRecipe craftingRecipe && meaningfulInputCount <= 9
+                        && craftingRecipe.canCraftInDimensions(3, 3)) {
+                    recognizedStructured = true;
+                    // 对齐原版 AE2 EncodingHelper#encodeCraftingRecipe：按配方自身的 3x3 原料逐格摆放，
+                    // 不依赖 JEI 槽位布局，避免映射错位导致编码失败而回退处理样板。
+                    ItemStack[] inArray = buildCraftingGridFromRecipe(craftingRecipe, in, inventory, craftable);
 
                     ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : toItemStack(out.get(0));
                     if (outStack == null) {
@@ -298,9 +300,11 @@ public final class EncodePatternService {
                             payload.substitute(), payload.substituteFluids());
                     canUploadToMatrix = true;
                 } else if (recipeHolder.value() instanceof SmithingRecipe) {
+                    recognizedStructured = true;
                     encodedPattern = encodeSmithingPatternFlexible((RecipeHolder<?>) recipeHolder, payload, in, out);
                     canUploadToMatrix = !encodedPattern.isEmpty();
                 } else if (recipeHolder.value() instanceof StonecutterRecipe) {
+                    recognizedStructured = true;
                     AEItemKey inKey = in.isEmpty() || in.get(0) == null ? null : (in.get(0).what() instanceof AEItemKey k ? k : null);
                     AEItemKey outKey = out.isEmpty() || out.get(0) == null ? null : (out.get(0).what() instanceof AEItemKey k ? k : null);
                     if (inKey != null && outKey != null) {
@@ -312,7 +316,25 @@ public final class EncodePatternService {
             }
         }
 
-        if (encodedPattern.isEmpty()) {
+        if (encodedPattern.isEmpty() && payload.craftingCategoryHint() && meaningfulInputCount <= 9) {
+            CraftingFallbackMatch fallback = findCraftingRecipeFromJeiInputs(serverPlayer, in);
+            if (fallback != null) {
+                // 仅在真正反查到 3x3 合成配方时才视为结构化合成；否则保持 false，让其按处理样板编码，
+                // 避免 Create 动力合成器这类「JEI 看似合成、实则放不进 3x3」的配方点击后无任何样板产出。
+                recognizedStructured = true;
+                ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : toItemStack(out.get(0));
+                if (outStack == null) {
+                    outStack = ItemStack.EMPTY;
+                }
+                encodedPattern = PatternDetailsHelper.encodeCraftingPattern((RecipeHolder) fallback.recipeHolder(),
+                        fallback.inputs(), outStack, payload.substitute(), payload.substituteFluids());
+                canUploadToMatrix = true;
+            }
+        }
+
+        // 仅当配方未被识别为结构化配方时才作为处理样板编码；结构化配方若编码失败则保持空（上层按失败处理），
+        // 绝不把合成/锻造/切石样板悄悄写成处理样板。
+        if (encodedPattern.isEmpty() && !recognizedStructured) {
             List<GenericStack> procIn = in.stream().filter(java.util.Objects::nonNull).toList();
             List<GenericStack> procOut = out.stream().filter(java.util.Objects::nonNull).toList();
             if (!procIn.isEmpty() && !procOut.isEmpty()) {
@@ -323,9 +345,138 @@ public final class EncodePatternService {
         return new EncodeComputation(encodedPattern, canUploadToMatrix);
     }
 
+    private record CraftingFallbackMatch(RecipeHolder<CraftingRecipe> recipeHolder, ItemStack[] inputs) {}
+
+    /**
+     * JEI 合成类别里可能出现“客户端 JEI 合成出来的 recipeId”（例如 Occultism 的已绑定束缚之书变体），
+     * 服务端 RecipeManager.byKey 查不到这个 id。此时用 JEI 发来的实际 3x3 物品反查真实合成配方，并保留
+     * 这些实际输入（含 NBT）写入样板。
+     */
+    @SuppressWarnings("unchecked")
+    private static @Nullable CraftingFallbackMatch findCraftingRecipeFromJeiInputs(ServerPlayer serverPlayer,
+            List<GenericStack> in) {
+        ItemStack[] sparseInputs = buildSparseCraftingInputsFromJei(in);
+        CraftingInput sparseInput = CraftingInput.of(3, 3, Arrays.asList(sparseInputs));
+        var sparseMatch = serverPlayer.getServer().getRecipeManager()
+                .getRecipeFor(RecipeType.CRAFTING, sparseInput, serverPlayer.level());
+        if (sparseMatch.isPresent()) {
+            return new CraftingFallbackMatch((RecipeHolder<CraftingRecipe>) (RecipeHolder<?>) sparseMatch.get(), sparseInputs);
+        }
+
+        ItemStack[] compactInputs = buildCompactCraftingInputsFromJei(in);
+        if (Arrays.equals(sparseInputs, compactInputs)) {
+            return null;
+        }
+        CraftingInput compactInput = CraftingInput.of(3, 3, Arrays.asList(compactInputs));
+        var compactMatch = serverPlayer.getServer().getRecipeManager()
+                .getRecipeFor(RecipeType.CRAFTING, compactInput, serverPlayer.level());
+        return compactMatch
+                .map(holder -> new CraftingFallbackMatch((RecipeHolder<CraftingRecipe>) (RecipeHolder<?>) holder, compactInputs))
+                .orElse(null);
+    }
+
+    private static ItemStack[] buildSparseCraftingInputsFromJei(List<GenericStack> in) {
+        ItemStack[] inArray = new ItemStack[9];
+        Arrays.fill(inArray, ItemStack.EMPTY);
+        for (int i = 0; i < Math.min(9, in.size()); i++) {
+            inArray[i] = toItemStack(in.get(i));
+        }
+        return inArray;
+    }
+
+    private static ItemStack[] buildCompactCraftingInputsFromJei(List<GenericStack> in) {
+        ItemStack[] inArray = new ItemStack[9];
+        Arrays.fill(inArray, ItemStack.EMPTY);
+        int outIndex = 0;
+        for (GenericStack stack : in) {
+            if (outIndex >= 9) {
+                break;
+            }
+            ItemStack itemStack = toItemStack(stack);
+            if (!itemStack.isEmpty()) {
+                inArray[outIndex++] = itemStack;
+            }
+        }
+        return inArray;
+    }
+
+    /**
+     * 按配方自身的 3x3 原料网格构建合成样板输入，逐格选择最优物品，对齐原版 AE2
+     * {@code EncodingHelper#encodeCraftingRecipe} 的行为（与 JEI 槽位布局解耦）：
+     * <ol>
+     *     <li>优先沿用已选输入里能匹配该原料的物品（保留逐槽「可合成优先」选股结果）；</li>
+     *     <li>否则按原料候选项统一选股（可合成 &gt; 未损坏 &gt; 库存最多）；</li>
+     *     <li>再否则退回该原料的首个候选物品。</li>
+     * </ol>
+     */
+    private static ItemStack[] buildCraftingGridFromRecipe(CraftingRecipe recipe, List<GenericStack> chosenInputs,
+            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable) {
+        ItemStack[] inArray = new ItemStack[9];
+        Arrays.fill(inArray, ItemStack.EMPTY);
+        List<Ingredient> ingredients3x3 =
+                appeng.util.CraftingRecipeUtil.ensure3by3CraftingMatrix(recipe);
+
+        List<ItemStack> chosenPool = new ArrayList<>();
+        for (GenericStack g : chosenInputs) {
+            if (g != null && g.what() != null) {
+                ItemStack s = toItemStack(g);
+                if (!s.isEmpty()) {
+                    chosenPool.add(s);
+                }
+            }
+        }
+
+        for (int slot = 0; slot < 9 && slot < ingredients3x3.size(); slot++) {
+            Ingredient ingredient = ingredients3x3.get(slot);
+            if (ingredient.isEmpty()) {
+                continue;
+            }
+            ItemStack chosen = ItemStack.EMPTY;
+            for (java.util.Iterator<ItemStack> it = chosenPool.iterator(); it.hasNext();) {
+                ItemStack candidate = it.next();
+                if (ingredient.test(candidate)) {
+                    chosen = candidate;
+                    it.remove();
+                    break;
+                }
+            }
+            if (chosen.isEmpty()) {
+                chosen = pickBestForIngredient(ingredient, inventory, craftable);
+            }
+            inArray[slot] = chosen;
+        }
+        return inArray;
+    }
+
+    private static ItemStack pickBestForIngredient(Ingredient ingredient,
+            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable) {
+        ItemStack[] items = ingredient.getItems();
+        if (items.length == 0) {
+            return ItemStack.EMPTY;
+        }
+        List<GenericStack> candidates = new ArrayList<>(items.length);
+        for (ItemStack s : items) {
+            AEItemKey key = AEItemKey.of(s);
+            if (key != null) {
+                candidates.add(new GenericStack(key, 1));
+            }
+        }
+        if (!candidates.isEmpty()) {
+            GenericStack best = EncodePatternInputChooser.pickEncodedInput(candidates, inventory, craftable, false);
+            if (best != null && best.what() instanceof AEItemKey k) {
+                return k.toStack();
+            }
+        }
+        return items[0];
+    }
+
     private static boolean eaepMatrixDuplicateAbortSingle(ServerPlayer serverPlayer, EncodePatternPacket payload,
             ItemStack encodedPattern, boolean canUploadToMatrix, @Nullable IGrid terminalGrid) {
         if (!payload.shiftDown() || !ModList.get().isLoaded("extendedae_plus")) {
+            return false;
+        }
+        // 处理样板不进装配矩阵，矩阵重复检测对其无意义（且可能误判），与 EAEP 一致仅对可进矩阵的样板检测。
+        if (!canUploadToMatrix) {
             return false;
         }
         try {
@@ -412,12 +563,15 @@ public final class EncodePatternService {
         List<List<GenericStack>> inLists = payload.inputs();
         List<GenericStack> out = payload.outputs();
 
+        java.util.function.Predicate<appeng.api.stacks.AEKey> craftablePredicate =
+                grid != null ? key -> grid.getCraftingService().isCraftable(key) : null;
         List<GenericStack> in = new ArrayList<>();
         for (List<GenericStack> alts : inLists) {
             if (alts == null || alts.isEmpty()) {
                 in.add(null);
             } else {
-                in.add(EncodePatternInputChooser.pickEncodedInput(alts, inventory, payload.preserveInputOrder()));
+                in.add(EncodePatternInputChooser.pickEncodedInput(alts, inventory, craftablePredicate,
+                        payload.preserveInputOrder()));
             }
         }
 
@@ -426,7 +580,7 @@ public final class EncodePatternService {
             return EncodeOutcome.FAILURE;
         }
 
-        EncodeComputation computation = computeEncodedPattern(serverPlayer, payload, in, out);
+        EncodeComputation computation = computeEncodedPattern(serverPlayer, payload, in, out, inventory, craftablePredicate);
         ItemStack encodedPattern = computation.encodedPattern();
         boolean canUploadToMatrix = computation.canUploadToMatrix();
 
@@ -485,52 +639,55 @@ public final class EncodePatternService {
                             }
                     } else {
                         /*
-                         * 与终端 Alt+上传 一样走「装配矩阵快速通道」：EAEP 的 uploadPatternToMatrix 可接受处理样板等，
-                         * 矩阵与直插均失败时再走供应器待定队列。
+                         * 与 ExtendedAE Plus 对齐：只有「合成/锻造/切石」类样板（canUploadToMatrix=true）才尝试装配矩阵；
+                         * 处理样板（processing）不进装配矩阵，直接走供应器待定队列，避免误判为「矩阵已满」而上传失败。
                          */
-                        Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-                        java.lang.reflect.Method uploadToMatrix = uploadUtil.getMethod("uploadPatternToMatrix", ServerPlayer.class,
-                                ItemStack.class, IGrid.class);
-                        boolean uploadedMatrix = (Boolean) uploadToMatrix.invoke(null, serverPlayer, encodedPattern, eaepGrid);
-                        EaepUploadDebugLog.info(
-                                "EncodePattern matrix upload attempted recipeId={} canMatrixHint={} uploaded={}",
-                                payload.recipeId(), canUploadToMatrix, uploadedMatrix);
-
-                        if (uploadedMatrix) {
-                            disarmEaepShiftBlankRefund(serverPlayer);
-                            String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
-                            sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                            return EncodeOutcome.SUCCESS;
-                        }
-
-                        if (InventoryPatternMatrixUploadService.tryDirectMatrixInsert(serverPlayer, encodedPattern, eaepGrid)) {
+                        if (canUploadToMatrix) {
+                            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
+                            java.lang.reflect.Method uploadToMatrix = uploadUtil.getMethod("uploadPatternToMatrix", ServerPlayer.class,
+                                    ItemStack.class, IGrid.class);
+                            boolean uploadedMatrix = (Boolean) uploadToMatrix.invoke(null, serverPlayer, encodedPattern, eaepGrid);
                             EaepUploadDebugLog.info(
-                                    "EncodePattern matrix direct insert ok (fallback) recipeId={}",
-                                    payload.recipeId());
-                            disarmEaepShiftBlankRefund(serverPlayer);
-                            String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
-                            sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                            return EncodeOutcome.SUCCESS;
-                        }
+                                    "EncodePattern matrix upload attempted recipeId={} canMatrixHint={} uploaded={}",
+                                    payload.recipeId(), canUploadToMatrix, uploadedMatrix);
 
-                        /*
-                         * JEI Ctrl+Shift 顺序批量：preserveInputOrder=false（配方树批量为 true）。
-                         * 矩阵与 EAEP upload 均未接受时视作「矩阵满/无法再塞」一类，中止整批，避免逐项弹供应器又把失败配方收藏满 JEI。
-                         */
-                        boolean jeiSequentialShiftJeBulkOnly = payload.jeiSequentialQueue()
-                                && payload.shiftDown()
-                                && !payload.preserveInputOrder();
-                        if (jeiSequentialShiftJeBulkOnly) {
-                            disarmEaepShiftBlankRefund(serverPlayer);
-                            giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
-                            serverPlayer.sendSystemMessage(
-                                    Component.translatable("message.ae2utility.shift_batch_aborted_matrix_reject").withStyle(
-                                            net.minecraft.ChatFormatting.GOLD));
-                            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true);
-                            sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                            return EncodeOutcome.FAILURE;
+                            if (uploadedMatrix) {
+                                disarmEaepShiftBlankRefund(serverPlayer);
+                                String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
+                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                                return EncodeOutcome.SUCCESS;
+                            }
+
+                            if (InventoryPatternMatrixUploadService.tryDirectMatrixInsert(serverPlayer, encodedPattern, eaepGrid)) {
+                                EaepUploadDebugLog.info(
+                                        "EncodePattern matrix direct insert ok (fallback) recipeId={}",
+                                        payload.recipeId());
+                                disarmEaepShiftBlankRefund(serverPlayer);
+                                String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
+                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                                return EncodeOutcome.SUCCESS;
+                            }
+
+                            /*
+                             * JEI Ctrl+Shift 顺序批量：preserveInputOrder=false（配方树批量为 true）。
+                             * 矩阵与 EAEP upload 均未接受时视作「矩阵满/无法再塞」一类，中止整批，避免逐项弹供应器又把失败配方收藏满 JEI。
+                             * 仅对「可进矩阵」的样板适用；处理样板不会到达此分支。
+                             */
+                            boolean jeiSequentialShiftJeBulkOnly = payload.jeiSequentialQueue()
+                                    && payload.shiftDown()
+                                    && !payload.preserveInputOrder();
+                            if (jeiSequentialShiftJeBulkOnly) {
+                                disarmEaepShiftBlankRefund(serverPlayer);
+                                giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
+                                serverPlayer.sendSystemMessage(
+                                        Component.translatable("message.ae2utility.shift_batch_aborted_matrix_reject").withStyle(
+                                                net.minecraft.ChatFormatting.GOLD));
+                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true);
+                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                                return EncodeOutcome.FAILURE;
+                            }
                         }
 
                         sendEaepProviderSearchSync(serverPlayer, payload);
@@ -549,28 +706,15 @@ public final class EncodePatternService {
                                 ItemStack.class);
                         beginUpload.invoke(null, serverPlayer, encodedPattern.copyWithCount(1));
 
-                        Long rememberedProviderId = RecipeTreeUploadContextBridge.getRememberedProviderId(serverPlayer,
-                                RecipeTreeUploadContextBridge.getPendingSearchKey(serverPlayer),
-                                payload.providerDisplayName());
-                        if (rememberedProviderId != null) {
-                            java.lang.reflect.Method uploadPending = pendingUtil.getMethod("uploadPendingCtrlQPattern",
-                                    ServerPlayer.class,
-                                    long.class);
-                            boolean reusedUploadOk =
-                                    (Boolean) uploadPending.invoke(null, serverPlayer, rememberedProviderId.longValue());
-                            EaepUploadDebugLog.info(
-                                    "EncodePattern EAEP reused providerId={} recipeId={} uploaded={}",
-                                    rememberedProviderId, payload.recipeId(), reusedUploadOk);
-                            if (reusedUploadOk) {
-                                disarmEaepShiftBlankRefund(serverPlayer);
-                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                                return EncodeOutcome.SUCCESS;
-                            }
-                            RecipeTreeUploadContextBridge.forgetRememberedProvider(serverPlayer,
-                                    RecipeTreeUploadContextBridge.getPendingSearchKey(serverPlayer),
-                                    payload.providerDisplayName());
-                        }
-
+                        /*
+                         * 与 ExtendedAE Plus 对齐：不再在服务端「凭记忆的 providerId 直接上传、跳过供应器界面」。
+                         * 原实现存在两个问题：
+                         *   1) 不读取 EAEP 的「唯一匹配自动上传」开关，开关关闭后仍会自动上传；
+                         *   2) CtrlQ 路径的 providerId 是 -1-index 这种随供应器列表顺序变化的临时索引，
+                         *      批量过程中列表（空位/可见性）一变就会上传到错误的供应器。
+                         * 现在统一走「打开供应器界面」的路径，由 EAEP 客户端 ProviderSelectScreen 的开关 +
+                         * 唯一匹配逻辑（tryAutoUploadIfUniqueMatch）决定是否自动上传，从而保证行为对齐。
+                         */
                         if (!batchMode || payload.jeiSequentialQueue()) {
                             armEaepShiftBlankForPendingProvider(serverPlayer, ctx, blankSource, blankPatternKey);
                             RecipeTreeUploadResultBridge.sendAwaitingProviderUpload(serverPlayer, sequentialResultLabel(payload));
@@ -856,12 +1000,6 @@ public final class EncodePatternService {
         }
     }
 
-    private static void mapSparseCraftingInputs(List<GenericStack> inputStacks, ItemStack[] inArray) {
-        for (int i = 0; i < Math.min(9, inputStacks.size()); i++) {
-            inArray[i] = toItemStack(inputStacks.get(i));
-        }
-    }
-
     private static int countMeaningfulInputs(List<GenericStack> inputStacks) {
         int count = 0;
         for (GenericStack inputStack : inputStacks) {
@@ -870,16 +1008,6 @@ public final class EncodePatternService {
             }
         }
         return count;
-    }
-
-    private static void mapCompactCraftingInputs(List<GenericStack> inputStacks, List<Ingredient> ingredients3x3,
-            ItemStack[] inArray) {
-        int jeiInputIndex = 0;
-        for (int i = 0; i < 9; i++) {
-            if (!ingredients3x3.get(i).isEmpty() && jeiInputIndex < inputStacks.size()) {
-                inArray[i] = toItemStack(inputStacks.get(jeiInputIndex++));
-            }
-        }
     }
 
     private static ItemStack toItemStack(GenericStack stack) {

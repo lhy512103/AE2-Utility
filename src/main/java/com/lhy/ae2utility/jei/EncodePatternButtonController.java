@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.lhy.ae2utility.compat.JeictCompat;
 import com.lhy.ae2utility.compat.WcwtCompat;
 
 import net.minecraft.ChatFormatting;
@@ -69,9 +70,11 @@ public class EncodePatternButtonController implements IIconButtonController {
     private List<IRecipeSlotView> cachedInputSlots = List.of();
     private Map<IRecipeSlotView, List<mezz.jei.api.ingredients.ITypedIngredient<?>>> cachedInputIngredients = Map.of();
     private Map<IRecipeSlotView, Long> cachedInputCounts = Map.of();
-    private Map<IRecipeSlotView, GenericStack> cachedInputRepresentatives = Map.of();
+    /** 每个输入槽的全部候选（书签命中时为该书签项），用于「任一候选已有样板即高亮」判定，随书签签名刷新。 */
+    private Map<IRecipeSlotView, List<GenericStack>> cachedInputAlternatives = Map.of();
     private long cachedRepresentativeBookmarkSignature = Long.MIN_VALUE;
     private long cachedInputCraftableSignature = Long.MIN_VALUE;
+    private long cachedInputCraftableCacheVersion = Long.MIN_VALUE;
     private Map<IRecipeSlotView, Boolean> cachedInputCraftableStates = Map.of();
 
     private final IDrawable ARROW_ICON = new IDrawable() {
@@ -171,9 +174,14 @@ public class EncodePatternButtonController implements IIconButtonController {
                 if (terminalInputCraftable) {
                     encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
                 } else {
+                    /*
+                     * 与悬停高亮共用同一份「稳定缓存」状态：每个输入槽只要其候选列表里「任一候选」已有样板即视为满足，
+                     * 不再每帧对 JEI 轮换中的单个 displayed 原料查询，从而消除多候选时按钮颜色闪烁。
+                     */
+                    ensureInputRepresentativesUpToDate();
+                    ensureInputCraftableStates();
                     for (IRecipeSlotView slotView : inputSlots) {
-                        GenericStack one = RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView);
-                        if (one != null && one.what() != null && CraftableStateCache.isCraftable(one.what())) {
+                        if (Boolean.TRUE.equals(cachedInputCraftableStates.get(slotView))) {
                             encodeButtonBackdropColor = AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
                             break;
                         }
@@ -284,42 +292,56 @@ public class EncodePatternButtonController implements IIconButtonController {
         cachedInputSlots = List.copyOf(inputSlots);
         cachedInputIngredients = ingredientMap;
         cachedInputCounts = countMap;
-        cachedInputRepresentatives = Map.of();
+        cachedInputAlternatives = Map.of();
         cachedInputCraftableStates = Map.of();
+        cachedInputCraftableCacheVersion = Long.MIN_VALUE;
     }
 
+    /** 按书签签名重建每个输入槽的「全部候选」列表（书签命中则仅该项）。 */
     private void ensureInputRepresentativesUpToDate() {
         long bookmarkSignature = JeiBookmarkKeysCache.getBookmarkSignature();
         if (cachedRepresentativeBookmarkSignature == bookmarkSignature) {
             return;
         }
 
-        List<appeng.api.stacks.AEKey> bookmarkKeys = RecipeTransferPacketHelper.getBookmarkKeys();
-        Map<IRecipeSlotView, GenericStack> representatives = new IdentityHashMap<>(cachedInputSlots.size());
+        Map<IRecipeSlotView, List<GenericStack>> alternatives = new IdentityHashMap<>(cachedInputSlots.size());
         for (IRecipeSlotView slotView : cachedInputSlots) {
-            List<mezz.jei.api.ingredients.ITypedIngredient<?>> allIngredients = cachedInputIngredients.get(slotView);
-            long count = cachedInputCounts.getOrDefault(slotView, 1L);
-            representatives.put(slotView,
-                    RecipeTransferPacketHelper.genericStackForCraftableHighlightInputSlot(slotView, allIngredients, bookmarkKeys, count));
+            alternatives.put(slotView, RecipeTransferPacketHelper.collectEncodeAlternativesForInputSlot(slotView));
         }
-        cachedInputRepresentatives = representatives;
+        cachedInputAlternatives = alternatives;
         cachedRepresentativeBookmarkSignature = bookmarkSignature;
         cachedInputCraftableSignature = Long.MIN_VALUE;
+        cachedInputCraftableCacheVersion = Long.MIN_VALUE;
     }
 
+    /**
+     * 每槽判定：候选列表里「任一候选」可合成/已有样板即视为满足。
+     * 仅在书签签名或可合成快照版本变化时重算，既不每帧抖动，也能在异步查询回包后刷新。
+     */
     private void ensureInputCraftableStates() {
-        if (cachedInputCraftableSignature == cachedRepresentativeBookmarkSignature) {
+        long bookmarkSig = cachedRepresentativeBookmarkSignature;
+        long cacheVer = CraftableStateCache.cacheVersion();
+        if (cachedInputCraftableSignature == bookmarkSig && cachedInputCraftableCacheVersion == cacheVer) {
             return;
         }
 
         Map<IRecipeSlotView, Boolean> states = new IdentityHashMap<>(cachedInputSlots.size());
         for (IRecipeSlotView slotView : cachedInputSlots) {
-            GenericStack one = cachedInputRepresentatives.get(slotView);
-            boolean craftable = one != null && one.what() != null && CraftableStateCache.isCraftable(one.what());
+            List<GenericStack> alts = cachedInputAlternatives.get(slotView);
+            boolean craftable = false;
+            if (alts != null) {
+                for (GenericStack gs : alts) {
+                    if (gs != null && gs.what() != null && CraftableStateCache.isCraftable(gs.what())) {
+                        craftable = true;
+                        break;
+                    }
+                }
+            }
             states.put(slotView, craftable);
         }
         cachedInputCraftableStates = states;
-        cachedInputCraftableSignature = cachedRepresentativeBookmarkSignature;
+        cachedInputCraftableSignature = bookmarkSig;
+        cachedInputCraftableCacheVersion = cacheVer;
     }
 
     @Override
@@ -342,7 +364,7 @@ public class EncodePatternButtonController implements IIconButtonController {
         }
 
         if (altRecipeTree) {
-            RecipeTreeOpenHelper.openFromLayout(recipeLayout, Minecraft.getInstance().screen);
+            JeictCompat.openFromLayout(recipeLayout, Minecraft.getInstance().screen);
             return true;
         }
 
@@ -370,7 +392,6 @@ public class EncodePatternButtonController implements IIconButtonController {
 
         JeiEncodePacketFactory.tryCreate(recipeLayout, shiftForPacket, false, 0).ifPresent(packet -> {
             PacketDistributor.sendToServer(packet);
-            JeiEncodePacketFactory.sendEaepProviderRefreshIfNeeded(shiftForPacket);
         });
         return true;
     }

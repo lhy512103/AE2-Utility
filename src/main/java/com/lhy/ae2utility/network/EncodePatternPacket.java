@@ -16,7 +16,8 @@ import com.lhy.ae2utility.Ae2UtilityMod;
 
 public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
         String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute, boolean substituteFluids,
-        boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch, int bulkEncodeSessionId)
+        boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch, int bulkEncodeSessionId,
+        boolean craftingCategoryHint)
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<EncodePatternPacket> TYPE =
@@ -28,7 +29,7 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
     public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
             String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute,
             boolean substituteFluids, boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch,
-            int bulkEncodeSessionId) {
+            int bulkEncodeSessionId, boolean craftingCategoryHint) {
         this.inputs = Collections.unmodifiableList(new ArrayList<>(inputs));
         this.outputs = Collections.unmodifiableList(new ArrayList<>(outputs));
         this.recipeId = recipeId;
@@ -42,6 +43,16 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         this.jeiSequentialQueue = jeiSequentialQueue;
         this.jeiFullCategoryBatch = jeiFullCategoryBatch;
         this.bulkEncodeSessionId = bulkEncodeSessionId;
+        this.craftingCategoryHint = craftingCategoryHint;
+    }
+
+    /** 便捷重载：不带 craftingCategoryHint（默认 false）。 */
+    public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
+            String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute,
+            boolean substituteFluids, boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch,
+            int bulkEncodeSessionId) {
+        this(inputs, outputs, recipeId, patternName, providerSearchKey, providerDisplayName, shiftDown, substitute, substituteFluids,
+                preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId, false);
     }
 
     @Deprecated(forRemoval = false)
@@ -55,7 +66,7 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
     /** 若「同一批批量编码」会话 id 与原包不同（例如补上 BulkEncodeSessions.next()），拷贝生成新数据包。 */
     public EncodePatternPacket withBulkEncodeSessionId(int newBulkEncodeSessionId) {
         return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerSearchKey, providerDisplayName, shiftDown, substitute,
-                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, newBulkEncodeSessionId);
+                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, newBulkEncodeSessionId, craftingCategoryHint);
     }
 
     private static EncodePatternPacket decode(RegistryFriendlyByteBuf buffer) {
@@ -83,8 +94,9 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         boolean jeiSequentialQueue = buffer.readableBytes() > 0 && buffer.readBoolean();
         boolean jeiFullCategoryBatch = buffer.readableBytes() > 0 && buffer.readBoolean();
         int bulkEncodeSessionId = buffer.readableBytes() > 0 ? buffer.readVarInt() : 0;
+        boolean craftingCategoryHint = buffer.readableBytes() > 0 && buffer.readBoolean();
         return new EncodePatternPacket(inputs, outputs, id, patternName, providerSearchKey, providerDisplayName, shiftDown, substitute,
-                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId);
+                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId, craftingCategoryHint);
     }
 
     private void write(RegistryFriendlyByteBuf buffer) {
@@ -112,6 +124,7 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         buffer.writeBoolean(jeiSequentialQueue);
         buffer.writeBoolean(jeiFullCategoryBatch);
         buffer.writeVarInt(bulkEncodeSessionId);
+        buffer.writeBoolean(craftingCategoryHint);
     }
 
     private static List<GenericStack> readGenericStacks(RegistryFriendlyByteBuf buffer) {

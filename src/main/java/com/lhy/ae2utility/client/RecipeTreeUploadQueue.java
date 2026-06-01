@@ -6,6 +6,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 
+import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.integration.eaep.EaepProviderListRequest;
 import com.lhy.ae2utility.jei.JeiBookmarkUtil;
@@ -63,6 +64,11 @@ public final class RecipeTreeUploadQueue {
         return awaitingProviderUploadCompletion
                 && !IN_FLIGHT.isEmpty()
                 && IN_FLIGHT.peekFirst().jeiSequentialQueue();
+    }
+
+    /** 当前是否有任意 EncodePattern 会话正在等待 EAEP 供应器界面完成上传/取消。 */
+    public static boolean awaitingAnyProviderUpload() {
+        return awaitingProviderUploadCompletion && !IN_FLIGHT.isEmpty();
     }
 
     private static boolean isSessionActivelyBlocking() {
@@ -185,6 +191,17 @@ public final class RecipeTreeUploadQueue {
     }
 
     public static void handleResult(RecipeTreeUploadResultPacket packet) {
+        EaepUploadDebugLog.info(
+                "RecipeTreeUploadQueue.handleResult uploaded={} awaiting={} abort={} purge={} missingBlank={} inFlight={} pending={} frozen={} awaitingProvider={}",
+                packet.uploaded(),
+                packet.awaitingProviderCompletion(),
+                packet.abortRemainingBatch(),
+                packet.purgeRemainingQueuedSameEaepMachine(),
+                packet.missingBlankPatternFailure(),
+                IN_FLIGHT.size(),
+                PENDING.size(),
+                frozenUntilServerEncodeResponse,
+                awaitingProviderUploadCompletion);
         if (packet.abortRemainingBatch()) {
             int missingBlankTargetCount = Math.max(1, IN_FLIGHT.size() + PENDING.size());
             int succeededBeforeAbort = SUCCEEDED.size();
@@ -220,6 +237,8 @@ public final class RecipeTreeUploadQueue {
         if (packet.awaitingProviderCompletion()) {
             awaitingProviderUploadCompletion = true;
             frozenUntilServerEncodeResponse = true;
+            EaepUploadDebugLog.info("RecipeTreeUploadQueue entering awaiting-provider state inFlight={} pending={}",
+                    IN_FLIGHT.size(), PENDING.size());
             JeiEncodeQueueDebugLog.info(
                     "handleResult AWAITING_PROVIDER uploaded={} patternName={} inFlightHeadRecipeId={} pendingLeft={} inFlightSize={}",
                     packet.uploaded(), packet.patternName(),
@@ -231,6 +250,8 @@ public final class RecipeTreeUploadQueue {
 
         frozenUntilServerEncodeResponse = false;
         awaitingProviderUploadCompletion = false;
+        EaepUploadDebugLog.info("RecipeTreeUploadQueue leaving awaiting-provider state uploaded={} inFlightBeforePoll={} pending={}",
+                packet.uploaded(), IN_FLIGHT.size(), PENDING.size());
 
         EncodePatternPacket sentPacket = IN_FLIGHT.pollFirst();
         List<EncodePatternPacket> skippedSameEaep = List.of();

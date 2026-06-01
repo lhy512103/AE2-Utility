@@ -24,6 +24,15 @@ public final class Ae2UtilityClientConfig {
     /** 是否在选项「控制」里注册「清空全部 JEI 书签」快捷键（默认 Ctrl+A，可自行改键）。 */
     public static final ModConfigSpec.BooleanValue ENABLE_CLEAR_ALL_JEI_BOOKMARKS_HOTKEY;
 
+    /**
+     * 为 {@code true}（默认）时：与 ExtendedAE Plus 供应器上传配合，在「同一批量上传会话」内，
+     * 若某个搜索关键字曾选过供应器，则后续同关键字匹配到<strong>多个</strong>供应器时自动复用上次选择的同名供应器，
+     * 减少重复弹窗。按供应器名称在当前列表里重新匹配，因此不会因列表顺序变化而上传到错误位置。<br>
+     * 仍然受 ExtendedAE Plus 的「唯一匹配自动上传」开关约束：该开关关闭时不会自动复用。<br>
+     * 为 {@code false} 时：每条样板都需手动选择供应器（除非过滤后唯一）。
+     */
+    public static final ModConfigSpec.BooleanValue REUSE_PROVIDER_WITHIN_BATCH;
+
     static {
         ALLOW_JEI_PATTERN_ENCODE_WITHOUT_OPEN_TERMINAL = BUILDER
                 .comment(
@@ -44,6 +53,15 @@ public final class Ae2UtilityClientConfig {
                         "When false: the hotkey is not registered.")
                 .translation("ae2utility.config.enableClearAllJeiBookmarksHotkey")
                 .define("enableClearAllJeiBookmarksHotkey", true);
+        REUSE_PROVIDER_WITHIN_BATCH = BUILDER
+                .comment(
+                        "When true (default): within one batch upload session, reuse the previously chosen provider",
+                        "(matched by provider name) when the same search key resolves to multiple providers,",
+                        "to reduce repeated provider-select popups. Still requires ExtendedAE Plus's",
+                        "'auto upload unique match' toggle to be ON.",
+                        "When false: every pattern must be chosen manually unless the filter is unique.")
+                .translation("ae2utility.config.reuseProviderWithinBatch")
+                .define("reuseProviderWithinBatch", true);
         SPEC = BUILDER.build();
     }
 
@@ -60,5 +78,9 @@ public final class Ae2UtilityClientConfig {
 
     public static boolean enableClearAllJeiBookmarksHotkey() {
         return ENABLE_CLEAR_ALL_JEI_BOOKMARKS_HOTKEY.get();
+    }
+
+    public static boolean reuseProviderWithinBatch() {
+        return REUSE_PROVIDER_WITHIN_BATCH.get();
     }
 }

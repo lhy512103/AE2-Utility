@@ -193,6 +193,8 @@
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "开（默认）：背包/Curios 中携带具备编码能力的无线终端时，无需打开其 GUI 即可使用 JEI 样板编码。\n关：必须已打开样板编码类 ME 界面后才启用上述功能，可缓解卡顿。\n（本项仅客户端，服务端需通过服务端配置。）",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "显示「整类全分页」JEI 批量编码按钮",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "开（默认）：在 JEI 界面显示「一键编码当前机器分类全部配方（所有分页）」按钮。\n关：隐藏该按钮。\n（仅本机显示偏好；服务端需在服务器配置里禁止该模式。）",
+  "ae2utility.config.reuseProviderWithinBatch": "批量上传会话内复用上次选择的供应器",
+  "ae2utility.config.reuseProviderWithinBatch.tooltip": "开（默认）：同一批量上传会话内，若某搜索关键字曾选过供应器，则后续同关键字匹配到多个供应器时，自动复用上次选择的同名供应器，减少重复弹窗。按名称在当前列表里重新匹配，不会因列表顺序变化而上传错位置。\n仍受 ExtendedAE Plus 的「唯一匹配自动上传」开关约束：该开关关闭时不会自动复用。\n关：每条样板都需手动选择供应器（过滤后唯一时仍自动）。",
   "ae2utility.config.enableClearAllJeiBookmarksHotkey": "注册「清空全部 JEI 收藏」快捷键",
   "ae2utility.config.enableClearAllJeiBookmarksHotkey.tooltip": "开（默认）：在「选项 → 控制」中显示可改键的「清空全部 JEI 收藏」（默认 Ctrl+A）。按一次绑定键即可清空（不要求鼠标移到书签栏），并写入 JEI 书签存档。\n若 JEI 搜索框、聊天或其它输入框正处在键盘焦点（光标在框里打字），为避免与 Ctrl+A「全选」等编辑快捷键冲突，此次不会清空；请先点在空白／配方区等取消焦点，或改用不占输入的操作。\n关：不再响应清空（键位可能仍显示在控制列表中，但按下无效）。",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "「须打开样板编码界面」：拦截隔空 JEI 编码",
