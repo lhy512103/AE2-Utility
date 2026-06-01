@@ -251,23 +251,19 @@ public final class JeictCompat {
         if (!EaepCompat.isExtendedAePlusLoaded()) {
             return "";
         }
-        try {
-            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            Object recipeId = invoke(recipe, "recipeId");
-            if (recipeId instanceof ResourceLocation id && Minecraft.getInstance().level != null) {
-                var holder = Minecraft.getInstance().level.getRecipeManager().byKey(id).orElse(null);
-                if (holder != null) {
-                    if (holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
-                        return (String) uploadUtil.getField("DEFAULT_CRAFTING_SEARCH_KEY").get(null);
-                    }
-                    Object key = uploadUtil.getMethod("mapRecipeTypeToSearchKey",
-                            net.minecraft.world.item.crafting.Recipe.class).invoke(null, holder.value());
-                    if (key instanceof String s && !s.isBlank()) {
-                        return s;
-                    }
+        Object recipeId = invoke(recipe, "recipeId");
+        if (recipeId instanceof ResourceLocation id && Minecraft.getInstance().level != null) {
+            var holder = Minecraft.getInstance().level.getRecipeManager().byKey(id).orElse(null);
+            if (holder != null) {
+                if (holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
+                    String def = com.lhy.ae2utility.integration.eaep.EaepReflection.defaultCraftingSearchKey();
+                    return def != null ? def : "crafting";
+                }
+                String key = com.lhy.ae2utility.integration.eaep.EaepReflection.mapRecipeTypeToSearchKey(holder.value());
+                if (key != null && !key.isBlank()) {
+                    return key;
                 }
             }
-        } catch (Throwable ignored) {
         }
         return componentString(invoke(recipe, "subtitle"), "");
     }

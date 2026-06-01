@@ -479,31 +479,18 @@ public final class EncodePatternService {
         if (!canUploadToMatrix) {
             return false;
         }
-        try {
-            Class<?> pendingUtil = Class.forName("com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil");
-            java.lang.reflect.Method findGrid = pendingUtil.getMethod("findPlayerGrid", ServerPlayer.class);
-            IGrid eaepGrid = (IGrid) findGrid.invoke(null, serverPlayer);
-            if (eaepGrid == null) {
-                eaepGrid = terminalGrid;
-            }
-            if (eaepGrid == null) {
-                return false;
-            }
-            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            try {
-                java.lang.reflect.Method duplicateCheck = uploadUtil.getDeclaredMethod("matrixContainsPattern",
-                        IGrid.class, ItemStack.class);
-                duplicateCheck.setAccessible(true);
-                boolean duplicate = (Boolean) duplicateCheck.invoke(null, eaepGrid, encodedPattern);
-                if (duplicate) {
-                    serverPlayer.sendSystemMessage(Component.translatable("extendedae_plus.message.matrix.duplicate"));
-                    RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer,
-                            payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName(), false);
-                    return true;
-                }
-            } catch (NoSuchMethodException ignored) {
-            }
-        } catch (Throwable ignored) {
+        IGrid eaepGrid = com.lhy.ae2utility.integration.eaep.EaepReflection.findPlayerGrid(serverPlayer);
+        if (eaepGrid == null) {
+            eaepGrid = terminalGrid;
+        }
+        if (eaepGrid == null) {
+            return false;
+        }
+        if (com.lhy.ae2utility.integration.eaep.EaepReflection.matrixContainsPattern(eaepGrid, encodedPattern)) {
+            serverPlayer.sendSystemMessage(Component.translatable("extendedae_plus.message.matrix.duplicate"));
+            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer,
+                    payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName(), false);
+            return true;
         }
         return false;
     }
@@ -615,9 +602,7 @@ public final class EncodePatternService {
 
             if (payload.shiftDown() && ModList.get().isLoaded("extendedae_plus")) {
                 try {
-                    Class<?> pendingUtil = Class.forName("com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil");
-                    java.lang.reflect.Method findGrid = pendingUtil.getMethod("findPlayerGrid", ServerPlayer.class);
-                    IGrid eaepGrid = (IGrid) findGrid.invoke(null, serverPlayer);
+                    IGrid eaepGrid = com.lhy.ae2utility.integration.eaep.EaepReflection.findPlayerGrid(serverPlayer);
                     if (eaepGrid == null) {
                         eaepGrid = grid;
                     }
@@ -643,10 +628,8 @@ public final class EncodePatternService {
                          * 处理样板（processing）不进装配矩阵，直接走供应器待定队列，避免误判为「矩阵已满」而上传失败。
                          */
                         if (canUploadToMatrix) {
-                            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-                            java.lang.reflect.Method uploadToMatrix = uploadUtil.getMethod("uploadPatternToMatrix", ServerPlayer.class,
-                                    ItemStack.class, IGrid.class);
-                            boolean uploadedMatrix = (Boolean) uploadToMatrix.invoke(null, serverPlayer, encodedPattern, eaepGrid);
+                            boolean uploadedMatrix = com.lhy.ae2utility.integration.eaep.EaepReflection
+                                    .uploadPatternToMatrix(serverPlayer, encodedPattern, eaepGrid);
                             EaepUploadDebugLog.info(
                                     "EncodePattern matrix upload attempted recipeId={} canMatrixHint={} uploaded={}",
                                     payload.recipeId(), canUploadToMatrix, uploadedMatrix);
@@ -695,16 +678,14 @@ public final class EncodePatternService {
                         RecipeTreeUploadContextBridge.rememberPendingSearchKey(serverPlayer,
                                 deriveRawEaepSearchKeyForSync(serverPlayer, payload));
                         RecipeTreeUploadContextBridge.rememberPendingProviderDisplayName(serverPlayer, payload.providerDisplayName());
-                        java.lang.reflect.Method clearPending = pendingUtil.getMethod("clearPendingCtrlQUpload", ServerPlayer.class);
-                        clearPending.invoke(null, serverPlayer);
+                        com.lhy.ae2utility.integration.eaep.EaepReflection.clearPendingCtrlQUpload(serverPlayer);
                         RecipeTreeUploadResultBridge.rememberPendingName(serverPlayer, sequentialResultLabel(payload));
                         List<AEKey> pendingCraftableRefresh = collectCraftableKeysForRefresh(payload);
                         if (!pendingCraftableRefresh.isEmpty()) {
                             RecipeTreeUploadResultBridge.rememberPendingCraftableRefresh(serverPlayer, pendingCraftableRefresh);
                         }
-                        java.lang.reflect.Method beginUpload = pendingUtil.getMethod("beginPendingCtrlQUpload", ServerPlayer.class,
-                                ItemStack.class);
-                        beginUpload.invoke(null, serverPlayer, encodedPattern.copyWithCount(1));
+                        com.lhy.ae2utility.integration.eaep.EaepReflection
+                                .beginPendingCtrlQUpload(serverPlayer, encodedPattern.copyWithCount(1));
 
                         /*
                          * 与 ExtendedAE Plus 对齐：不再在服务端「凭记忆的 providerId 直接上传、跳过供应器界面」。
@@ -837,15 +818,9 @@ public final class EncodePatternService {
             return "crafting";
         }
 
-        try {
-            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            java.lang.reflect.Method mapRecipe = uploadUtil.getMethod("mapRecipeTypeToSearchKey",
-                    net.minecraft.world.item.crafting.Recipe.class);
-            Object mapped = mapRecipe.invoke(null, recipeHolder.value());
-            if (mapped instanceof String mappedString && !mappedString.isBlank()) {
-                return mappedString;
-            }
-        } catch (Throwable ignored) {
+        String mapped = com.lhy.ae2utility.integration.eaep.EaepReflection.mapRecipeTypeToSearchKey(recipeHolder.value());
+        if (mapped != null && !mapped.isBlank()) {
+            return mapped;
         }
 
         ResourceLocation recipeTypeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(recipeHolder.value().getType());

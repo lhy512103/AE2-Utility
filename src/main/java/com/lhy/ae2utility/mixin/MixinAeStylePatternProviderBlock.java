@@ -15,8 +15,16 @@ import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog;
 import com.lhy.ae2utility.integration.ae2.PatternProviderSignalAccess;
 
-@Mixin(targets = "com.glodblock.github.extendedae.common.blocks.BlockExPatternProvider", remap = false)
-public abstract class MixinExPatternProviderBlock {
+/**
+ * 统一为 AE2 PatternProviderBlock 及其外部派生（ExPatternProvider / OverloadedPatternProvider）
+ * 暴露红石信号输出能力。所有目标块的 BE 都是 {@link PatternProviderBlockEntity}。
+ */
+@Mixin(targets = {
+        "appeng.block.crafting.PatternProviderBlock",
+        "com.glodblock.github.extendedae.common.blocks.BlockExPatternProvider",
+        "com.moakiee.ae2lt.block.OverloadedPatternProviderBlock"
+})
+public abstract class MixinAeStylePatternProviderBlock {
 
     public boolean isSignalSource(BlockState state) {
         return true;
@@ -31,10 +39,9 @@ public abstract class MixinExPatternProviderBlock {
             }
         }
         Ae2UtilityRedstoneSignalDebugLog.wire(
-                "extendedae.BlockExPatternProvider getSignal pos={} side={} out={} be={}",
-                pos,
-                side,
-                out,
+                "ae_style_pp_block getSignal class={} pos={} side={} out={} be={}",
+                this.getClass().getSimpleName(),
+                pos, side, out,
                 raw == null ? "null" : raw.getClass().getSimpleName());
         return out;
     }
@@ -44,7 +51,8 @@ public abstract class MixinExPatternProviderBlock {
     }
 
     public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        Ae2UtilityRedstoneSignalDebugLog.wire("extendedae.BlockExPatternProvider scheduled_tick pos={}", pos);
+        Ae2UtilityRedstoneSignalDebugLog.wire("ae_style_pp_block scheduled_tick class={} pos={}",
+                this.getClass().getSimpleName(), pos);
         level.updateNeighborsAt(pos, state.getBlock());
         level.updateNeighbourForOutputSignal(pos, state.getBlock());
     }

@@ -358,17 +358,12 @@ public final class InventoryPatternUploadQueue {
         if (rawKey == null || rawKey.isBlank()) {
             return true;
         }
-        try {
-            Class<?> utilClass = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            java.lang.reflect.Method setKeyMethod = utilClass.getMethod("setLastProviderSearchKey", String.class);
-            java.lang.reflect.Method resolveAliasMethod = utilClass.getMethod("resolveSearchKeyAlias", String.class);
-            String resolvedKey = (String) resolveAliasMethod.invoke(null, rawKey);
-            setKeyMethod.invoke(null, resolvedKey);
-            return true;
-        } catch (Throwable t) {
-            InventoryPatternUploadDebug.warn("preset_search_key", "failed rawKey={} error={}", rawKey, t.toString());
+        String resolvedKey = com.lhy.ae2utility.integration.eaep.EaepReflection.resolveSearchKeyAlias(rawKey);
+        if (resolvedKey == null) {
+            InventoryPatternUploadDebug.warn("preset_search_key", "resolveAlias failed rawKey={}", rawKey);
             return false;
         }
+        return com.lhy.ae2utility.integration.eaep.EaepReflection.setLastProviderSearchKey(resolvedKey);
     }
 
     private static String readStoredSearchKey(ItemStack stack) {

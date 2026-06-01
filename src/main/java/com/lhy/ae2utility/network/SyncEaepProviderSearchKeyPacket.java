@@ -3,6 +3,7 @@ package com.lhy.ae2utility.network;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.EaepPendingProviderSearch;
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
+import com.lhy.ae2utility.integration.eaep.EaepReflection;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -48,37 +49,26 @@ public record SyncEaepProviderSearchKeyPacket(boolean craftingPresetOnly, String
                     payload.craftingPresetOnly(), payload.rawFilter() != null ? payload.rawFilter().length() : -1,
                     snippet(payload.rawFilter()));
 
-            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            java.lang.reflect.Method resolveAlias = uploadUtil.getMethod("resolveSearchKeyAlias", String.class);
-            java.lang.reflect.Method setKeyMethod = uploadUtil.getMethod("setLastProviderSearchKey", String.class);
-
             String resolvedForUi = "";
 
             if (payload.craftingPresetOnly()) {
-                java.lang.reflect.Method preset = uploadUtil.getMethod("presetCraftingProviderSearchKey");
-                preset.invoke(null);
-                try {
-                    java.lang.reflect.Field defaultKey = uploadUtil.getField("DEFAULT_CRAFTING_SEARCH_KEY");
-                    String dk = (String) defaultKey.get(null);
-                    if (dk != null && !dk.isBlank()) {
-                        resolvedForUi = (String) resolveAlias.invoke(null, dk);
-                    }
-                } catch (Throwable ignored) {
+                String dk = EaepReflection.defaultCraftingSearchKey();
+                if (dk != null && !dk.isBlank()) {
+                    String resolved = EaepReflection.resolveSearchKeyAlias(dk);
+                    resolvedForUi = resolved != null ? resolved : "";
                 }
             } else {
                 String raw = payload.rawFilter();
                 if (raw != null && !raw.isBlank()) {
-                    resolvedForUi = (String) resolveAlias.invoke(null, raw);
-                    if (resolvedForUi == null) {
-                        resolvedForUi = "";
-                    }
+                    String resolved = EaepReflection.resolveSearchKeyAlias(raw);
+                    resolvedForUi = resolved != null ? resolved : "";
                 }
             }
 
             // 与 InventoryPatternUploadQueue.presetProviderSearchKey 一致：只写供应器搜索键；非空时再 pending，
             // 避免后续一次空同步覆盖尚未应用到 EditBox 的关键字。
             if (!resolvedForUi.isBlank()) {
-                setKeyMethod.invoke(null, resolvedForUi);
+                EaepReflection.setLastProviderSearchKey(resolvedForUi);
                 EaepPendingProviderSearch.offerResolvedFilter(resolvedForUi);
                 EaepPendingProviderSearch.applyResolvedFilterToOpenScreen(resolvedForUi);
             }

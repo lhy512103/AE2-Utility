@@ -20,6 +20,7 @@ import mezz.jei.api.recipe.RecipeIngredientRole;
 
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
+import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 
 public final class JeiEncodePacketFactory {
@@ -122,28 +123,18 @@ public final class JeiEncodePacketFactory {
         if (!shiftUpload || !ModList.get().isLoaded("extendedae_plus")) {
             return providerSearchKey;
         }
-        try {
-            Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            if (recipe instanceof RecipeHolder<?> holder && holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
-                java.lang.reflect.Field defaultKey = uploadUtil.getField("DEFAULT_CRAFTING_SEARCH_KEY");
-                providerSearchKey = (String) defaultKey.get(null);
-                if (providerSearchKey == null) {
-                    providerSearchKey = "";
-                }
+        if (recipe instanceof RecipeHolder<?> holder && holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
+            providerSearchKey = EaepReflection.defaultCraftingSearchKey();
+        } else {
+            String name = null;
+            if (recipe instanceof RecipeHolder<?> h) {
+                name = EaepReflection.mapRecipeTypeToSearchKey(h.value());
             } else {
-                String name = null;
-                if (recipe instanceof RecipeHolder<?> h) {
-                    java.lang.reflect.Method mapRecipe = uploadUtil.getMethod("mapRecipeTypeToSearchKey", net.minecraft.world.item.crafting.Recipe.class);
-                    name = (String) mapRecipe.invoke(null, h.value());
-                } else {
-                    java.lang.reflect.Method deriveKey = uploadUtil.getMethod("deriveSearchKeyFromUnknownRecipe", Object.class);
-                    name = (String) deriveKey.invoke(null, recipe);
-                }
-                if (name != null && !name.isEmpty()) {
-                    providerSearchKey = name;
-                }
+                name = EaepReflection.deriveSearchKeyFromUnknownRecipe(recipe);
             }
-        } catch (Throwable ignored) {
+            if (name != null && !name.isEmpty()) {
+                providerSearchKey = name;
+            }
         }
         return providerSearchKey == null ? "" : providerSearchKey;
     }

@@ -30,7 +30,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @Mixin(PatternEncodingTermScreen.class)
 public class MixinPatternEncodingTermScreenUpload {
-    private static final String REQUEST_PACKET_CLASS = "com.extendedae_plus.network.RequestProvidersListC2SPacket";
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void ae2utility$batchUploadInventoryPatterns(double mouseX, double mouseY, int button,

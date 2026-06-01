@@ -53,3 +53,6 @@ side="BOTH"
 
 [[mixins]]
 config="ae2utility.mixins.json"
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"

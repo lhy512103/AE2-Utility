@@ -21,6 +21,7 @@ java {
 
 neoForge {
     version = neo_version
+    accessTransformers.from "src/main/resources/META-INF/accesstransformer.cfg"
 
     mods {
         create(mod_id) {

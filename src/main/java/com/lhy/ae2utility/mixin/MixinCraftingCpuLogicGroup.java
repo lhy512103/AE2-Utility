@@ -19,12 +19,19 @@ import com.lhy.ae2utility.card.NbtTearCardThreadLocal;
 import com.lhy.ae2utility.card.NbtTearFilter;
 import com.lhy.ae2utility.card.NbtTearSimulationEnv;
 
-@Mixin(targets = "net.pedroksl.advanced_ae.common.logic.AdvCraftingCPULogic", remap = false)
-public class MixinAdvCraftingCpuLogic {
+/**
+ * 统一为 AE2/AdvancedAE/NeoEcoAE 的 CraftingCPULogic 加入 NBT 撕裂卡的 simulate 环境与 return-inventory 匹配放宽。
+ */
+@Mixin(targets = {
+        "appeng.crafting.execution.CraftingCpuLogic",
+        "net.pedroksl.advanced_ae.common.logic.AdvCraftingCPULogic",
+        "cn.dancingsnow.neoecoae.api.me.ECOCraftingCPULogic"
+}, remap = false)
+public class MixinCraftingCpuLogicGroup {
 
     @Inject(method = "executeCrafting", at = @At("HEAD"))
-    private void ae2utility$pushGlobalFilter(int maxPatterns, CraftingService craftingService, IEnergyService energyService, Level level,
-            CallbackInfoReturnable<Integer> cir) {
+    private void ae2utility$pushGlobalFilter(int maxPatterns, CraftingService craftingService,
+            IEnergyService energyService, Level level, CallbackInfoReturnable<Integer> cir) {
         NbtTearSimulationEnv.beginCpuExtract(craftingService);
     }
 
@@ -33,7 +40,8 @@ public class MixinAdvCraftingCpuLogic {
         NbtTearSimulationEnv.clear();
     }
 
-    @Redirect(method = "insert", at = @At(value = "INVOKE", target = "Lappeng/crafting/inv/ListCraftingInventory;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;)J"))
+    @Redirect(method = "insert", at = @At(value = "INVOKE",
+            target = "Lappeng/crafting/inv/ListCraftingInventory;extract(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;)J"))
     private long ae2utility$redirectExtract(ListCraftingInventory instance, AEKey what, long amount, Actionable mode) {
         NbtTearFilter filter = NbtTearCardThreadLocal.get();
         if (filter != null) {
@@ -46,7 +54,8 @@ public class MixinAdvCraftingCpuLogic {
         return instance.extract(what, amount, mode);
     }
 
-    @Redirect(method = "insert", at = @At(value = "INVOKE", target = "Lappeng/api/stacks/AEKey;matches(Lappeng/api/stacks/GenericStack;)Z"))
+    @Redirect(method = "insert", at = @At(value = "INVOKE",
+            target = "Lappeng/api/stacks/AEKey;matches(Lappeng/api/stacks/GenericStack;)Z"))
     private boolean ae2utility$redirectMatches(AEKey what, GenericStack finalOutput) {
         NbtTearFilter filter = NbtTearCardThreadLocal.get();
         if (filter != null && finalOutput != null) {

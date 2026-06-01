@@ -166,18 +166,11 @@ public final class InventoryPatternMatrixUploadService {
             }
         }
 
-        try {
-            Class<?> pendingUtil = Class.forName("com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil");
-            Method findGrid = pendingUtil.getMethod("findPlayerGrid", ServerPlayer.class);
-            IGrid grid = (IGrid) findGrid.invoke(null, player);
-            if (grid != null) {
-                InventoryPatternUploadDebug.info("matrix_upload", "resolved from pending util");
-            }
-            return grid;
-        } catch (Throwable t) {
-            InventoryPatternUploadDebug.warn("matrix_upload", "resolveGrid reflection failed error={}", t.toString());
-            return null;
+        IGrid grid = com.lhy.ae2utility.integration.eaep.EaepReflection.findPlayerGrid(player);
+        if (grid != null) {
+            InventoryPatternUploadDebug.info("matrix_upload", "resolved from pending util");
         }
+        return grid;
     }
 
     private static List<InternalInventory> findDirectMatrixInventories(IGrid grid) {

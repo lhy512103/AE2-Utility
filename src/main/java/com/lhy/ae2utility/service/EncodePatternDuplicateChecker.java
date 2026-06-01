@@ -15,6 +15,7 @@ import appeng.api.networking.IGrid;
 import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 
+import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.mixin.CraftingServiceAccessor;
 
 public final class EncodePatternDuplicateChecker {
@@ -29,14 +30,8 @@ public final class EncodePatternDuplicateChecker {
             return false;
         }
         if (ModList.get().isLoaded("extendedae_plus")) {
-            try {
-                Class<?> uploadUtil = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-                var dup = uploadUtil.getDeclaredMethod("matrixContainsPattern", IGrid.class, ItemStack.class);
-                dup.setAccessible(true);
-                if (Boolean.TRUE.equals(dup.invoke(null, grid, encodedCandidate))) {
-                    return true;
-                }
-            } catch (Throwable ignored) {
+            if (EaepReflection.matrixContainsPattern(grid, encodedCandidate)) {
+                return true;
             }
         }
 

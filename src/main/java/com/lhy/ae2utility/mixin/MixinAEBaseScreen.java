@@ -67,21 +67,19 @@ public abstract class MixinAEBaseScreen {
         if (tear == null) {
             return;
         }
-        var pos = (SlotMutablePosAccessor) (Slot) tear;
-        ae2utility$positionTearDialogTopRightVanilla(screen, pos);
-        pos.ae2utility$setX(tear.x + TEAR_SLOT_VANILLA_NUDGE_X);
-        pos.ae2utility$setY(tear.y + TEAR_SLOT_VANILLA_NUDGE_Y);
+        ae2utility$positionTearDialogTopRightVanilla(screen, tear);
+        tear.x += TEAR_SLOT_VANILLA_NUDGE_X;
+        tear.y += TEAR_SLOT_VANILLA_NUDGE_Y;
     }
 
     /** 无升级面板时：固定于对话框内背景右上角。 */
-    private void ae2utility$positionTearDialogTopRightVanilla(AEBaseScreen<?> screen, SlotMutablePosAccessor pos) {
-        var inv = (AEBaseScreenInvoker) (Object) this;
-        var inner = inv.ae2utility$getBounds(false);
+    private void ae2utility$positionTearDialogTopRightVanilla(AEBaseScreen<?> screen, Slot slot) {
+        var inner = ((AEBaseScreenInvoker) (Object) this).ae2utility$getBounds(false);
         int w = inner.getWidth();
         int x = w - SLOT_SIZE - TEAR_SLOT_VANILLA_TOPRIGHT_PAD_RIGHT;
         int y = TEAR_SLOT_VANILLA_TOPRIGHT_PAD_TOP;
-        pos.ae2utility$setX(Math.max(0, x));
-        pos.ae2utility$setY(Math.max(0, y));
+        slot.x = Math.max(0, x);
+        slot.y = Math.max(0, y);
     }
 
     /**

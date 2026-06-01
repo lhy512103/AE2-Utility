@@ -38,18 +38,14 @@ public final class InventoryPatternProviderUploadService {
 
             ItemStack singlePattern = stack.copyWithCount(1);
 
-            Class<?> pendingUtil = Class.forName("com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil");
-            Method clearPending = pendingUtil.getMethod("clearPendingCtrlQUpload", ServerPlayer.class);
-            Method beginPending = pendingUtil.getMethod("beginPendingCtrlQUpload", ServerPlayer.class, ItemStack.class);
-            Method uploadPending = pendingUtil.getMethod("uploadPendingCtrlQPattern", ServerPlayer.class, long.class);
+            com.lhy.ae2utility.integration.eaep.EaepReflection.clearPendingCtrlQUpload(player);
+            com.lhy.ae2utility.integration.eaep.EaepReflection.beginPendingCtrlQUpload(player, singlePattern);
 
-            clearPending.invoke(null, player);
-            beginPending.invoke(null, player, singlePattern);
-
-            boolean uploaded = (Boolean) uploadPending.invoke(null, player, payload.providerId());
+            boolean uploaded = com.lhy.ae2utility.integration.eaep.EaepReflection
+                    .uploadPendingCtrlQPattern(player, payload.providerId());
             EaepUploadDebugLog.info("UploadInventoryPatternToProvider uploadPendingCtrlQPattern returned={}", uploaded);
             if (!uploaded) {
-                clearPending.invoke(null, player);
+                com.lhy.ae2utility.integration.eaep.EaepReflection.clearPendingCtrlQUpload(player);
                 InventoryPatternUploadDebug.warn("provider_upload", "upload failed slot={} providerId={}", slotIndex, payload.providerId());
                 return;
             }

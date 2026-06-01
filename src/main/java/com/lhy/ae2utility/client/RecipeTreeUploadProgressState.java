@@ -54,15 +54,7 @@ public final class RecipeTreeUploadProgressState {
         if (machineName == null || machineName.isBlank()) {
             return "-";
         }
-        try {
-            Class<?> utilClass = Class.forName("com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil");
-            java.lang.reflect.Method resolveAlias = utilClass.getMethod("resolveSearchKeyAlias", String.class);
-            Object resolved = resolveAlias.invoke(null, machineName);
-            if (resolved instanceof String resolvedString && !resolvedString.isBlank()) {
-                return resolvedString;
-            }
-        } catch (Throwable ignored) {
-        }
-        return machineName;
+        String resolved = com.lhy.ae2utility.integration.eaep.EaepReflection.resolveSearchKeyAlias(machineName);
+        return resolved != null && !resolved.isBlank() ? resolved : machineName;
     }
 }
