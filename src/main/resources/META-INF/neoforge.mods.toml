@@ -38,6 +38,13 @@ ordering="AFTER"
 side="CLIENT"
 
 [[dependencies.${mod_id}]]
+modId="emi"
+type="optional"
+versionRange="[1.1.23,)"
+ordering="AFTER"
+side="CLIENT"
+
+[[dependencies.${mod_id}]]
 modId="wcwt"
 type="optional"
 versionRange="[0.0.1,)"

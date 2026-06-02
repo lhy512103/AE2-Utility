@@ -600,6 +600,17 @@ public final class EncodePatternService {
         try {
             rememberProviderSearchKey(serverPlayer, payload, encodedPattern);
 
+            // ECO 优先：合成/锻造/切石样板（canUploadToMatrix）若网络存在 ECO 合成子系统，先尝试塞入 ECO；
+            // ECO 满或无该子系统时返回 false，继续走下方原有上传逻辑（EAEP 装配矩阵 / 供应器）。
+            if (payload.shiftDown() && canUploadToMatrix
+                    && com.lhy.ae2utility.integration.eco.EcoReflection.isLoaded()
+                    && com.lhy.ae2utility.integration.eco.EcoReflection.tryInsertPattern(grid, encodedPattern)) {
+                String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
+                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                return EncodeOutcome.SUCCESS;
+            }
+
             if (payload.shiftDown() && ModList.get().isLoaded("extendedae_plus")) {
                 try {
                     IGrid eaepGrid = com.lhy.ae2utility.integration.eaep.EaepReflection.findPlayerGrid(serverPlayer);

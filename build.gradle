@@ -52,15 +52,21 @@ repositories {
         name = "Jared's Maven"
         url = "https://maven.blamejared.com/"
     }
+    maven {
+        name = "TerraformersMC"
+        url = "https://maven.terraformersmc.com/"
+    }
 }
 
 dependencies {
     // 完整 JEI（非仅 API）：编译期需要 RecipesGui、ImmutableRect2i 等实现类；运行时仍由 localRuntime 提供
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly "dev.emi:emi-neoforge:${emi_version}"
     compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
 
     localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    localRuntime "dev.emi:emi-neoforge:${emi_version}"
     localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
 }
 
