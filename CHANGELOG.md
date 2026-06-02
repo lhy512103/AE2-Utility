@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.7.0
+
+### 中文
+
+AE2:Utility 1.6.0-1.7.0 模组更新日志：
+
+1. 移除配方树功能。
+2. EMI 界面新增单个/批量样板编码/上传功能。
+3. 上传样板兼容自动上传合成、锻造台、切石机样板至 ECO 合成子系统。
+4. 优化上传样板逻辑：
+   - EAEP 开关关：任何自动行为（唯一匹配 / 复用）全部停止，回到全手动。
+   - EAEP 开关开 + AE2U 复用开：唯一时自动，多个时复用上次同名选择。
+   - EAEP 开关开 + AE2U 复用关：只有唯一匹配才自动，多个时每次手动选。
+   - 当开启批次复用、本批次已记住同名选择、但该同名供应器不在当前列表（如原供应器已满）时，再次弹出供应器选择界面进行选择后才再次上传，避免上传至不匹配的供应器。
+5. 更改编码/上传样板优先级：书签 > 网络已有样板（可合成） > 未损坏 > 库存最多 > 特异性变体 > 首项。
+6. 修复 JEI 编码合成配方时可能被编码成处理样板的 bug。
+7. 修复批量上传时处理样板被硬塞矩阵，提示“装配矩阵已满、已中止上传”的 bug。
+8. 优化多标签/多候选配方界面卡顿。
+
+### English
+
+AE2:Utility 1.6.0-1.7.0 changelog:
+
+1. Removed the built-in recipe tree feature.
+2. Added single and batch pattern encode/upload support to the EMI interface.
+3. Added ECO crafting subsystem upload compatibility for crafting, smithing table, and stonecutting patterns.
+4. Improved pattern upload behavior:
+   - EAEP toggle off: all automatic behavior (unique-match upload / provider reuse) stops, returning to fully manual selection.
+   - EAEP toggle on + AE2U reuse on: unique matches upload automatically; multiple matches reuse the previous same-name provider choice.
+   - EAEP toggle on + AE2U reuse off: only unique matches upload automatically; multiple matches require manual selection every time.
+   - When batch reuse is enabled and the batch remembers a same-name provider, but that provider is no longer in the current list (for example, it is full), the provider selection screen opens again and upload resumes only after a new choice, avoiding uploads to mismatched providers.
+5. Changed encode/upload input priority to: bookmarks > existing network patterns (craftable) > undamaged > highest stock > specific variant > first entry.
+6. Fixed a bug where JEI crafting recipes could be encoded as processing patterns.
+7. Fixed a bug where batch upload forced processing patterns into the matrix and showed “assembly matrix full, upload aborted”.
+8. Improved performance for multi-tag and multi-alternative recipe screens.
+
 ## 1.4.0
 
 1. 新增“配方树”功能，入口设定为 JEI 界面编码按钮 `Alt + 左键` 进入。
