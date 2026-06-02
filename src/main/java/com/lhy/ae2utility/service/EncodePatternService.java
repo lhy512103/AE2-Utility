@@ -495,6 +495,26 @@ public final class EncodePatternService {
         return false;
     }
 
+    /**
+     * 与 EAEP 装配矩阵查重对齐：单次上传时，若 ECO 合成子系统已存在相同样板，则拦截并提示，不再重复上传。
+     * 仅对「可进矩阵」的合成/锻造/切石样板有意义；处理样板不进 ECO。批量模式由网络去重统一处理，不在此提示。
+     */
+    private static boolean ecoDuplicateAbortSingle(ServerPlayer serverPlayer, EncodePatternPacket payload,
+            ItemStack encodedPattern, boolean canUploadToMatrix, @Nullable IGrid terminalGrid) {
+        if (!payload.shiftDown() || !canUploadToMatrix
+                || !com.lhy.ae2utility.integration.eco.EcoReflection.isLoaded()) {
+            return false;
+        }
+        if (!com.lhy.ae2utility.integration.eco.EcoReflection.containsPattern(terminalGrid, encodedPattern)) {
+            return false;
+        }
+        serverPlayer.sendSystemMessage(
+                Component.translatable("message.ae2utility.eco_pattern_duplicate").withStyle(net.minecraft.ChatFormatting.GOLD));
+        RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer,
+                payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName(), false);
+        return true;
+    }
+
     private static void giveEncodedPatternNoUpload(ServerPlayer player, ItemStack encodedPattern) {
         ItemStack stack = encodedPattern.copy();
         player.getInventory().add(stack);
@@ -584,6 +604,10 @@ public final class EncodePatternService {
         }
 
         if (!batchMode && eaepMatrixDuplicateAbortSingle(serverPlayer, payload, encodedPattern, canUploadToMatrix, grid)) {
+            return EncodeOutcome.FAILURE;
+        }
+
+        if (!batchMode && ecoDuplicateAbortSingle(serverPlayer, payload, encodedPattern, canUploadToMatrix, grid)) {
             return EncodeOutcome.FAILURE;
         }
 

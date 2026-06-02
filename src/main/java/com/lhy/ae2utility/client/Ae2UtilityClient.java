@@ -6,7 +6,6 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.api.crafting.PatternDetailsHelper;
@@ -28,11 +27,6 @@ public class Ae2UtilityClient {
         CraftableStateCache.tick();
         InventoryPatternUploadQueue.tick();
         RecipeTreeUploadQueue.tick();
-    }
-
-    @SubscribeEvent
-    public static void onKeyInput(InputEvent.Key event) {
-        Ae2UtilityKeyBindings.onKey(event);
     }
 
     @SubscribeEvent

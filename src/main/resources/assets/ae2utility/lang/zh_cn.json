@@ -161,6 +161,7 @@
   "message.ae2utility.inventory_upload_provider_failed_no_eaep": "AE2实用：未检测到 ExtendedAE 样板供应界面，背包样板上传已停止。",
   "message.ae2utility.inventory_upload_reopen_providers_failed": "AE2实用：无法重新打开供应器界面，上传已停止。",
   "message.ae2utility.batch_encode_category_disabled_config": "AE2实用：配置文件已关闭「整类分页批量编码」，可在客户端模组配置中开启。",
+  "message.ae2utility.eco_pattern_duplicate": "AE2实用：ECO 合成系统中已存在该样板，已取消上传。",
   "message.ae2utility.encode_rejected_require_open_encoding_menu": "AE2实用：当前服务器要求必须先打开样板编码类 ME 界面才能编码（见服务端配置）。",
   "message.ae2utility.encode_rejected_full_category_blocked_server": "AE2实用：本服务器已禁止 JEI「整台机器分类含全部分页」的批量编码（见服务端配置）。",
   "message.ae2utility.bulk_encode_truncated_to_server_batch": "AE2实用：本批共 %1$s 条，按服务器单次上限仅处理前 %2$s 条（见服务端配置）。",
@@ -171,7 +172,6 @@
   "jei.tooltip.ae2utility.transfer_shift_tree": "Shift+左键：打开配方树总览",
 
   "key.categories.ae2utility": "AE2 实用",
-  "key.ae2utility.clear_all_jei_bookmarks": "清空全部 JEI 收藏",
 
   "jei.tooltip.ae2utility.encode_pattern_alt_tree": "Alt+左键：打开配方树总览",
   "jei.tooltip.ae2utility.encode_pattern_details_prefix": "按住 ",
@@ -183,7 +183,7 @@
   "jei.tooltip.ae2utility.batch_encode_page": "一键编码当前页显示的全部配方",
   "jei.tooltip.ae2utility.batch_encode_category": "一键编码当前 JEI 机器分类下的全部配方（含所有分页）",
   "jei.tooltip.ae2utility.batch_encode_shift_hint": "按住 Shift 可批量上传",
-  "emi.tooltip.ae2utility.encode_pattern_button": "AE2 实用：样板编码/上传",
+  "emi.tooltip.ae2utility.encode_pattern_button": "样板编码/上传",
   "emi.tooltip.ae2utility.encode_pattern_click": "左键：编码样板",
   "emi.tooltip.ae2utility.encode_pattern_shift": "Shift+左键：上传样板",
   "emi.tooltip.ae2utility.encode_pattern_blue_slots": "蓝色高亮的物品 可以自动制作。",
@@ -202,8 +202,6 @@
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "开（默认）：在 JEI 界面显示「一键编码当前机器分类全部配方（所有分页）」按钮。\n关：隐藏该按钮。\n（仅本机显示偏好；服务端需在服务器配置里禁止该模式。）",
   "ae2utility.config.reuseProviderWithinBatch": "批量上传会话内复用上次选择的供应器",
   "ae2utility.config.reuseProviderWithinBatch.tooltip": "开（默认）：同一批量上传会话内，若某搜索关键字曾选过供应器，则后续同关键字匹配到多个供应器时，自动复用上次选择的同名供应器，减少重复弹窗。按名称在当前列表里重新匹配，不会因列表顺序变化而上传错位置。\n仍受 ExtendedAE Plus 的「唯一匹配自动上传」开关约束：该开关关闭时不会自动复用。\n关：每条样板都需手动选择供应器（过滤后唯一时仍自动）。",
-  "ae2utility.config.enableClearAllJeiBookmarksHotkey": "注册「清空全部 JEI 收藏」快捷键",
-  "ae2utility.config.enableClearAllJeiBookmarksHotkey.tooltip": "开（默认）：在「选项 → 控制」中显示可改键的「清空全部 JEI 收藏」（默认 Ctrl+A）。按一次绑定键即可清空（不要求鼠标移到书签栏），并写入 JEI 书签存档。\n若 JEI 搜索框、聊天或其它输入框正处在键盘焦点（光标在框里打字），为避免与 Ctrl+A「全选」等编辑快捷键冲突，此次不会清空；请先点在空白／配方区等取消焦点，或改用不占输入的操作。\n关：不再响应清空（键位可能仍显示在控制列表中，但按下无效）。",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "「须打开样板编码界面」：拦截隔空 JEI 编码",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei.tooltip": "开：未打开样板编码类 ME 界面的编码请求一律拒绝。\n关：不额外施加该限制。",
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "禁止「整类全分页」JEI 批量编码",

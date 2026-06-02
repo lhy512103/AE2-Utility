@@ -14,7 +14,6 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
-import com.lhy.ae2utility.client.Ae2UtilityKeyBindings;
 import com.lhy.ae2utility.client.ModClientSetup;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.command.Ae2UtilityCommands;
@@ -50,7 +49,6 @@ public class Ae2UtilityMod {
         if (FMLEnvironment.dist == Dist.CLIENT) {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Ae2UtilityClientConfig.SPEC);
             modBus.addListener(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent.class, ModClientSetup::registerScreens);
-            modBus.addListener(net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent.class, Ae2UtilityKeyBindings::registerKeyMappings);
             NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, Ae2UtilityMod::onClientLoggingOut);
             modBus.addListener(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent.class, Ae2UtilityMod::onClientSetup);
         }

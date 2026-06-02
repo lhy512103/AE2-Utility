@@ -16,6 +16,7 @@ import appeng.me.service.CraftingService;
 import appeng.me.service.helpers.NetworkCraftingProviders;
 
 import com.lhy.ae2utility.integration.eaep.EaepReflection;
+import com.lhy.ae2utility.integration.eco.EcoReflection;
 import com.lhy.ae2utility.mixin.CraftingServiceAccessor;
 
 public final class EncodePatternDuplicateChecker {
@@ -33,6 +34,9 @@ public final class EncodePatternDuplicateChecker {
             if (EaepReflection.matrixContainsPattern(grid, encodedCandidate)) {
                 return true;
             }
+        }
+        if (EcoReflection.isLoaded() && EcoReflection.containsPattern(grid, encodedCandidate)) {
+            return true;
         }
 
         IPatternDetails cand = PatternDetailsHelper.decodePattern(encodedCandidate, player.level());

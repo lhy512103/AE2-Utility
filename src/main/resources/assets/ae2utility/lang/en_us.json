@@ -161,6 +161,7 @@
   "message.ae2utility.inventory_upload_provider_failed_no_eaep": "AE2 Utility: ExtendedAE pattern provider is not available; inventory pattern upload stopped.",
   "message.ae2utility.inventory_upload_reopen_providers_failed": "AE2 Utility: could not reopen the pattern provider screen; uploads stopped.",
   "message.ae2utility.batch_encode_category_disabled_config": "AE2 Utility: «encode whole JEI category» is disabled in mod config.",
+  "message.ae2utility.eco_pattern_duplicate": "AE2 Utility: this pattern already exists in the ECO crafting system; upload cancelled.",
   "message.ae2utility.encode_rejected_require_open_encoding_menu": "AE2 Utility: this server requires an open pattern-encoding ME screen to encode (server config).",
   "message.ae2utility.encode_rejected_full_category_blocked_server": "AE2 Utility: full JEI category (all pages) batch encoding is disabled on this server (server config).",
   "message.ae2utility.bulk_encode_truncated_to_server_batch": "AE2 Utility: batch has %1$s patterns; processing only the first %2$s due to server cap (server config).",
@@ -179,7 +180,7 @@
   "jei.tooltip.ae2utility.batch_encode_page": "Batch encode all recipes visible on this page",
   "jei.tooltip.ae2utility.batch_encode_category": "Batch encode all recipes in this JEI category (every page)",
   "jei.tooltip.ae2utility.batch_encode_shift_hint": "Hold Shift for batch upload",
-  "emi.tooltip.ae2utility.encode_pattern_button": "AE2 Utility: Encode/Upload Pattern",
+  "emi.tooltip.ae2utility.encode_pattern_button": "Encode/Upload Pattern",
   "emi.tooltip.ae2utility.encode_pattern_click": "Left-click: encode pattern",
   "emi.tooltip.ae2utility.encode_pattern_shift": "Shift+left-click: upload pattern",
   "emi.tooltip.ae2utility.encode_pattern_blue_slots": "Blue highlighted items can be auto-crafted.",
@@ -198,8 +199,6 @@
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "On (default): show JEI overlay button to encode every recipe on every page for the selected machine category.\nOff: hide it.\n(Client display preference; forbid this mode in server config.)",
   "ae2utility.config.reuseProviderWithinBatch": "Reuse last chosen provider within a batch session",
   "ae2utility.config.reuseProviderWithinBatch.tooltip": "On (default): within one batch upload session, when a search key resolves to multiple providers, reuse the previously chosen provider (matched by name) to reduce repeated popups. Matched by name against the current list, so it never uploads to the wrong place when the list order changes.\nStill gated by ExtendedAE Plus's 'auto upload unique match' toggle: no auto-reuse when that toggle is off.\nOff: every pattern must be chosen manually (still auto when the filter is unique).",
-  "ae2utility.config.enableClearAllJeiBookmarksHotkey": "Register “clear all JEI bookmarks” keybinding",
-  "ae2utility.config.enableClearAllJeiBookmarksHotkey.tooltip": "On (default): registers a customizable control (default CTRL+A). Press once to clear bookmarks and persist them to disk — bookmark-bar hover isn’t required.\nIf the JEI search bar, chat, or another text field has keyboard focus, clearing is skipped so shortcuts like Select-All aren’t overridden — click elsewhere to unfocus, or pick a non-typing chord.\nOff: disables the action (your Controls entry may still exist but does nothing).",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "Require pattern-encoding ME screen — block remote JEI encode",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei.tooltip": "On: encode requests without a pattern-encoding ME screen are rejected.\nOff: don’t impose this restriction.",
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "Forbid “full category / all pages” JEI batch encode",
@@ -207,6 +206,5 @@
   "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "Max patterns per bulk encode session ID",
   "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession.tooltip": "-1 disables this limit (no truncation, no per-session counting).\n8–16384: per bulk session ID, the server encodes at most this many patterns; extras are skipped.\nShared across JEI full-category/current-page batches, Recipe Finder bulk, recipe-tree batches, etc.",
 
-  "key.categories.ae2utility": "AE2 Utility",
-  "key.ae2utility.clear_all_jei_bookmarks": "Clear all JEI bookmarks"
+  "key.categories.ae2utility": "AE2 Utility"
 }

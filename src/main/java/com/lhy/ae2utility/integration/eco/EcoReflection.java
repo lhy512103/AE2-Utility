@@ -4,7 +4,11 @@ import java.lang.reflect.Method;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.lhy.ae2utility.init.ModDataComponents;
+
+import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
+import appeng.helpers.patternprovider.PatternContainer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
@@ -20,6 +24,7 @@ public final class EcoReflection {
     private static final String MOD_ID = "neoecoae";
     private static final String SERVICE = "cn.dancingsnow.neoecoae.api.IECOPatternStorageService";
     private static final String STORAGE = "cn.dancingsnow.neoecoae.api.IECOPatternStorage";
+    private static final String PATTERN_BUS = "cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity";
 
     private EcoReflection() {
     }
@@ -50,25 +55,100 @@ public final class EcoReflection {
         }
         try {
             Method insert = Class.forName(STORAGE).getMethod("insertPattern", ItemStack.class);
-            Object result = insert.invoke(storage, pattern.copy());
+            Object result = insert.invoke(storage, copyWithoutUploadData(pattern));
             return Boolean.TRUE.equals(result);
         } catch (Throwable ignored) {
             return false;
         }
     }
 
-    private static @Nullable Object resolveStorage(@Nullable IGrid grid) {
+    /**
+     * Checks whether ECO's crafting subsystem on this grid already stores an identical
+     * encoded pattern, mirroring how EAEP guards against assembly-matrix duplicates.
+     *
+     * <p>ECO exposes its crafting pattern buses as normal AE2 {@link PatternContainer}
+     * machines, so scan those containers instead of depending on ECO's private service
+     * fields.</p>
+     */
+    public static boolean containsPattern(@Nullable IGrid grid, @Nullable ItemStack pattern) {
+        if (grid == null || pattern == null || pattern.isEmpty() || !isLoaded()) {
+            return false;
+        }
+        ItemStack normalizedPattern = copyWithoutUploadData(pattern);
+        for (Class<?> machineClass : grid.getMachineClasses()) {
+            if (!PatternContainer.class.isAssignableFrom(machineClass)) {
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            Class<? extends PatternContainer> containerClass = (Class<? extends PatternContainer>) machineClass;
+            for (PatternContainer container : grid.getActiveMachines(containerClass)) {
+                if (container != null && isEcoPatternProvider(container)
+                        && inventoryContains(container, normalizedPattern)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isEcoPatternProvider(PatternContainer container) {
+        Class<?> cls = container.getClass();
+        while (cls != null) {
+            if (PATTERN_BUS.equals(cls.getName())) {
+                return true;
+            }
+            cls = cls.getSuperclass();
+        }
+        return false;
+    }
+
+    private static boolean inventoryContains(PatternContainer container, ItemStack pattern) {
+        InternalInventory inv = container.getTerminalPatternInventory();
+        if (inv == null) {
+            return false;
+        }
+        for (int i = 0; i < inv.size(); i++) {
+            ItemStack stack = inv.getStackInSlot(i);
+            if (!stack.isEmpty() && samePatternIgnoringUploadData(stack, pattern)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean samePatternIgnoringUploadData(ItemStack first, ItemStack second) {
+        return ItemStack.isSameItemSameComponents(copyWithoutUploadData(first), copyWithoutUploadData(second));
+    }
+
+    private static ItemStack copyWithoutUploadData(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack copy = stack.copy();
+        copy.remove(ModDataComponents.PATTERN_PROVIDER_SEARCH_KEY.get());
+        return copy;
+    }
+
+    private static @Nullable Object resolveService(@Nullable IGrid grid) {
         if (grid == null || !isLoaded()) {
             return null;
         }
         try {
             Class<?> serviceCls = Class.forName(SERVICE);
             Method getService = IGrid.class.getMethod("getService", Class.class);
-            Object service = getService.invoke(grid, serviceCls);
-            if (service == null) {
-                return null;
-            }
-            Method getStorage = serviceCls.getMethod("getPatternStorage");
+            return getService.invoke(grid, serviceCls);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static @Nullable Object resolveStorage(@Nullable IGrid grid) {
+        Object service = resolveService(grid);
+        if (service == null) {
+            return null;
+        }
+        try {
+            Method getStorage = Class.forName(SERVICE).getMethod("getPatternStorage");
             return getStorage.invoke(service);
         } catch (Throwable ignored) {
             return null;

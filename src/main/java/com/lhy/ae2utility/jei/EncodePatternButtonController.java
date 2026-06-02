@@ -352,7 +352,8 @@ public class EncodePatternButtonController implements IIconButtonController {
 
         IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
 
-        boolean altRecipeTree = Screen.hasAltDown() && !Screen.hasControlDown() && !Screen.hasShiftDown();
+        boolean altRecipeTree = JeictCompat.isLoaded()
+                && Screen.hasAltDown() && !Screen.hasControlDown() && !Screen.hasShiftDown();
         boolean ctrlShiftUpload = JeiBookmarkUtil.isCtrlShiftLeftClickAnchor(input);
         boolean ctrlLeftBookmarkEncode = JeiBookmarkUtil.isCtrlLeftClickAnchor(input);
         if ((altRecipeTree || ctrlShiftUpload || ctrlLeftBookmarkEncode) && input.isSimulate()) {
@@ -402,7 +403,9 @@ public class EncodePatternButtonController implements IIconButtonController {
         tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_button"));
         if (isAvailable) {
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_blue_slots").withStyle(ChatFormatting.BLUE));
-            tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_alt_tree").withStyle(ChatFormatting.WHITE));
+            if (JeictCompat.isLoaded()) {
+                tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_alt_tree").withStyle(ChatFormatting.WHITE));
+            }
             if (!detailExpanded) {
                 tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_prefix")
                         .withStyle(ChatFormatting.WHITE)
