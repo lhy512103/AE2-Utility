@@ -3,12 +3,10 @@ package com.lhy.ae2utility.jei;
 import java.util.HashSet;
 import java.util.Set;
 
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
 import org.jetbrains.annotations.Nullable;
 
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.menu.me.common.MEStorageMenu;
 
@@ -55,22 +53,19 @@ public final class ClientRepoCraftableIndex {
     }
 
     /**
-     * 是否存在可合成输出的 {@link AEItemKey}，与任一 {@code Ingredient.getItems()} 匹配（JEI 物品输入槽与 AE 拉配方预览路径）。
+     * 是否存在可合成输出与该 {@code ingredient} 匹配（JEI 物品输入槽与 AE 拉配方预览路径）。
+     * <p>与 AE2 {@link MEStorageMenu#hasIngredient} 同源：经 {@code clientRepo} 的 item-id 索引
+     * （{@code getByIngredient} → {@code Ingredient.getStackingIds()} → {@code getByItemId}）只命中接受的 item，
+     * 再判 {@code isCraftable}；避免「全网络可合成键 × 全部候选」的 O(N×M) 扫描。</p>
      */
     public static boolean hasCraftableItemMatchingIngredient(MEStorageMenu menu, Ingredient ingredient) {
-        if (menu.getClientRepo() == null || ingredient.isEmpty()) {
+        var repo = menu.getClientRepo();
+        if (repo == null || ingredient.isEmpty()) {
             return false;
         }
-        Set<AEKey> keys = craftableKeysForMenu(menu);
-        ItemStack[] stacks = ingredient.getItems();
-        for (AEKey k : keys) {
-            if (!(k instanceof AEItemKey what)) {
-                continue;
-            }
-            for (ItemStack alternative : stacks) {
-                if (what.matches(alternative)) {
-                    return true;
-                }
+        for (var entry : repo.getByIngredient(ingredient)) {
+            if (entry.isCraftable()) {
+                return true;
             }
         }
         return false;

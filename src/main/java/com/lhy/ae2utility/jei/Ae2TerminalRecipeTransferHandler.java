@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.ChatFormatting;
@@ -96,13 +98,13 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
             return null;
         }
 
-        List<RequestedIngredient> requestedIngredients = collectRequestedIngredients(container, recipeSlots);
-        if (requestedIngredients.isEmpty()) {
-            return transferHelper.createUserErrorWithTooltip(
-                    Component.translatable("message.ae2utility.no_item_inputs"));
-        }
-
         if (!doTransfer) {
+            // 预览每 tick 触发：避开 collectRequestedIngredients（含 O(N²) 候选去重 + 全网络优先级排序），
+            // 它只在真正拉取(doTransfer=true)时才需要；预览只需判断有无物品输入。
+            if (!hasAnyItemInput(recipeSlots)) {
+                return transferHelper.createUserErrorWithTooltip(
+                        Component.translatable("message.ae2utility.no_item_inputs"));
+            }
             var preview = TerminalJeRecipeTransferPreview.compute(container, recipeSlots);
             if (preview.anyMissingOrCraftable()) {
                 return new TerminalTransferError(preview, craftMissing);
@@ -110,8 +112,19 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
             return null;
         }
 
+        List<RequestedIngredient> requestedIngredients = collectRequestedIngredients(container, recipeSlots);
+        if (requestedIngredients.isEmpty()) {
+            return transferHelper.createUserErrorWithTooltip(
+                    Component.translatable("message.ae2utility.no_item_inputs"));
+        }
+
         PacketDistributor.sendToServer(new PullRecipeInputsPacket(maxTransfer, craftMissing, requestedIngredients));
         return null;
+    }
+
+    private static boolean hasAnyItemInput(IRecipeSlotsView recipeSlots) {
+        return recipeSlots.getSlotViews(RecipeIngredientRole.INPUT).stream()
+                .anyMatch(Ae2TerminalRecipeTransferHandler::hasItemStack);
     }
 
     private IRecipeTransferError delegateWcwtRecipeTransfer(AbstractContainerMenu container, Object recipe,
@@ -181,17 +194,20 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     }
 
     private static List<ItemStack> collectVisibleAlternatives(IRecipeSlotView slotView) {
+        // 候选去重用 hashItemAndComponents（即 isSameItemSameComponents 的对应哈希）做 O(N) 集合判重，
+        // 替代原先对已收集列表线性扫描的 O(N²)；tag 配方候选可达上百/上千，O(N²) 会让预览每 tick 暴毙。
         List<ItemStack> visibleAlternatives = new ArrayList<>();
+        LongOpenHashSet seen = new LongOpenHashSet();
         ItemStack displayed = getDisplayedStack(slotView);
         if (!displayed.isEmpty()) {
+            seen.add(ItemStack.hashItemAndComponents(displayed));
             visibleAlternatives.add(displayed.copy());
         }
         slotView.getItemStacks()
                 .filter(stack -> !stack.isEmpty())
                 .forEach(stack -> {
-                    ItemStack copy = stack.copy();
-                    if (!containsEquivalentStack(visibleAlternatives, copy)) {
-                        visibleAlternatives.add(copy);
+                    if (seen.add(ItemStack.hashItemAndComponents(stack))) {
+                        visibleAlternatives.add(stack.copy());
                     }
                 });
         return visibleAlternatives;
@@ -260,15 +276,6 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
 
     private static int getPriority(Map<AEKey, Integer> priorities, @Nullable AEKey key) {
         return key == null ? Integer.MIN_VALUE : priorities.getOrDefault(key, Integer.MIN_VALUE);
-    }
-
-    private static boolean containsEquivalentStack(List<ItemStack> stacks, ItemStack candidate) {
-        for (ItemStack existing : stacks) {
-            if (ItemStack.isSameItemSameComponents(existing, candidate)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static ItemStack getDisplayedStack(IRecipeSlotView slotView) {
