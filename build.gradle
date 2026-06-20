@@ -5,6 +5,23 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.74'
 }
 
+import org.gradle.api.Action
+import org.gradle.api.file.FileCopyDetails
+
+// configuration-cache 下 expand 闭包不可序列化；用 Serializable Action 包装。
+class ExpandPropertiesAction implements Action<FileCopyDetails>, Serializable {
+    private final Map<String, ?> properties
+
+    ExpandPropertiesAction(Map<String, ?> properties) {
+        this.properties = new LinkedHashMap<>(properties)
+    }
+
+    @Override
+    void execute(FileCopyDetails details) {
+        details.expand(properties)
+    }
+}
+
 group = mod_group_id
 version = mod_version
 
@@ -17,6 +34,25 @@ java {
         languageVersion = JavaLanguageVersion.of(java_version as int)
     }
     withSourcesJar()
+}
+
+configurations {
+    localRuntime {
+        // 这些放到 clientLocalRuntime（仅客户端），从通用 localRuntime 排除以免进服务端 run。
+        exclude group: "curse.maven", module: "ae2-jei-integration-1074338"
+        exclude group: "curse.maven", module: "imblocker-483760"
+        exclude group: "curse.maven", module: "just-enough-characters-250702"
+    }
+    clientLocalRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+sourceSets {
+    // 空源集，仅用于把 clientLocalRuntime 注入 client run 的 runtimeClasspath。
+    clientRuntime {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime
+    }
 }
 
 neoForge {
@@ -33,6 +69,7 @@ neoForge {
         client {
             client()
             gameDirectory = file('run/client')
+            sourceSet = sourceSets.clientRuntime
         }
         server {
             server()
@@ -41,13 +78,12 @@ neoForge {
     }
 }
 
-configurations {
-    localRuntime
-    runtimeClasspath.extendsFrom localRuntime
-}
-
 repositories {
     mavenCentral()
+    maven {
+        name = "CreateMod Maven"
+        url = "https://maven.createmod.net"
+    }
     maven {
         name = "Jared's Maven"
         url = "https://maven.blamejared.com/"
@@ -56,19 +92,80 @@ repositories {
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/"
     }
+    maven {
+        name = "ModMaven"
+        url = "https://modmaven.dev"
+    }
+    maven {
+        name = "FTB Mods"
+        url = "https://maven.ftb.dev/releases"
+        content {
+            includeGroup "dev.ftb.mods"
+        }
+    }
+    maven {
+        name = "Shedaniel Maven"
+        url = "https://maven.shedaniel.me/"
+        content {
+            includeGroup "dev.architectury"
+        }
+    }
+    maven {
+        name = "Curios Maven"
+        url = "https://maven.theillusivec4.top/"
+        content {
+            includeGroup "top.theillusivec4.curios"
+        }
+    }
+    maven {
+        name = "Kotlin for Forge"
+        url = "https://thedarkcolour.github.io/KotlinForForge/"
+        content {
+            includeGroup "thedarkcolour"
+        }
+    }
+    maven {
+        name = "DevOS Snapshots"
+        url = "https://mvn.devos.one/snapshots/"
+        content {
+            includeGroup "com.tterrag.registrate"
+        }
+    }
+    maven {
+        name = "SquidDev Maven"
+        url = "https://maven.squiddev.cc"
+        content {
+            includeGroup "cc.tweaked"
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = "https://cursemaven.com"
+            }
+        }
+        filter {
+            includeGroup "curse.maven"
+        }
+    }
+    maven {
+        url = uri("https://modmaven.dev/")
+        content {
+            includeGroup "appeng"
+            includeGroup "org.appliedenergistics"
+            includeGroup "de.mari_023"
+        }
+    }
+    maven {
+        name = "Modrinth Maven"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
 }
 
-dependencies {
-    // 完整 JEI（非仅 API）：编译期需要 RecipesGui、ImmutableRect2i 等实现类；运行时仍由 localRuntime 提供
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
-    compileOnly "dev.emi:emi-neoforge:${emi_version}"
-    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-
-    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    localRuntime "dev.emi:emi-neoforge:${emi_version}"
-    localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-}
+apply from: "$rootDir/dependencies.gradle"
 
 tasks.named("processResources", ProcessResources).configure {
     var replaceProperties = [
@@ -86,9 +183,7 @@ tasks.named("processResources", ProcessResources).configure {
     ]
     inputs.properties replaceProperties
 
-    filesMatching(["META-INF/neoforge.mods.toml", "pack.mcmeta"]) {
-        expand replaceProperties
-    }
+    filesMatching(["META-INF/neoforge.mods.toml", "pack.mcmeta"], new ExpandPropertiesAction(replaceProperties))
 }
 
 tasks.named("jar", Jar).configure {

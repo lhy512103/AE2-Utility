@@ -1,0 +1,60 @@
+dependencies {
+    // ── 编译期 API ─────────────────────────────────────────────
+    // JEI 完整（非仅 API）：编译期需要 RecipesGui、ImmutableRect2i 等实现类
+    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    compileOnly "dev.emi:emi-neoforge:${emi_version}"
+
+    // ── 运行时核心模组 ─────────────────────────────────────────
+    localRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    localRuntime "de.mari_023:ae2wtlib:${ae2wtlib_version}"
+    localRuntime "curse.maven:spark-361579:${spark_file}"
+    localRuntime "maven.modrinth:modernfix:${modernfix_version}"
+    localRuntime "top.theillusivec4.curios:curios-neoforge:${curios_version}"
+
+    // ── 运行时配方查看器 ───────────────────────────────────────
+    // JEI 与 EMI 二选一（同时加载会冲突）；默认 JEI，测 EMI 集成时互换注释。
+    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    // localRuntime "dev.emi:emi-neoforge:${emi_version}"
+
+    // ── 运行时 AE2 扩展 ────────────────────────────────────────
+    localRuntime "curse.maven:advancedae-1084104:${advancedae_file}"
+    localRuntime "curse.maven:ae2-crystal-science-1435174:8112039"
+    localRuntime "curse.maven:ex-pattern-provider-892005:${extendedae_file}"
+    localRuntime "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
+    localRuntime "curse.maven:applied-energistics-2-wireless-terminals-459929:${ae2wt_terminals_file}"
+    localRuntime "curse.maven:applied-flux-965012:${applied_flux_file}"
+    localRuntime "curse.maven:applied-create-1474758:${applied_create_file}"
+    localRuntime "curse.maven:mega-cells-622112:${mega_cells_file}"
+    localRuntime "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
+    localRuntime "curse.maven:merequester-688367:7844592"
+
+    // ── 运行时依赖与集成目标 ───────────────────────────────────
+    localRuntime "curse.maven:glodium-957920:${glodium_file}"
+    localRuntime "curse.maven:geckolib-388172:${geckolib_file}"
+    localRuntime "curse.maven:cloth-config-348521:${cloth_config_file}"
+    localRuntime "curse.maven:polymorph-388800:${polymorph_file}"
+    localRuntime "dev.architectury:architectury-neoforge:${architectury_version}"
+    localRuntime "dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}"
+    localRuntime "dev.ftb.mods:ftb-ultimine-neoforge:${ftb_ultimine_version}"
+    localRuntime "maven.modrinth:jade:${jade_version}"
+    localRuntime("com.simibubi.create:create-1.21.1:${create_version}") {
+        // 避免 Create 可选集成拉入 journeymap 导致 game-test 崩溃
+        exclude group: "maven.modrinth", module: "journeymap"
+        exclude group: "info.journeymap", module: "journeymap-api-neoforge"
+    }
+    localRuntime "curse.maven:mekanism-268560:${mekanism_file}"
+    localRuntime "me.desht.pneumaticcraft:pneumaticcraft-repressurized:${pneumaticcraft_version}"
+    localRuntime "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
+
+    // ── 仅客户端运行时（UI / 输入辅助，不进服务端 run）─────────
+    clientLocalRuntime "curse.maven:ae2-jei-integration-1074338:${ae2jei_integration_file}"
+    clientLocalRuntime "curse.maven:modern-ui-352491:${modern_ui_file}"
+    clientLocalRuntime "curse.maven:mouse-tweaks-60089:${mouse_tweaks_file}"
+    clientLocalRuntime "curse.maven:configured-457570:${configured_file}"
+    clientLocalRuntime "curse.maven:searchables-858542:${searchables_file}"
+    clientLocalRuntime "curse.maven:controlling-250398:${controlling_file}"
+    clientLocalRuntime "curse.maven:imblocker-483760:${imblocker_file}"
+    clientLocalRuntime "curse.maven:just-enough-characters-250702:${jech_file}"
+}
