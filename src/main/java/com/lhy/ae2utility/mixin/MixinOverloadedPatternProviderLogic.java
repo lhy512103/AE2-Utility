@@ -57,7 +57,9 @@ public abstract class MixinOverloadedPatternProviderLogic {
         ae2utility$emitOrderOrUntilSignal("overloaded_wireless_dispatch");
     }
 
-    @Inject(method = "insertOutputsToReturnInv", at = @At("HEAD"))
+    // ae2lt 1.0.19 重构后删除了 insertOutputsToReturnInv / returnToNetwork；require=0 让目标缺失时优雅降级，
+    // 不再因找不到注入目标而炸全局（其余 insertOutputsToReturnInv / returnToNetwork 注入早已 require=0）。
+    @Inject(method = "insertOutputsToReturnInv", at = @At("HEAD"), require = 0)
     private void ae2utility$prepareBufferedReturnSignal(java.util.List<GenericStack> outputs,
             org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
         Ae2UtilityRedstoneSignalDebugLog.pulse(

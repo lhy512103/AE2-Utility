@@ -42,16 +42,22 @@ configurations {
         exclude group: "curse.maven", module: "ae2-jei-integration-1074338"
         exclude group: "curse.maven", module: "imblocker-483760"
         exclude group: "curse.maven", module: "just-enough-characters-250702"
+        // 改用 curse 版 curios（curios-309927），排除其它 mod 传递带入的 maven 版以免重复 modid。
+        exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
     }
-    clientLocalRuntime
+    clientLocalRuntime {
+        exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
+    }
     runtimeClasspath.extendsFrom localRuntime
 }
 
 sourceSets {
     // 空源集，仅用于把 clientLocalRuntime 注入 client run 的 runtimeClasspath。
+    // 注意 runtimeClasspath 不要并入 compileClasspath：后者含 compileOnly 的完整 EMI/JEI jar，
+    // 会被 NeoForge 当 mod 加载（EMI 即使 localRuntime 注释了仍被带入）。运行时只取 localRuntime + clientLocalRuntime。
     clientRuntime {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime
+        runtimeClasspath += output + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime
     }
 }
 

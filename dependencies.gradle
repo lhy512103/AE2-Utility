@@ -11,7 +11,7 @@ dependencies {
     localRuntime "de.mari_023:ae2wtlib:${ae2wtlib_version}"
     localRuntime "curse.maven:spark-361579:${spark_file}"
     localRuntime "maven.modrinth:modernfix:${modernfix_version}"
-    localRuntime "top.theillusivec4.curios:curios-neoforge:${curios_version}"
+    localRuntime "curse.maven:curios-309927:6529130"
 
     // ── 运行时配方查看器 ───────────────────────────────────────
     // JEI 与 EMI 二选一（同时加载会冲突）；默认 JEI，测 EMI 集成时互换注释。
@@ -29,6 +29,7 @@ dependencies {
     localRuntime "curse.maven:mega-cells-622112:${mega_cells_file}"
     localRuntime "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
     localRuntime "curse.maven:merequester-688367:7844592"
+    localRuntime "curse.maven:ae2-lightning-tech-1527395:8265021"
 
     // ── 运行时依赖与集成目标 ───────────────────────────────────
     localRuntime "curse.maven:glodium-957920:${glodium_file}"
@@ -47,6 +48,14 @@ dependencies {
     localRuntime "curse.maven:mekanism-268560:${mekanism_file}"
     localRuntime "me.desht.pneumaticcraft:pneumaticcraft-repressurized:${pneumaticcraft_version}"
     localRuntime "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
+
+    // ── 运行时其它内容 mod（兼容测试）──────────────────────────
+    localRuntime "curse.maven:occultism-361026:8253041"
+    localRuntime "curse.maven:modonomicon-538392:7771524"
+    localRuntime "curse.maven:smartbrainlib-661293:7055149"
+    localRuntime "curse.maven:brandons-core-231382:7130990"
+    localRuntime "curse.maven:codechicken-lib-1-8-242818:7281427"
+    localRuntime "curse.maven:draconic-evolution-223565:7584459"
 
     // ── 仅客户端运行时（UI / 输入辅助，不进服务端 run）─────────
     clientLocalRuntime "curse.maven:ae2-jei-integration-1074338:${ae2jei_integration_file}"
