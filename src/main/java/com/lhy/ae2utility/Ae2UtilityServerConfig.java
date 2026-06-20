@@ -1,5 +1,8 @@
 package com.lhy.ae2utility;
 
+import java.util.List;
+
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -8,6 +11,16 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class Ae2UtilityServerConfig {
     public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     public static final ModConfigSpec SPEC;
+
+    private static final ResourceLocation PRODUCTIVE_BEES_CONFIGURABLE_SPAWN_EGG =
+            ResourceLocation.fromNamespaceAndPath("productivebees", "spawn_egg_configurable_bee");
+
+    private static final List<ResourceLocation> DRACONIC_EVOLUTION_FUSION_INJECTORS = List.of(
+            ResourceLocation.fromNamespaceAndPath("draconicevolution", "basic_crafting_injector"),
+            ResourceLocation.fromNamespaceAndPath("draconicevolution", "wyvern_crafting_injector"),
+            ResourceLocation.fromNamespaceAndPath("draconicevolution", "awakened_crafting_injector"),
+            ResourceLocation.fromNamespaceAndPath("draconicevolution", "draconic_crafting_injector"),
+            ResourceLocation.fromNamespaceAndPath("draconicevolution", "chaotic_crafting_injector"));
 
     /**
      * 为 {@code true} 时：未打开样板编码类 ME 界面的编码请求一律拒绝（含仅凭背包无线终端「隔空」编码），与客户端「未开终端是否允许」独立。
@@ -24,6 +37,21 @@ public final class Ae2UtilityServerConfig {
      * JEI 全类/当前页、配方树、配方查找器等共用。
      */
     public static final ModConfigSpec.IntValue JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION;
+
+    /**
+     * 内置黑名单组：Productive Bees 的可配置蜜蜂刷怪蛋。蜂种存在 DataComponents/NBT 中，不能按 item id 合并。
+     */
+    public static final ModConfigSpec.BooleanValue ENABLE_NBT_TEAR_PRODUCTIVE_BEES_SPAWN_EGG_BLACKLIST;
+
+    /**
+     * 内置黑名单组：Draconic Evolution 各等级聚合注入器。等级存在物品类型/升级链语义中，不能被撕裂卡模糊替代。
+     */
+    public static final ModConfigSpec.BooleanValue ENABLE_NBT_TEAR_DRACONIC_EVOLUTION_FUSION_INJECTOR_BLACKLIST;
+
+    /**
+     * 额外自定义 NBT 撕裂黑名单。这里列出的物品不会被撕裂卡放宽匹配。
+     */
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> NBT_TEAR_CARD_ITEM_BLACKLIST;
 
     static {
         BUILDER.comment("Pattern encoding policy for dedicated servers / singleplayer host.");
@@ -42,6 +70,26 @@ public final class Ae2UtilityServerConfig {
                         "When limited, extras are skipped; see per-packet path for streamed single sends.")
                 .translation("ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession")
                 .defineInRange("jeiBulkEncodeMaxPatternsPerSession", 1024, -1, 16384);
+
+        BUILDER.comment("NBT tear card safety blacklist.");
+        ENABLE_NBT_TEAR_PRODUCTIVE_BEES_SPAWN_EGG_BLACKLIST = BUILDER
+                .comment("If true, the NBT Tear Card will never match Productive Bees configurable bee spawn eggs by item id only.",
+                        "These spawn eggs store the bee type in item data, so different display names can still share the same item id.")
+                .translation("ae2utility.serverConfig.enableNbtTearProductiveBeesSpawnEggBlacklist")
+                .define("enableNbtTearProductiveBeesSpawnEggBlacklist", true);
+        ENABLE_NBT_TEAR_DRACONIC_EVOLUTION_FUSION_INJECTOR_BLACKLIST = BUILDER
+                .comment("If true, the NBT Tear Card will never fuzzy-match Draconic Evolution fusion crafting injectors.",
+                        "Covers: basic, wyvern, awakened/draconic and chaotic crafting injectors.")
+                .translation("ae2utility.serverConfig.enableNbtTearDraconicEvolutionFusionInjectorBlacklist")
+                .define("enableNbtTearDraconicEvolutionFusionInjectorBlacklist", true);
+        NBT_TEAR_CARD_ITEM_BLACKLIST = BUILDER
+                .comment("Additional item ids that the NBT Tear Card must never match by item-id-only.",
+                        "Built-in groups above are controlled by their own switches.",
+                        "Examples: [\"productivebees:spawn_egg_configurable_bee\", \"draconicevolution:basic_crafting_injector\"]")
+                .translation("ae2utility.serverConfig.nbtTearCardItemBlacklist")
+                .defineList("nbtTearCardItemBlacklist",
+                        List.of(),
+                        value -> value instanceof String id && ResourceLocation.tryParse(id) != null);
         SPEC = BUILDER.build();
     }
 
@@ -58,5 +106,25 @@ public final class Ae2UtilityServerConfig {
 
     public static int jeiBulkEncodeMaxPatternsPerSession() {
         return JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION.get();
+    }
+
+    public static boolean isNbtTearCardItemBlacklisted(ResourceLocation itemId) {
+        if (itemId == null) {
+            return false;
+        }
+        if (ENABLE_NBT_TEAR_PRODUCTIVE_BEES_SPAWN_EGG_BLACKLIST.get()
+                && itemId.equals(PRODUCTIVE_BEES_CONFIGURABLE_SPAWN_EGG)) {
+            return true;
+        }
+        if (ENABLE_NBT_TEAR_DRACONIC_EVOLUTION_FUSION_INJECTOR_BLACKLIST.get()
+                && DRACONIC_EVOLUTION_FUSION_INJECTORS.contains(itemId)) {
+            return true;
+        }
+        for (String configuredId : NBT_TEAR_CARD_ITEM_BLACKLIST.get()) {
+            if (itemId.equals(ResourceLocation.tryParse(configuredId))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

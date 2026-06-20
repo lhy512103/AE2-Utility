@@ -15,6 +15,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
+import com.lhy.ae2utility.Ae2UtilityServerConfig;
+
 /**
  * Stored on an NBT tear card. Empty {@link #itemIds()} = treat all item outputs as item-id-only when matching.
  * Non-empty = only those items use item-id-only matching; others stay strict.
@@ -44,6 +46,10 @@ public record NbtTearFilter(List<ResourceLocation> itemIds) {
         }
         if (expected.equals(returned)) {
             return true;
+        }
+        if (Ae2UtilityServerConfig.isNbtTearCardItemBlacklisted(expected.getId())
+                || Ae2UtilityServerConfig.isNbtTearCardItemBlacklisted(returned.getId())) {
+            return false;
         }
         if (expected instanceof AEItemKey exp && returned instanceof AEItemKey ret) {
             if (exp.getItem() == ret.getItem()) {

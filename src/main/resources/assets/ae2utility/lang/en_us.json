@@ -205,6 +205,12 @@
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode.tooltip": "On: reject packets tagged as the whole JEI machine category (all pages).\nOff: allow (still subject to other limits).",
   "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "Max patterns per bulk encode session ID",
   "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession.tooltip": "-1 disables this limit (no truncation, no per-session counting).\n8–16384: per bulk session ID, the server encodes at most this many patterns; extras are skipped.\nShared across JEI full-category/current-page batches, Recipe Finder bulk, recipe-tree batches, etc.",
+  "ae2utility.serverConfig.enableNbtTearProductiveBeesSpawnEggBlacklist": "NBT Tear blacklist: Productive Bees configurable spawn eggs",
+  "ae2utility.serverConfig.enableNbtTearProductiveBeesSpawnEggBlacklist.tooltip": "On: the NBT Tear Card never treats different Productive Bees configurable bee spawn eggs as the same item.\nOff: allow the card's normal fuzzy rules.",
+  "ae2utility.serverConfig.enableNbtTearDraconicEvolutionFusionInjectorBlacklist": "NBT Tear blacklist: Draconic Evolution fusion injectors",
+  "ae2utility.serverConfig.enableNbtTearDraconicEvolutionFusionInjectorBlacklist.tooltip": "On: the NBT Tear Card never fuzzy-matches Draconic Evolution basic, wyvern, awakened/draconic, or chaotic crafting injectors.\nOff: allow the card's normal fuzzy rules.",
+  "ae2utility.serverConfig.nbtTearCardItemBlacklist": "Additional NBT Tear item blacklist",
+  "ae2utility.serverConfig.nbtTearCardItemBlacklist.tooltip": "Extra item ids that the NBT Tear Card must never match by item-id-only. Built-in blacklist groups above have their own switches.",
 
   "key.categories.ae2utility": "AE2 Utility"
 }

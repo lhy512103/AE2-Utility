@@ -25,7 +25,7 @@ import com.lhy.ae2utility.card.NbtTearExecutionHelper;
 }, remap = false)
 public class MixinProcessingStylePatternPushInputs {
 
-    @Shadow
+    @Shadow(remap = false)
     @Final
     private List<GenericStack> sparseInputs;
 

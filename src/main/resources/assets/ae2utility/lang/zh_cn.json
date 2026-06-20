@@ -207,5 +207,11 @@
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "禁止「整类全分页」JEI 批量编码",
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode.tooltip": "开：拦截标记为「整台 JEI 机器分类、所有分页」的批量编码数据包。\n关：不拦（仍受其它规则约束）。",
   "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "单次批量编码最大样板数（每会话 ID）",
-  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession.tooltip": "-1：关闭本条数上限（不截断、不按会话计数）。\n≥8：同一批量操作（共享会话 ID）下，服务端至多实际编码本条数的样板，多出的条目不会编码。\nJEI 全类/当前页、配方查找器批量、配方树编码等共用该上限。"
+  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession.tooltip": "-1：关闭本条数上限（不截断、不按会话计数）。\n≥8：同一批量操作（共享会话 ID）下，服务端至多实际编码本条数的样板，多出的条目不会编码。\nJEI 全类/当前页、配方查找器批量、配方树编码等共用该上限。",
+  "ae2utility.serverConfig.enableNbtTearProductiveBeesSpawnEggBlacklist": "NBT 撕裂黑名单：Productive Bees 可配置刷怪蛋",
+  "ae2utility.serverConfig.enableNbtTearProductiveBeesSpawnEggBlacklist.tooltip": "开：NBT 撕裂卡不会把不同 Productive Bees 可配置蜜蜂刷怪蛋当成同一物品。\n关：允许撕裂卡按正常模糊规则匹配。",
+  "ae2utility.serverConfig.enableNbtTearDraconicEvolutionFusionInjectorBlacklist": "NBT 撕裂黑名单：Draconic Evolution 聚合注入器",
+  "ae2utility.serverConfig.enableNbtTearDraconicEvolutionFusionInjectorBlacklist.tooltip": "开：NBT 撕裂卡不会模糊匹配 Draconic Evolution 的基础、飞龙、觉醒/龙、混沌聚合注入器。\n关：允许撕裂卡按正常模糊规则匹配。",
+  "ae2utility.serverConfig.nbtTearCardItemBlacklist": "额外 NBT 撕裂物品黑名单",
+  "ae2utility.serverConfig.nbtTearCardItemBlacklist.tooltip": "这里列出的物品 id 不会被 NBT 撕裂卡按 item-id-only 放宽匹配。上方内置黑名单组各自有独立开关。"
 }
