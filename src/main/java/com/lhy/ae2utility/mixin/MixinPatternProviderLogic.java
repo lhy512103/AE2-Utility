@@ -16,7 +16,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
@@ -77,12 +76,15 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
     @Unique
     private boolean ae2utility$pendingCraftReturnRedstonePulse;
 
-    /** 待发 {@code sendList} 清空后再发下单脉冲（见 {@link #ae2utility$emitOrderPulseWhenDeferredSendListDrained}）。 */
+    /** 上一 tick 活跃态（isBusy || 待返还产物非空），供 ORDER/UNTIL 双边沿状态机检测边沿；不持久化。 */
     @Unique
-    private boolean ae2utility$orderPulseDeferredUntilSendClears;
+    private boolean ae2utility$lastRedstoneActive;
 
     @Shadow
     public abstract boolean isBusy();
+
+    @Shadow
+    public abstract appeng.helpers.patternprovider.PatternProviderReturnInventory getReturnInv();
 
     @Override
     public ItemStackHandler ae2utility$getTearHandler() {
@@ -115,6 +117,16 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
     @Override
     public void ae2utility$setContinuousSignalActive(boolean active) {
         ae2utility$continuousSignalActive = active;
+    }
+
+    @Override
+    public boolean ae2utility$getLastRedstoneActive() {
+        return ae2utility$lastRedstoneActive;
+    }
+
+    @Override
+    public void ae2utility$setLastRedstoneActive(boolean active) {
+        ae2utility$lastRedstoneActive = active;
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"))
@@ -175,7 +187,7 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         ae2utility$getTearHandler().setStackInSlot(0, ItemStack.EMPTY);
         ae2utility$signalPulseUntilTick = 0;
         ae2utility$continuousSignalActive = false;
-        ae2utility$orderPulseDeferredUntilSendClears = false;
+        ae2utility$lastRedstoneActive = false;
         ae2utility$pendingCraftReturnRedstonePulse = false;
         ae2utility$pendingOutputReturns.clear();
     }
@@ -204,23 +216,10 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         ae2utility$rebuildPendingOutputs(pattern);
     }
 
+    /** 主驱动：grid tick 每次跑 sendStacksOut 后采样 isBusy + 待返还产物，驱动 ORDER/UNTIL 双边沿状态机。 */
     @Inject(method = "sendStacksOut", at = @At("RETURN"))
-    private void ae2utility$emitOrderPulseWhenDeferredSendListDrained(CallbackInfoReturnable<Boolean> cir) {
-        if (!ae2utility$orderPulseDeferredUntilSendClears || isBusy()) {
-            return;
-        }
-        ae2utility$orderPulseDeferredUntilSendClears = false;
-        if (!ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER) && !ae2utility$isUntilRecipeMode()) {
-            return;
-        }
-        if (ae2utility$isUntilRecipeMode()) {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("until_recipe_raise_after_sendlist_drained host={}",
-                    host.getClass().getName());
-            ae2utility$enableContinuousSignalFromHost();
-        } else {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("order_emit_after_sendlist_drained host={}", host.getClass().getName());
-            ae2utility$triggerSignalPulseFromHost();
-        }
+    private void ae2utility$driveRedstoneStateMachine(CallbackInfoReturnable<Boolean> cir) {
+        ae2utility$tickRedstoneStateMachine(host, isBusy(), !getReturnInv().isEmpty(), false);
     }
 
     @Inject(method = "doWork", at = @At("HEAD"))
@@ -251,37 +250,17 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         if (!cir.getReturnValueZ()) {
             return;
         }
-        boolean orderMode = ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER);
-        boolean untilRecipeMode = ae2utility$isUntilRecipeMode();
-        if (!orderMode && !untilRecipeMode) {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("order_gate_skip host={} no_order_or_until_mode_or_card",
-                    host.getClass().getName());
-            return;
-        }
-        if (isBusy()) {
-            ae2utility$orderPulseDeferredUntilSendClears = true;
-            Ae2UtilityRedstoneSignalDebugLog.pulse("order_or_until_emit_deferred_until_sendlist host={}",
-                    host.getClass().getName());
-            return;
-        }
-        ae2utility$orderPulseDeferredUntilSendClears = false;
-        if (untilRecipeMode) {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("until_recipe_raise_after_dispatch host={}",
-                    host.getClass().getName());
-            ae2utility$enableContinuousSignalFromHost();
-        } else {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("order_emit_after_dispatch host={}", host.getClass().getName());
-            ae2utility$triggerSignalPulseFromHost();
-        }
+        // 派发瞬间补采样：覆盖 sendList 同 tick 即排空、grid tick 采样不到上升沿的瞬时配方。
+        ae2utility$tickRedstoneStateMachine(host, isBusy(), !getReturnInv().isEmpty(), false);
     }
 
     @Inject(method = "onStackReturnedToNetwork", at = @At("HEAD"))
     private void ae2utility$prepareCraftReturnPulseAndLogTear(GenericStack genericStack, CallbackInfo ci) {
         boolean craftMode = ae2utility$shouldEmitFor(RedstoneSignalCardMode.CRAFT);
-        boolean untilRecipeMode = ae2utility$isUntilRecipeMode();
         boolean waitingResultUnlock = unlockEvent == UnlockCraftingEvent.RESULT;
         boolean matchedPendingOutputs = ae2utility$consumeReturnedOutput(genericStack);
-        ae2utility$pendingCraftReturnRedstonePulse = genericStack != null && (craftMode || untilRecipeMode)
+        // UNTIL 拉低已交给双边沿状态机（下降沿）；此处仅负责 CRAFT 的逐键精确脉冲。
+        ae2utility$pendingCraftReturnRedstonePulse = genericStack != null && craftMode
                 && (waitingResultUnlock || matchedPendingOutputs)
                 && ae2utility$pendingOutputReturns.isEmpty();
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
@@ -290,7 +269,7 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
                             + "waitingResultUnlock={} matchedPendingOutputs={} remainingOutputs={} stackBrief={}",
                     host.getClass().getName(),
                     unlockEvent != null ? unlockEvent.name() : "null",
-                    craftMode || untilRecipeMode,
+                    craftMode,
                     ae2utility$pendingCraftReturnRedstonePulse,
                     waitingResultUnlock,
                     matchedPendingOutputs,
@@ -314,17 +293,10 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
             return;
         }
         ae2utility$pendingCraftReturnRedstonePulse = false;
-        if (ae2utility$isUntilRecipeMode()) {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("until_recipe_lower_on_return host={} stack={}",
-                    host.getClass().getName(),
-                    genericStack);
-            ae2utility$disableContinuousSignalFromHost();
-        } else {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("craft_return_emit host={} stack={}",
-                    host.getClass().getName(),
-                    genericStack);
-            ae2utility$triggerSignalPulseFromHost();
-        }
+        Ae2UtilityRedstoneSignalDebugLog.pulse("craft_return_emit host={} stack={}",
+                host.getClass().getName(),
+                genericStack);
+        ae2utility$triggerSignalPulseFromHost(host);
     }
 
     @Unique
@@ -456,84 +428,4 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         return fuzzy;
     }
 
-    @Unique
-    private void ae2utility$triggerSignalPulseFromHost() {
-        var blockEntity = host.getBlockEntity();
-        if (blockEntity == null) {
-            Ae2UtilityRedstoneSignalDebugLog.pulse("pulse_abort host_class={} reason=no_block_entity",
-                    host.getClass().getName());
-            return;
-        }
-        var level = blockEntity.getLevel();
-        if (level == null || level.isClientSide) {
-            Ae2UtilityRedstoneSignalDebugLog.pulse(
-                    "pulse_skip host_class={} reason=level_null_or_client pos={}",
-                    host.getClass().getName(),
-                    blockEntity.getBlockPos());
-            return;
-        }
-        boolean wasActive = ae2utility$hasSignalPulse(level.getGameTime());
-        int durationTicks = ae2utility$resolveRedstoneOutputDurationTicks();
-        ae2utility$triggerSignalPulse(level.getGameTime(), durationTicks);
-        host.saveChanges();
-        Ae2UtilityRedstoneSignalDebugLog.pulse(
-                "pulse_arm host_class={} pos={} gameTime={} wasActiveBefore={} pulseUntilTick={} durationTicks={}",
-                host.getClass().getName(),
-                blockEntity.getBlockPos(),
-                level.getGameTime(),
-                wasActive,
-                ae2utility$getSignalPulseUntilTick(),
-                durationTicks);
-        if (!wasActive) {
-            level.updateNeighborsAt(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
-            level.updateNeighbourForOutputSignal(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
-            if (level instanceof ServerLevel serverLevel) {
-                serverLevel.scheduleTick(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock(), durationTicks);
-                Ae2UtilityRedstoneSignalDebugLog.pulse("pulse_sched_tick host_class={} pos={} delay={}",
-                        host.getClass().getName(),
-                        blockEntity.getBlockPos(),
-                        durationTicks);
-            }
-        }
-    }
-
-    @Unique
-    private void ae2utility$enableContinuousSignalFromHost() {
-        var blockEntity = host.getBlockEntity();
-        if (blockEntity == null) {
-            return;
-        }
-        var level = blockEntity.getLevel();
-        if (level == null || level.isClientSide) {
-            return;
-        }
-        if (ae2utility$continuousSignalActive) {
-            return;
-        }
-        ae2utility$continuousSignalActive = true;
-        ae2utility$signalPulseUntilTick = 0;
-        host.saveChanges();
-        level.updateNeighborsAt(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
-        level.updateNeighbourForOutputSignal(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
-    }
-
-    @Unique
-    private void ae2utility$disableContinuousSignalFromHost() {
-        var blockEntity = host.getBlockEntity();
-        if (blockEntity == null) {
-            return;
-        }
-        var level = blockEntity.getLevel();
-        if (level == null || level.isClientSide) {
-            return;
-        }
-        if (!ae2utility$continuousSignalActive) {
-            return;
-        }
-        ae2utility$continuousSignalActive = false;
-        ae2utility$signalPulseUntilTick = 0;
-        host.saveChanges();
-        level.updateNeighborsAt(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
-        level.updateNeighbourForOutputSignal(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
-    }
 }

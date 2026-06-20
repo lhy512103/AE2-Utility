@@ -20,8 +20,48 @@ public interface PatternProviderSignalAccess {
 
     void ae2utility$setContinuousSignalActive(boolean active);
 
+    /** 上一 tick 的「活跃」状态（派发未排空 或 待返还产物未排空），供状态机检测边沿。不持久化。 */
+    boolean ae2utility$getLastRedstoneActive();
+
+    void ae2utility$setLastRedstoneActive(boolean active);
+
     default boolean ae2utility$hasSignalPulse(long gameTime) {
         return ae2utility$isContinuousSignalActive() || ae2utility$getSignalPulseUntilTick() > gameTime;
+    }
+
+    /**
+     * 双边沿红石状态机：{@code active = busy || returnPending}，由各 pattern provider 的稳定 tick 点每 tick 驱动。
+     * <ul>
+     * <li>上升沿（派发开始）：UNTIL 拉高连续信号；否则 ORDER 发脉冲。</li>
+     * <li>下降沿（派发 + 产物返还全部完成）：UNTIL 拉低；否则当 {@code allowCraftOnFall} 时 CRAFT 发脉冲。</li>
+     * </ul>
+     * CRAFT 默认走各 mixin 的逐键精确事件捕获（{@code allowCraftOnFall=false}）；仅 ae2lt（返还方法被删、无精确捕获）
+     * 传 {@code true} 用下降沿兜底 CRAFT。
+     *
+     * @param host          {@link PatternProviderLogicHost} 或可反射取 getBlockEntity/saveChanges 的宿主
+     * @param busy          {@code logic.isBusy()}（sendList 未排空）
+     * @param returnPending {@code !logic.getReturnInv().isEmpty()}（待返还产物未排空）
+     */
+    default void ae2utility$tickRedstoneStateMachine(Object host, boolean busy, boolean returnPending,
+            boolean allowCraftOnFall) {
+        boolean active = busy || returnPending;
+        if (active == ae2utility$getLastRedstoneActive()) {
+            return;
+        }
+        ae2utility$setLastRedstoneActive(active);
+        if (active) {
+            if (ae2utility$isUntilRecipeMode()) {
+                ae2utility$enableContinuousSignalFromHost(host);
+            } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
+                ae2utility$triggerSignalPulseFromHost(host);
+            }
+        } else {
+            if (ae2utility$isUntilRecipeMode()) {
+                ae2utility$disableContinuousSignalFromHost(host);
+            } else if (allowCraftOnFall && ae2utility$shouldEmitFor(RedstoneSignalCardMode.CRAFT)) {
+                ae2utility$triggerSignalPulseFromHost(host);
+            }
+        }
     }
 
     default void ae2utility$triggerSignalPulse(long gameTime, int durationTicks) {

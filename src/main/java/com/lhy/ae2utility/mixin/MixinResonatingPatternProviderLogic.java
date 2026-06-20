@@ -23,7 +23,6 @@ import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderTarget;
 
 import com.lhy.ae2utility.card.NbtTearFilter;
-import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 import com.lhy.ae2utility.debug.NbtTearCardDebug;
 import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
@@ -48,6 +47,9 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
 
     @Unique
     private boolean ae2utility$continuousSignalActive;
+
+    @Unique
+    private boolean ae2utility$lastRedstoneActive;
 
     @Override
     public ItemStackHandler ae2utility$getTearHandler() {
@@ -81,6 +83,16 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
     @Override
     public void ae2utility$setContinuousSignalActive(boolean active) {
         ae2utility$continuousSignalActive = active;
+    }
+
+    @Override
+    public boolean ae2utility$getLastRedstoneActive() {
+        return ae2utility$lastRedstoneActive;
+    }
+
+    @Override
+    public void ae2utility$setLastRedstoneActive(boolean active) {
+        ae2utility$lastRedstoneActive = active;
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"))
@@ -140,11 +152,9 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
             return;
         }
         var host = ((PatternProviderLogicInvoker) this).ae2utility$getHost();
-        if (ae2utility$isUntilRecipeMode()) {
-            ae2utility$enableContinuousSignalFromHost(host);
-        } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
-            ae2utility$triggerSignalPulseFromHost(host);
-        }
+        PatternProviderLogic logic = (PatternProviderLogic) (Object) this;
+        // 上升沿采样；下降沿（UNTIL 拉低）靠继承基类的 sendStacksOut driver，CRAFT 靠基类 onStackReturnedToNetwork。
+        ae2utility$tickRedstoneStateMachine(host, logic.isBusy(), !logic.getReturnInv().isEmpty(), false);
     }
 
     @Redirect(method = "pushPattern",

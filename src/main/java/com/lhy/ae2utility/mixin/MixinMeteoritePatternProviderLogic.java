@@ -25,7 +25,6 @@ import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import com.lhy.ae2utility.card.NbtTearCardThreadLocal;
 import com.lhy.ae2utility.card.NbtTearFilter;
-import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 import com.lhy.ae2utility.debug.NbtTearCardDebug;
 import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
@@ -44,6 +43,9 @@ public abstract class MixinMeteoritePatternProviderLogic implements NbtTearLogic
 
     @Unique
     private boolean ae2utility$continuousSignalActive;
+
+    @Unique
+    private boolean ae2utility$lastRedstoneActive;
 
     @Override
     public ItemStackHandler ae2utility$getTearHandler() {
@@ -77,6 +79,16 @@ public abstract class MixinMeteoritePatternProviderLogic implements NbtTearLogic
     @Override
     public void ae2utility$setContinuousSignalActive(boolean active) {
         ae2utility$continuousSignalActive = active;
+    }
+
+    @Override
+    public boolean ae2utility$getLastRedstoneActive() {
+        return ae2utility$lastRedstoneActive;
+    }
+
+    @Override
+    public void ae2utility$setLastRedstoneActive(boolean active) {
+        ae2utility$lastRedstoneActive = active;
     }
 
     @Inject(method = "writeToNBT", at = @At("TAIL"))
@@ -138,11 +150,8 @@ public abstract class MixinMeteoritePatternProviderLogic implements NbtTearLogic
         NbtTearCardDebug.logProviderCheck("meteorite_push_unlock_applied", patternDetails, this, card, filter, true,
                 "lock=" + logic.getCraftingLockedReason());
         PatternProviderLogicHost host = ((PatternProviderLogicInvoker) this).ae2utility$getHost();
-        if (ae2utility$isUntilRecipeMode()) {
-            ae2utility$enableContinuousSignalFromHost(host);
-        } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
-            ae2utility$triggerSignalPulseFromHost(host);
-        }
+        // 上升沿采样；CRAFT 靠 workCraftedContents 事件源，UNTIL 拉低靠继承基类 sendStacksOut driver。
+        ae2utility$tickRedstoneStateMachine(host, logic.isBusy(), !logic.getReturnInv().isEmpty(), false);
     }
 
     @Redirect(method = "workCraftedContents", at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J"))

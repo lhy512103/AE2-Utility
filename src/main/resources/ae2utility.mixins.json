@@ -29,7 +29,7 @@
     "MixinCtrlQPendingUploadUtil",
     "MixinNetworkCraftingProviders",
     "MixinPatternProviderLogic",
-    "MixinOverloadedPatternProviderLogic",
+    "MixinOverloadedPatternProviderBlockEntity",
     "MixinPatternProviderMenu",
     "MixinRestrictedInputSlot"
   ],
