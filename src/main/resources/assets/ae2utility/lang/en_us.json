@@ -12,6 +12,10 @@
   "jei.tooltip.ae2utility.encode_pattern_button": "Encode pattern",
   "jei.tooltip.ae2utility.encode_pattern_blue_slots": "Blue highlighted items can be autocrafted.",
   "jei.tooltip.ae2utility.encode_pattern_shift": "Hold Shift to map/upload the pattern to a provider",
+  "jei.tooltip.ae2utility.item_substitution.enabled": "Item substitutions enabled",
+  "jei.tooltip.ae2utility.item_substitution.disabled": "Item substitutions disabled",
+  "jei.tooltip.ae2utility.fluid_substitution.enabled": "Fluid substitutions enabled",
+  "jei.tooltip.ae2utility.fluid_substitution.disabled": "Fluid substitutions disabled",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "Allow JEI pattern encode without open terminal",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "On (default): carrying a wireless encoding terminal in inventory/curios is enough to use JEI pattern encode.\nOff: an open pattern-encoding ME menu is required, reducing lag."
 }

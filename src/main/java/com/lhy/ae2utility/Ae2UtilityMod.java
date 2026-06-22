@@ -13,6 +13,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import com.lhy.ae2utility.jei.EncodePatternButtonState;
 import com.lhy.ae2utility.jei.JeiClientCacheContext;
 import com.lhy.ae2utility.jei.ClientRepoCraftableIndex;
 import com.lhy.ae2utility.jei.JeiEncodeButtonOverlay;
+import com.lhy.ae2utility.jei.JeiPatternSubstitutionOptionsOverlay;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
 import com.lhy.ae2utility.network.ModNetworking;
 
@@ -57,16 +59,27 @@ public class Ae2UtilityMod {
         @SubscribeEvent
         public static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
             EncodePatternButtonState.clearActiveButton();
+            JeiPatternSubstitutionOptionsOverlay.clearActiveButtons();
         }
 
         @SubscribeEvent
         public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
+            if (!ModList.get().isLoaded("jei")) {
+                return;
+            }
             JeiEncodeButtonOverlay.render(event.getScreen(), event.getGuiGraphics(), event.getMouseX(), event.getMouseY());
+            JeiPatternSubstitutionOptionsOverlay.render(event.getScreen(), event.getGuiGraphics(), event.getMouseX(),
+                    event.getMouseY());
         }
 
         @SubscribeEvent
         public static void onMouseButtonPressed(ScreenEvent.MouseButtonPressed.Pre event) {
             if (event.getButton() != 0) {
+                return;
+            }
+            if (ModList.get().isLoaded("jei")
+                    && JeiPatternSubstitutionOptionsOverlay.pressIfHovered(event.getMouseX(), event.getMouseY())) {
+                event.setCanceled(true);
                 return;
             }
             if (EncodePatternButtonState.pressIfHovered(event.getMouseX(), event.getMouseY())) {
