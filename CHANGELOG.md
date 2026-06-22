@@ -11,6 +11,8 @@
 5. Replaced the Forge MDK README with an AE2: Utility project README.
 6. Added Ctrl+Shift right-click conversion from encoded patterns back to blank patterns.
 7. Added JEI-local recipe option buttons for item and fluid substitutions, with state persisted locally for JEI encoding and uploads.
+8. Added JEI recipe option buttons for batch encoding/uploading all recipes on the current page or every page in the current JEI category.
+9. Cancelling an EAEP provider selection during JEI batch upload now cancels the remaining batch queue.
 
 ### 中文
 
@@ -21,3 +23,5 @@
 5. 将 Forge MDK 默认 README 替换为 AE2: Utility 模组说明；
 6. 新增按住ctrl+shift手持已编码样板右键时批量转化为空白样板。
 7. 在 JEI 配方选项区域新增 JEI 独立的物品替换与流体替换按钮，状态本地持久化并用于 JEI 编码/上传样板。
+8. 在 JEI 配方选项区域新增一键编码/上传当前页与当前 JEI 分类全部分页配方的按钮。
+9. 在 JEI 批量上传期间取消 EAEP 供应器选择时，会一并取消剩余批量上传队列。

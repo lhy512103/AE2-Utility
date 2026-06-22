@@ -44,6 +44,11 @@ public final class ModNetworking {
                 (msg, ctx) -> handleCraftableState(msg, ctx.get()),
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
+        CHANNEL.registerMessage(nextId++, CancelJeiBatchEncodeQueuePacket.class,
+                CancelJeiBatchEncodeQueuePacket::encode, CancelJeiBatchEncodeQueuePacket::decode,
+                (msg, ctx) -> handleCancelJeiBatchEncodeQueue(msg, ctx.get()),
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
         CHANNEL.registerMessage(nextId++, OpenEaepProviderSelectionPacket.class,
                 OpenEaepProviderSelectionPacket::encode, OpenEaepProviderSelectionPacket::decode,
                 (msg, ctx) -> handleOpenEaepProviderSelection(msg, ctx.get()),
@@ -83,6 +88,11 @@ public final class ModNetworking {
 
     private static void handleCraftableState(CraftableStatePacket msg, NetworkEvent.Context ctx) {
         ctx.enqueueWork(() -> CraftableStateCache.handle(msg));
+        ctx.setPacketHandled(true);
+    }
+
+    private static void handleCancelJeiBatchEncodeQueue(CancelJeiBatchEncodeQueuePacket msg, NetworkEvent.Context ctx) {
+        ctx.enqueueWork(() -> CancelJeiBatchEncodeQueuePacket.handle(msg));
         ctx.setPacketHandled(true);
     }
 

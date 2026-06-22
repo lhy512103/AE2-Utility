@@ -1,5 +1,7 @@
 package com.lhy.ae2utility.mixin.eaep;
 
+import com.lhy.ae2utility.network.CancelJeiBatchEncodeQueuePacket;
+import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.service.PendingCraftableRefreshService;
 import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,5 +20,12 @@ public abstract class ProviderUploadUtilMixin {
     @Inject(method = "returnPendingCtrlQPatternToInventory", at = @At("HEAD"), remap = false)
     private static void ae2utility$clearCraftableRefresh(ServerPlayer player, CallbackInfoReturnable<Boolean> cir) {
         PendingCraftableRefreshService.clear(player);
+    }
+
+    @Inject(method = "returnPendingCtrlQPatternToInventory", at = @At("RETURN"), remap = false)
+    private static void ae2utility$cancelJeiBatchQueue(ServerPlayer player, CallbackInfoReturnable<Boolean> cir) {
+        if (player != null && cir.getReturnValueZ()) {
+            ModNetworking.sendToPlayer(player, CancelJeiBatchEncodeQueuePacket.INSTANCE);
+        }
     }
 }

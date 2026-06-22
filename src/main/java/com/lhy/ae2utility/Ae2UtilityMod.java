@@ -23,6 +23,7 @@ import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.EncodePatternButtonState;
 import com.lhy.ae2utility.jei.JeiClientCacheContext;
 import com.lhy.ae2utility.jei.ClientRepoCraftableIndex;
+import com.lhy.ae2utility.jei.JeiBatchEncodeQueue;
 import com.lhy.ae2utility.jei.JeiEncodeButtonOverlay;
 import com.lhy.ae2utility.jei.JeiPatternSubstitutionOptionsOverlay;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
@@ -54,6 +55,7 @@ public class Ae2UtilityMod {
             ClientRepoCraftableIndex.advanceClientTick();
             CraftableStateCache.tick();
             EncodePatternButtonState.tick();
+            JeiBatchEncodeQueue.tick();
         }
 
         @SubscribeEvent
