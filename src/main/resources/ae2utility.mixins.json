@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "package": "com.lhy.ae2utility.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "minVersion": "0.8",
+  "mixins": [
+    "eaep.ProviderUploadUtilMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

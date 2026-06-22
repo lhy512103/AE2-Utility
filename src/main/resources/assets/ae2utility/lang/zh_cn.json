@@ -1,0 +1,17 @@
+{
+  "message.ae2utility.encode_failed_no_terminal": "AE2实用：未找到已连接的 ME 终端或无线终端。",
+  "message.ae2utility.encode_failed_empty": "AE2实用：配方没有输入或输出。",
+  "message.ae2utility.encode_failed": "AE2实用：编码 %1$s 失败。",
+  "message.ae2utility.encode_failed_no_blank": "无法编码：终端空白槽、背包与 ME 中均未找到可消耗的空白样板。",
+  "message.ae2utility.encode_failed_no_blank_named": "无法编码 %1$s，缺少空白样板。",
+  "message.ae2utility.encode_failed_no_network": "AE2实用：没有可用的 ME 网络，无法上传到 EAEP。",
+  "message.ae2utility.encode_eaep_provider_pending": "AE2实用：样板 %1$s 已进入待定队列，请在 EAEP 界面选择供应器。",
+  "message.ae2utility.encode_eaep_pending_failed": "AE2实用：EAEP 供应器队列失败，样板已退还到背包。",
+  "message.ae2utility.encode_rejected_require_open_encoding_menu": "AE2实用：当前服务器要求必须先打开样板编码类 ME 界面才能编码（见服务端配置）。",
+  "message.ae2utility.no_terminal_link": "AE2实用：当前终端未连接到可用的 ME 网络。",
+  "jei.tooltip.ae2utility.encode_pattern_button": "编码处理样板",
+  "jei.tooltip.ae2utility.encode_pattern_blue_slots": "蓝色高亮的物品 可以自动制作。",
+  "jei.tooltip.ae2utility.encode_pattern_shift": "按住 Shift 映射/上传样板到供应器",
+  "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "未开终端时允许 JEI 样板编码",
+  "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "开（默认）：背包/Curios 中携带具备编码能力的无线终端时，无需打开其 GUI 即可使用 JEI 样板编码。\n关：必须已打开样板编码类 ME 界面后才启用上述功能，可缓解卡顿。"
+}

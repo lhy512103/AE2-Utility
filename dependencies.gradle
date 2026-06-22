@@ -1,0 +1,73 @@
+// ──────────────────────────────────────────────────────────────
+//  AE2: Utility – Forge 1.20.1 依赖声明
+//  版本号统一在 gradle/libs.versions.toml 管理
+// ──────────────────────────────────────────────────────────────
+
+def v = libs.versions
+
+dependencies {
+    // ══════════════════════════════════════════════════════════
+    //  Minecraft & Forge
+    // ══════════════════════════════════════════════════════════
+    minecraft "net.minecraftforge:forge:${v.minecraft.get()}-${v.forge.get()}"
+
+    // ══════════════════════════════════════════════════════════
+    //  implementation — 编译 + 运行时都需要
+    // ══════════════════════════════════════════════════════════
+    implementation "appeng:appliedenergistics2-forge:${v.ae2.get()}"
+    implementation fg.deobf("maven.modrinth:applied-energistics-2-wireless-terminals:${v.ae2wtlib.get()}")
+
+    // ══════════════════════════════════════════════════════════
+    //  compileOnly — 仅编译期，不打入运行时
+    // ══════════════════════════════════════════════════════════
+    compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:${v.curios.get()}:api")
+    compileOnly "mezz.jei:jei-1.20.1-forge:${v.jei.get()}"
+    compileOnly "dev.emi:emi-forge:${v.emi.get()}:api"
+    // EAEP 作为 compileOnly：直接 import com.extendedae_plus.* 公开 API 类
+    compileOnly fg.deobf("maven.modrinth:extendedae-plus:${v.extendedae.plus.get()}")
+    compileOnly fg.deobf("org.appliedenergistics:guideme:${v.guideme.get()}")
+    compileOnly fg.deobf("maven.modrinth:mekanism:${v.mekanism.get()}")
+    compileOnly fg.deobf("maven.modrinth:applied-mekanistics:${v.applied.mek.get()}")
+
+    // ══════════════════════════════════════════════════════════
+    //  runtimeOnly — 仅运行时
+    // ══════════════════════════════════════════════════════════
+
+    // ── Modrinth Maven（需 fg.deobf）──────────────────────────
+    runtimeOnly fg.deobf("maven.modrinth:advancedae:${v.advancedae.get()}")
+    runtimeOnly fg.deobf("software.bernie.geckolib:geckolib-forge-1.20.1:${v.geckolib.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:glodium:${v.glodium.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:extended-ae:${v.extendedae.epp.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:appflux:${v.appflux.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:extendedae-plus:${v.extendedae.plus.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:ae2-crystal-science:${v.ae2cs.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:mekanism:${v.mekanism.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:mekanism-generators:${v.mekanism.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:create:${v.create.get()}")
+    runtimeOnly fg.deobf("maven.modrinth:applied-mekanistics:${v.applied.mek.get()}")
+    runtimeOnly fg.deobf(libs.ae2wcwt)
+    runtimeOnly fg.deobf(libs.cucumber)
+    runtimeOnly fg.deobf(libs.mystical.agriculture)
+    runtimeOnly fg.deobf(libs.mystical.agradditions)
+
+    // ── Maven（需 fg.deobf）──────────────────────────────────
+    runtimeOnly fg.deobf("org.appliedenergistics:guideme:${v.guideme.get()}")
+    runtimeOnly fg.deobf("me.shedaniel.cloth:cloth-config-forge:${v.cloth.get()}")
+    runtimeOnly fg.deobf("dev.architectury:architectury-forge:${v.architectury.get()}")
+    runtimeOnly fg.deobf("dev.toma.configuration:configuration-forge-1.20.1:${v.configuration.get()}")
+    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${v.curios.get()}")
+    runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:${v.jei.get()}")
+    runtimeOnly fg.deobf("lain.mods:cosmetic-armor-reworked:${v.cosmetic.armor.get()}")
+
+    // ══════════════════════════════════════════════════════════
+    //  clientRuntimeOnly — 仅 runClient 加载
+    // ══════════════════════════════════════════════════════════
+    clientRuntimeOnly fg.deobf("maven.modrinth:justenoughcharacters:${v.jecharacters.get()}")
+    clientRuntimeOnly fg.deobf("maven.modrinth:extreme_sound_muffler:${v.sound.muffler.get()}")
+    clientRuntimeOnly fg.deobf("caramelChat-mc1.20.1-forge:caramelChat-mc1.20.1-forge:${v.caramel.chat.get()}")
+    clientRuntimeOnly fg.deobf(libs.mouse.tweaks)
+    clientRuntimeOnly fg.deobf("Searchables-forge-1.20.1:Searchables-forge-1.20.1:${v.searchables.get()}")
+    clientRuntimeOnly fg.deobf(libs.controlling)
+
+    annotationProcessor "org.spongepowered:mixin:${v.mixin.get()}:processor"
+}

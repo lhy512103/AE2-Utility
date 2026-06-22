@@ -1,0 +1,17 @@
+{
+  "message.ae2utility.encode_failed_no_terminal": "AE2 Utility: no connected ME terminal or wireless terminal found.",
+  "message.ae2utility.encode_failed_empty": "AE2 Utility: recipe has no inputs or outputs.",
+  "message.ae2utility.encode_failed": "AE2 Utility: failed to encode %1$s.",
+  "message.ae2utility.encode_failed_no_blank": "Cannot encode: no blank pattern found in terminal slot, inventory or ME network.",
+  "message.ae2utility.encode_failed_no_blank_named": "Cannot encode %1$s, no blank pattern available.",
+  "message.ae2utility.encode_failed_no_network": "AE2 Utility: no ME network available for EAEP upload.",
+  "message.ae2utility.encode_eaep_provider_pending": "AE2 Utility: pattern %1$s queued, select a provider in the EAEP screen.",
+  "message.ae2utility.encode_eaep_pending_failed": "AE2 Utility: EAEP provider queue failed, pattern returned to inventory.",
+  "message.ae2utility.encode_rejected_require_open_encoding_menu": "AE2 Utility: this server requires an open pattern-encoding ME menu to encode (see server config).",
+  "message.ae2utility.no_terminal_link": "AE2 Utility: the terminal is not linked to a usable ME network.",
+  "jei.tooltip.ae2utility.encode_pattern_button": "Encode pattern",
+  "jei.tooltip.ae2utility.encode_pattern_blue_slots": "Blue highlighted items can be autocrafted.",
+  "jei.tooltip.ae2utility.encode_pattern_shift": "Hold Shift to map/upload the pattern to a provider",
+  "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "Allow JEI pattern encode without open terminal",
+  "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "On (default): carrying a wireless encoding terminal in inventory/curios is enough to use JEI pattern encode.\nOff: an open pattern-encoding ME menu is required, reducing lag."
+}
