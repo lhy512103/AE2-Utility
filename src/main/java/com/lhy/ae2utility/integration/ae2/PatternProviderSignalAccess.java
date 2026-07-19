@@ -45,6 +45,14 @@ public interface PatternProviderSignalAccess {
     default void ae2utility$tickRedstoneStateMachine(Object host, boolean busy, boolean returnPending,
             boolean allowCraftOnFall) {
         boolean active = busy || returnPending;
+        if (com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            ItemStack card = ae2utility$getRedstoneSignalCardStack();
+            var mode = card.isEmpty() ? null : card.getOrDefault(com.lhy.ae2utility.init.ModDataComponents.REDSTONE_SIGNAL_CARD_MODE, RedstoneSignalCardMode.ORDER);
+            com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "state host={} busy={} returnPending={} active={} previous={} card={} mode={} allowCraftOnFall={}",
+                    host == null ? "null" : host.getClass().getName(), busy, returnPending, active,
+                    ae2utility$getLastRedstoneActive(), card.isEmpty() ? "missing" : card.getItem(), mode, allowCraftOnFall);
+        }
         if (active == ae2utility$getLastRedstoneActive()) {
             return;
         }
@@ -138,6 +146,10 @@ public interface PatternProviderSignalAccess {
         }
         boolean wasActive = ae2utility$hasSignalPulse(level.getGameTime());
         int durationTicks = ae2utility$resolveRedstoneOutputDurationTicks();
+        com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
+                "trigger pulse block={} pos={} wasActive={} durationTicks={} modeCard={}",
+                blockEntity.getClass().getName(), blockEntity.getBlockPos(), wasActive, durationTicks,
+                ae2utility$getRedstoneSignalCardStack().isEmpty() ? "missing" : "present");
         ae2utility$triggerSignalPulse(level.getGameTime(), durationTicks);
         ae2utility$saveHostChanges(host);
         if (!wasActive) {

@@ -238,6 +238,17 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
 
     @Inject(method = "pushPattern", at = @At("HEAD"))
     private void ae2utility$pushPatternTearHead(IPatternDetails patternDetails, KeyCounter[] inputHolder, CallbackInfoReturnable<Boolean> cir) {
+        if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            ItemStack diagnosticCard = ae2utility$getRedstoneSignalCardStack();
+            Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "push_pattern_head logic={} pattern={} busy={} returnPending={} card={} mode={}",
+                    this.getClass().getName(),
+                    patternDetails == null ? "null" : patternDetails.getClass().getName(),
+                    isBusy(), !getReturnInv().isEmpty(),
+                    diagnosticCard.isEmpty() ? "missing" : diagnosticCard.getItem(),
+                    diagnosticCard.isEmpty() ? "none" : diagnosticCard.getOrDefault(ModDataComponents.REDSTONE_SIGNAL_CARD_MODE,
+                            RedstoneSignalCardMode.ORDER));
+        }
         ItemStack card = ae2utility$getEffectiveTearCardStack();
         if (!card.isEmpty() && card.getItem() instanceof NbtTearCardItem) {
             NbtTearCardThreadLocal.set(card.getOrDefault(ModDataComponents.NBT_TEAR_FILTER, NbtTearFilter.DEFAULT));
@@ -247,6 +258,11 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
     @Inject(method = "pushPattern", at = @At("RETURN"))
     private void ae2utility$pushPatternTearReturn(CallbackInfoReturnable<Boolean> cir) {
         NbtTearCardThreadLocal.clear();
+        if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "push_pattern_return logic={} accepted={} busy={} returnPending={}",
+                    this.getClass().getName(), cir.getReturnValueZ(), isBusy(), !getReturnInv().isEmpty());
+        }
         if (!cir.getReturnValueZ()) {
             return;
         }

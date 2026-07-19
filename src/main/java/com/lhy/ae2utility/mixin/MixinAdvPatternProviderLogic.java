@@ -240,8 +240,19 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
 
     @Inject(method = "pushPattern", at = @At("HEAD"))
     private void ae2utility$pushPatternTearHead(IPatternDetails patternDetails, KeyCounter[] inputHolder,
-            CallbackInfoReturnable<Boolean> cir) {
+        CallbackInfoReturnable<Boolean> cir) {
         ae2utility$advancedMachineBranchTriggered = false;
+        if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            ItemStack diagnosticCard = ae2utility$getRedstoneSignalCardStack();
+            Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "adv_push_pattern_head logic={} pattern={} busy={} returnPending={} card={} mode={}",
+                    this.getClass().getName(),
+                    patternDetails == null ? "null" : patternDetails.getClass().getName(),
+                    isBusy(), !getReturnInv().isEmpty(),
+                    diagnosticCard.isEmpty() ? "missing" : diagnosticCard.getItem(),
+                    diagnosticCard.isEmpty() ? "none" : diagnosticCard.getOrDefault(ModDataComponents.REDSTONE_SIGNAL_CARD_MODE,
+                            RedstoneSignalCardMode.ORDER));
+        }
         ItemStack card = ae2utility$getEffectiveTearCardStack();
         if (!card.isEmpty() && card.getItem() instanceof NbtTearCardItem) {
             NbtTearCardThreadLocal.set(card.getOrDefault(ModDataComponents.NBT_TEAR_FILTER, NbtTearFilter.DEFAULT));
@@ -251,6 +262,12 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
     @Inject(method = "pushPattern", at = @At("RETURN"))
     private void ae2utility$pushPatternTearReturn(CallbackInfoReturnable<Boolean> cir) {
         NbtTearCardThreadLocal.clear();
+        if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "adv_push_pattern_return logic={} accepted={} busy={} returnPending={} machineBranch={}",
+                    this.getClass().getName(), cir.getReturnValueZ(), isBusy(), !getReturnInv().isEmpty(),
+                    ae2utility$advancedMachineBranchTriggered);
+        }
         if (!cir.getReturnValueZ()) {
             return;
         }

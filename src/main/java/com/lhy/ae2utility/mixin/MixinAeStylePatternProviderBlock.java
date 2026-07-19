@@ -23,7 +23,7 @@ import com.lhy.ae2utility.integration.ae2.PatternProviderSignalAccess;
         "appeng.block.crafting.PatternProviderBlock",
         "com.glodblock.github.extendedae.common.blocks.BlockExPatternProvider",
         "com.moakiee.ae2lt.block.OverloadedPatternProviderBlock"
-})
+}, remap = false)
 public abstract class MixinAeStylePatternProviderBlock {
 
     public boolean isSignalSource(BlockState state) {
