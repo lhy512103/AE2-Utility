@@ -31,3 +31,5 @@ Thumbs.db
 
 # Cursor / local tooling (optional)
 .cursor/
+
+.eclipse/

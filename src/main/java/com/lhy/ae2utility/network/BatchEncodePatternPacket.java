@@ -19,12 +19,13 @@ public record BatchEncodePatternPacket(List<EncodePatternPacket> patterns) imple
             StreamCodec.ofMember(BatchEncodePatternPacket::write, BatchEncodePatternPacket::decode);
 
     public BatchEncodePatternPacket {
+        NetworkValidation.requireSize(patterns.size(), NetworkValidation.MAX_PATTERN_BATCH, "patterns");
         patterns = Collections.unmodifiableList(new ArrayList<>(patterns));
     }
 
     private static BatchEncodePatternPacket decode(RegistryFriendlyByteBuf buffer) {
-        int n = buffer.readVarInt();
-        List<EncodePatternPacket> list = new ArrayList<>(Math.min(n, 4096));
+        int n = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_PATTERN_BATCH, "patterns");
+        List<EncodePatternPacket> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             list.add(EncodePatternPacket.STREAM_CODEC.decode(buffer));
         }

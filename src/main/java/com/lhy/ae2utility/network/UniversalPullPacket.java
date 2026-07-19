@@ -18,6 +18,7 @@ public record UniversalPullPacket(List<RequestedIngredient> requestedIngredients
             StreamCodec.ofMember(UniversalPullPacket::write, UniversalPullPacket::decode);
 
     public UniversalPullPacket(List<RequestedIngredient> requestedIngredients, boolean maxTransfer) {
+        NetworkValidation.requireSize(requestedIngredients.size(), NetworkValidation.MAX_REQUESTED_INGREDIENTS, "requestedIngredients");
         this.requestedIngredients = requestedIngredients.stream().map(RequestedIngredient::copy).toList();
         this.maxTransfer = maxTransfer;
     }

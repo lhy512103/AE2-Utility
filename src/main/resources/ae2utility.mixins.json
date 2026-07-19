@@ -45,7 +45,7 @@
     "RecipeGuiLayoutsAccessor",
     "RecipeGuiLogicAccessor",
     "RecipesGuiAccessor",
-    "MixinRecipesGui"
+    "MixinRecipeOptionButtons"
   ],
   "injectors": {
     "defaultRequire": 1

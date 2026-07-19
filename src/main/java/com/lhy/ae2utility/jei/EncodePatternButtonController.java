@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.jei;
 
+import com.lhy.ae2utility.compat.ModCapabilities;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -420,7 +421,7 @@ public class EncodePatternButtonController implements IIconButtonController {
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_ctrl_left_hint").withStyle(ChatFormatting.WHITE));
         }
 
-        if (isAvailable && detailExpanded && net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
+        if (isAvailable && detailExpanded && ModCapabilities.hasExtendedAePlus()) {
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_shift").withStyle(ChatFormatting.WHITE));
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint").withStyle(ChatFormatting.WHITE));
         }

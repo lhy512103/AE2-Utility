@@ -78,9 +78,11 @@ public final class BlankPatternClientPrecheck {
                     return true;
                 }
             }
-            return false;
         }
-        if (WcwtCompat.isWcwtMenu(menu)) {
+        // Some AE2/third-party pattern terminals expose an MEStorageMenu host
+        // instead of PatternEncodingTermMenu. In that case the blank-pattern
+        // slots are still synchronized into the menu's regular slot list.
+        if (WcwtCompat.isPatternEncodingLikeMenu(menu)) {
             for (Slot slot : menu.slots) {
                 if (blankStackPresent(slot.getItem())) {
                     return true;

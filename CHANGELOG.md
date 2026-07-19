@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7.2
+
+### 中文
+
+1. 优化 JEI 左下角 AE2 Utility 按钮布局：批量编码按钮图标现在按 JEI 原生按钮尺寸显示。
+2. 修复空白样板预检无法识别部分样板编码终端菜单槽位的问题。
+3. 增加 AE2 Wireless Terminals 无线通用终端合成界面的兼容识别，使其可以参与样板编码上下文和空白样板检测。
+4. NeoForge 开发版本更新至 21.1.233，兼容范围保持不变。
+
+### English
+
+1. Improved the AE2 Utility button layout in the lower-left JEI recipe options tab; batch-encode icons now use the native button size.
+2. Fixed blank-pattern prechecks missing blank patterns in some pattern-encoding terminal menu slots.
+3. Added compatibility detection for the AE2 Wireless Terminals universal wireless crafting interface so it participates in pattern-encoding context and blank-pattern checks.
+4. Updated the development NeoForge version to 21.1.233 without changing the supported version range.
+
 ## 1.7.0
 
 ### 中文

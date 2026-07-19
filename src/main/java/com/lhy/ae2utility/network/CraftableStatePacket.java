@@ -12,6 +12,10 @@ import appeng.api.stacks.AEKey;
 import com.lhy.ae2utility.Ae2UtilityMod;
 
 public record CraftableStatePacket(List<AEKey> craftableKeys, List<AEKey> uncraftableKeys) implements CustomPacketPayload {
+    public CraftableStatePacket {
+        NetworkValidation.requireSize(craftableKeys.size(), NetworkValidation.MAX_CRAFTABLE_KEYS, "craftableKeys");
+        NetworkValidation.requireSize(uncraftableKeys.size(), NetworkValidation.MAX_CRAFTABLE_KEYS, "uncraftableKeys");
+    }
     public static final CustomPacketPayload.Type<CraftableStatePacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "craftable_state"));
 
@@ -19,12 +23,12 @@ public record CraftableStatePacket(List<AEKey> craftableKeys, List<AEKey> uncraf
             StreamCodec.ofMember(CraftableStatePacket::write, CraftableStatePacket::decode);
 
     private static CraftableStatePacket decode(RegistryFriendlyByteBuf buffer) {
-        int craftableSize = buffer.readVarInt();
+        int craftableSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_CRAFTABLE_KEYS, "craftableKeys");
         List<AEKey> craftableKeys = new ArrayList<>(craftableSize);
         for (int i = 0; i < craftableSize; i++) {
             craftableKeys.add(AEKey.readKey(buffer));
         }
-        int uncraftableSize = buffer.readVarInt();
+        int uncraftableSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_CRAFTABLE_KEYS, "uncraftableKeys");
         List<AEKey> uncraftableKeys = new ArrayList<>(uncraftableSize);
         for (int i = 0; i < uncraftableSize; i++) {
             uncraftableKeys.add(AEKey.readKey(buffer));

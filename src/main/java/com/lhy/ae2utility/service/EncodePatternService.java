@@ -111,8 +111,7 @@ public final class EncodePatternService {
             return;
         }
         if (Ae2UtilityServerConfig.blockJeiFullCategoryBatchEncode()) {
-            EncodePatternPacket anyFull =
-                    patterns.stream().filter(EncodePatternPacket::jeiFullCategoryBatch).findFirst().orElse(null);
+            EncodePatternPacket anyFull = EncodeBatchPolicy.firstFullCategoryBatch(patterns);
             if (anyFull != null) {
                 EncodeBulkSessionLimiter.notifyBlockedFullJeCategoryBatch(serverPlayer,
                         anyFull.bulkEncodeSessionId());
@@ -122,7 +121,7 @@ public final class EncodePatternService {
         List<EncodePatternPacket> toProcess = patterns;
         int mx = Ae2UtilityServerConfig.jeiBulkEncodeMaxPatternsPerSession();
         if (mx > 0 && patterns.size() > mx) {
-            toProcess = new ArrayList<>(patterns.subList(0, mx));
+            toProcess = EncodeBatchPolicy.cap(patterns, mx);
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.bulk_encode_truncated_to_server_batch", patterns.size(), mx)
                             .withStyle(net.minecraft.ChatFormatting.GOLD));

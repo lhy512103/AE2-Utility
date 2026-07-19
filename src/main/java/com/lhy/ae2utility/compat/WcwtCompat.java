@@ -16,6 +16,7 @@ import appeng.menu.me.items.PatternEncodingTermMenu;
 public final class WcwtCompat {
     private static final String WCWT_MENU_CLASS = "com.lhy.wcwt.menu.WirelessComprehensiveWorkTerminalMenu";
     private static final String WCWT_HOST_CLASS = "com.lhy.wcwt.helpers.WirelessComprehensiveWorkTerminalMenuHost";
+    private static final String AE2WT_WCT_MENU_CLASS = "de.mari_023.ae2wtlib.wct.WCTMenu";
 
     private WcwtCompat() {
     }
@@ -27,7 +28,8 @@ public final class WcwtCompat {
         if (menu instanceof MEStorageMenu me && me.getHost() instanceof IPatternTerminalMenuHost) {
             return true;
         }
-        return menu != null && menu.getClass().getName().equals(WCWT_MENU_CLASS);
+        return menu != null && (menu.getClass().getName().equals(WCWT_MENU_CLASS)
+                || menu.getClass().getName().equals(AE2WT_WCT_MENU_CLASS));
     }
 
     public static boolean isWcwtMenu(@Nullable AbstractContainerMenu menu) {

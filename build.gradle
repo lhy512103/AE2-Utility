@@ -37,6 +37,9 @@ java {
 }
 
 configurations {
+    coreLocalRuntime
+    ae2AddonLocalRuntime
+    compatibilityLocalRuntime
     localRuntime {
         // 这些放到 clientLocalRuntime（仅客户端），从通用 localRuntime 排除以免进服务端 run。
         exclude group: "curse.maven", module: "ae2-jei-integration-1074338"
@@ -48,6 +51,7 @@ configurations {
     clientLocalRuntime {
         exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
     }
+    localRuntime.extendsFrom coreLocalRuntime, ae2AddonLocalRuntime, compatibilityLocalRuntime
     runtimeClasspath.extendsFrom localRuntime
 }
 
@@ -56,6 +60,14 @@ sourceSets {
     // 注意 runtimeClasspath 不要并入 compileClasspath：后者含 compileOnly 的完整 EMI/JEI jar，
     // 会被 NeoForge 当 mod 加载（EMI 即使 localRuntime 注释了仍被带入）。运行时只取 localRuntime + clientLocalRuntime。
     clientRuntime {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime
+    }
+    clientMinimal {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + (sourceSets.main.runtimeClasspath - configurations.compatibilityLocalRuntime) + configurations.clientLocalRuntime
+    }
+    clientCompatibility {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += output + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime
     }
@@ -80,6 +92,16 @@ neoForge {
         server {
             server()
             gameDirectory = file('run/server')
+        }
+        clientMinimal {
+            client()
+            gameDirectory = file('run/client-minimal')
+            sourceSet = sourceSets.clientMinimal
+        }
+        clientCompatibility {
+            client()
+            gameDirectory = file('run/client-compatibility')
+            sourceSet = sourceSets.clientCompatibility
         }
     }
 }
@@ -172,6 +194,25 @@ repositories {
 }
 
 apply from: "$rootDir/dependencies.gradle"
+
+// 纯逻辑测试不需要启动 Minecraft 客户端；使用 JUnit 5 验证状态、编码和边界规则。
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+sourceSets {
+    test {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath + configurations.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath + configurations.runtimeClasspath
+    }
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    // NeoForge 的生成运行时 classpath 当前无法序列化到 Gradle configuration cache。
+    notCompatibleWithConfigurationCache('uses generated NeoForge test runtime classpath')
+}
 
 tasks.named("processResources", ProcessResources).configure {
     var replaceProperties = [

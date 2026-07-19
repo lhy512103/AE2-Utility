@@ -11,6 +11,10 @@ import net.minecraft.resources.ResourceLocation;
 import com.lhy.ae2utility.Ae2UtilityMod;
 
 public record RecipeFinderEncodePacket(List<EncodePatternPacket> patterns) implements CustomPacketPayload {
+    public RecipeFinderEncodePacket {
+        patterns = List.copyOf(patterns);
+        NetworkValidation.requireSize(patterns.size(), NetworkValidation.MAX_PATTERN_BATCH, "patterns");
+    }
     public static final Type<RecipeFinderEncodePacket> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "recipe_finder_encode"));
 
@@ -18,7 +22,7 @@ public record RecipeFinderEncodePacket(List<EncodePatternPacket> patterns) imple
             StreamCodec.ofMember(RecipeFinderEncodePacket::write, RecipeFinderEncodePacket::decode);
 
     private static RecipeFinderEncodePacket decode(RegistryFriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_PATTERN_BATCH, "patterns");
         List<EncodePatternPacket> selected = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             selected.add(EncodePatternPacket.STREAM_CODEC.decode(buffer));

@@ -258,10 +258,10 @@ public final class RecipeTransferPacketHelper {
     }
 
     public static List<RequestedIngredient> readRequestedIngredients(RegistryFriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_REQUESTED_INGREDIENTS, "requestedIngredients");
         List<RequestedIngredient> ingredients = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            int alternativesSize = buffer.readVarInt();
+            int alternativesSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_ALTERNATIVES_PER_INGREDIENT, "alternatives");
             List<ItemStack> alternatives = new ArrayList<>(alternativesSize);
             for (int j = 0; j < alternativesSize; j++) {
                 alternatives.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer));

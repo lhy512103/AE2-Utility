@@ -822,21 +822,12 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
     }
 
     private String featureSummary(Set<String> features) {
-        return features.stream().map(this::featureLabel).limit(5)
-                .reduce((a, b) -> a + ", " + b)
-                .orElse(Component.translatable("gui.ae2utility.recipe_finder.kind.all").getString());
+        return RecipeFinderTextFormatter.featureSummary(features, this::featureLabel,
+                Component.translatable("gui.ae2utility.recipe_finder.kind.all").getString());
     }
 
     private String sampleSummary(ItemStack sample) {
-        String modId = BuiltInRegistries.ITEM.getKey(sample.getItem()).getNamespace();
-        String modName = RecipeFinderFeatureClassifier.modDisplayName(modId);
-        Set<String> features = RecipeFinderFeatureClassifier.classifyItemStack(sample)
-                .stream().filter(f -> !"other".equals(f)).collect(Collectors.toSet());
-        if (features.isEmpty()) {
-            return "样本模组: " + modName;
-        }
-        String featText = features.stream().map(this::featureLabel).collect(Collectors.joining(", "));
-        return "样本: " + modName + " / " + featText;
+        return RecipeFinderTextFormatter.sampleSummary(sample, this::featureLabel);
     }
 
     private String statusLine() {
@@ -846,8 +837,7 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
     }
 
     private String ellipsize(String s, int max) {
-        if (max <= 0) return "";
-        return s.length() <= max ? s : s.substring(0, Math.max(0, max - 2)) + "..";
+        return RecipeFinderTextFormatter.ellipsize(s, max);
     }
 
     private boolean isAt(int rx, int ry, int w, int h, double mx, double my) {

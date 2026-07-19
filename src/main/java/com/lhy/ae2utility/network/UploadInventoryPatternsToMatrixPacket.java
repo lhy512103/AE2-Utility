@@ -22,10 +22,11 @@ public record UploadInventoryPatternsToMatrixPacket(List<Integer> slotIndices) i
 
     public UploadInventoryPatternsToMatrixPacket(List<Integer> slotIndices) {
         this.slotIndices = Collections.unmodifiableList(new ArrayList<>(slotIndices));
+        NetworkValidation.requireSize(this.slotIndices.size(), NetworkValidation.MAX_INVENTORY_SLOTS, "slotIndices");
     }
 
     private static @NotNull UploadInventoryPatternsToMatrixPacket decode(RegistryFriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_INVENTORY_SLOTS, "slotIndices");
         List<Integer> slots = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             slots.add(buffer.readVarInt());

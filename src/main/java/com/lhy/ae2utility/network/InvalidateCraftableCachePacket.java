@@ -13,6 +13,9 @@ import com.lhy.ae2utility.Ae2UtilityMod;
 
 /** 编码/上传样板成功后，令客户端丢弃这些材料的可合成缓存并尽快重查。 */
 public record InvalidateCraftableCachePacket(List<AEKey> keys) implements CustomPacketPayload {
+    public InvalidateCraftableCachePacket {
+        NetworkValidation.requireSize(keys.size(), NetworkValidation.MAX_CRAFTABLE_KEYS, "keys");
+    }
     public static final CustomPacketPayload.Type<InvalidateCraftableCachePacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "invalidate_craftable_cache"));
 
@@ -20,7 +23,7 @@ public record InvalidateCraftableCachePacket(List<AEKey> keys) implements Custom
             StreamCodec.ofMember(InvalidateCraftableCachePacket::write, InvalidateCraftableCachePacket::decode);
 
     private static InvalidateCraftableCachePacket decode(RegistryFriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_CRAFTABLE_KEYS, "keys");
         List<AEKey> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(AEKey.readKey(buffer));

@@ -80,17 +80,17 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         boolean substituteFluids = buffer.readableBytes() > 0 && buffer.readBoolean();
         boolean preserveInputOrder = buffer.readableBytes() > 0 && buffer.readBoolean();
 
-        int inputsSize = buffer.readVarInt();
+        int inputsSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_RECIPE_INPUT_SLOTS, "inputs");
         List<List<GenericStack>> inputs = new ArrayList<>(inputsSize);
         for (int i = 0; i < inputsSize; i++) {
             if (buffer.readBoolean()) {
-                inputs.add(readGenericStacks(buffer));
+                inputs.add(readGenericStacks(buffer, "input alternatives"));
             } else {
                 inputs.add(null);
             }
         }
 
-        List<GenericStack> outputs = readGenericStacks(buffer);
+        List<GenericStack> outputs = readGenericStacks(buffer, "outputs");
         boolean jeiSequentialQueue = buffer.readableBytes() > 0 && buffer.readBoolean();
         boolean jeiFullCategoryBatch = buffer.readableBytes() > 0 && buffer.readBoolean();
         int bulkEncodeSessionId = buffer.readableBytes() > 0 ? buffer.readVarInt() : 0;
@@ -127,8 +127,8 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         buffer.writeBoolean(craftingCategoryHint);
     }
 
-    private static List<GenericStack> readGenericStacks(RegistryFriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+    private static List<GenericStack> readGenericStacks(RegistryFriendlyByteBuf buffer, String field) {
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_STACKS_PER_SLOT, field);
         List<GenericStack> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             if (buffer.readBoolean()) {

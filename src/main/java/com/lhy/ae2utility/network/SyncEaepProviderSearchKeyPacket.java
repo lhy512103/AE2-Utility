@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.network;
 
+import com.lhy.ae2utility.compat.ModCapabilities;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.EaepPendingProviderSearch;
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
@@ -36,7 +37,7 @@ public record SyncEaepProviderSearchKeyPacket(boolean craftingPresetOnly, String
     }
 
     public static void handle(SyncEaepProviderSearchKeyPacket payload) {
-        if (!net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
+        if (!ModCapabilities.hasExtendedAePlus()) {
             return;
         }
         var mc = net.minecraft.client.Minecraft.getInstance();

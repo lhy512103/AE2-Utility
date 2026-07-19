@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.mixin;
 
+import com.lhy.ae2utility.compat.ModCapabilities;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -34,7 +35,7 @@ public abstract class MixinPatternProviderMenu {
     @Inject(method = "<init>", at = @At("TAIL"))
     private void ae2utility$addTearSlot(MenuType<?> menuType, int id, Inventory playerInventory, PatternProviderLogicHost host,
             CallbackInfo ci) {
-        if (net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
+        if (ModCapabilities.hasExtendedAePlus()) {
             return;
         }
         var handler = ((NbtTearLogicAccess) logic).ae2utility$getTearHandler();

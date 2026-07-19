@@ -1,4 +1,5 @@
 package com.lhy.ae2utility.client;
+import com.lhy.ae2utility.compat.ModCapabilities;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -54,7 +55,7 @@ public final class InventoryPatternUploadQueue {
             return;
         }
 
-        if (!net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
+        if (!ModCapabilities.hasExtendedAePlus()) {
             player.displayClientMessage(Component.literal("需要安装 ExtendedAE+ 才能打开供应器选择界面。").withStyle(ChatFormatting.RED), true);
             return;
         }
@@ -207,7 +208,7 @@ public final class InventoryPatternUploadQueue {
             resetAll();
             return;
         }
-        if (!net.neoforged.fml.ModList.get().isLoaded("extendedae_plus")) {
+        if (!ModCapabilities.hasExtendedAePlus()) {
             player.displayClientMessage(
                     Component.translatable("message.ae2utility.inventory_upload_provider_failed_no_eaep").withStyle(ChatFormatting.RED),
                     false);

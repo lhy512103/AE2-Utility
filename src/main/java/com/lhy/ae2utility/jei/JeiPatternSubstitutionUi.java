@@ -14,8 +14,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.sounds.SoundEvents;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -24,11 +27,109 @@ import appeng.integration.modules.curios.CuriosIntegration;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import mezz.jei.common.util.ImmutableRect2i;
+import mezz.jei.api.gui.buttons.IButtonState;
+import mezz.jei.api.gui.buttons.IIconButtonController;
+import mezz.jei.api.gui.inputs.IJeiUserInput;
 
 /**
- * JEI 配方界面左上角：物品/流体替换开关（8×8），以及同尺寸的批量编码按钮。
+ * JEI 配方选项按钮：由 MixinRecipeOptionButtons 追加到 JEI 原生的两个排序按钮之后。
  */
 public final class JeiPatternSubstitutionUi {
+    /** Buttons appended to JEI's native recipe-option tab by MixinRecipeOptionButtons. */
+    public enum RecipeOptionButton {
+        ITEM_SUBSTITUTION,
+        FLUID_SUBSTITUTION,
+        BATCH_PAGE,
+        BATCH_CATEGORY
+    }
+
+    public static final class RecipeOptionButtonController implements IIconButtonController {
+        private final RecipeOptionButton button;
+
+        public RecipeOptionButtonController(RecipeOptionButton button) {
+            this.button = button;
+        }
+
+        @Override
+        public boolean onPress(IJeiUserInput input) {
+            if (input.isSimulate() || !isSubstitutionContextActive()) {
+                return false;
+            }
+            switch (button) {
+                case ITEM_SUBSTITUTION -> toggleItemSubstitute();
+                case FLUID_SUBSTITUTION -> toggleFluidSubstitute();
+                case BATCH_PAGE -> JeiRecipesBatchEncode.run(true, Screen.hasShiftDown());
+                case BATCH_CATEGORY -> JeiRecipesBatchEncode.run(false, Screen.hasShiftDown());
+            }
+            Minecraft.getInstance().getSoundManager().play(
+                    SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            return true;
+        }
+
+        @Override
+        public void updateState(IButtonState state) {
+            boolean active = isSubstitutionContextActive();
+            state.setVisible(active && (button != RecipeOptionButton.BATCH_CATEGORY
+                    || Ae2UtilityClientConfig.showJeiBatchEncodeFullCategoryButton()));
+            state.setActive(active);
+            if (button == RecipeOptionButton.ITEM_SUBSTITUTION) {
+                state.setForcePressed(active && isItemSubstituteOn());
+            } else if (button == RecipeOptionButton.FLUID_SUBSTITUTION) {
+                state.setForcePressed(active && isFluidSubstituteOn());
+            }
+        }
+
+        @Override
+        public void getTooltips(mezz.jei.api.gui.builder.ITooltipBuilder tooltip) {
+            switch (button) {
+                case ITEM_SUBSTITUTION -> {
+                    tooltip.add(Component.translatable(isItemSubstituteOn()
+                            ? "gui.tooltips.ae2.SubstitutionsOn" : "gui.tooltips.ae2.SubstitutionsOff"));
+                    tooltip.add(Component.translatable(isItemSubstituteOn()
+                            ? "gui.tooltips.ae2.SubstitutionsDescEnabled"
+                            : "gui.tooltips.ae2.SubstitutionsDescDisabled").withStyle(ChatFormatting.GRAY));
+                }
+                case FLUID_SUBSTITUTION -> {
+                    tooltip.add(Component.translatable("gui.tooltips.ae2.FluidSubstitutions"));
+                    tooltip.add(Component.translatable(isFluidSubstituteOn()
+                            ? "gui.tooltips.ae2.FluidSubstitutionsDescEnabled"
+                            : "gui.tooltips.ae2.FluidSubstitutionsDescDisabled").withStyle(ChatFormatting.GRAY));
+                }
+                case BATCH_PAGE -> {
+                    tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_page"));
+                    tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_shift_hint").withStyle(ChatFormatting.GRAY));
+                }
+                case BATCH_CATEGORY -> {
+                    tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_category"));
+                    tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_shift_hint").withStyle(ChatFormatting.GRAY));
+                }
+            }
+        }
+
+        @Override
+        public void drawExtras(GuiGraphics graphics, Rect2i area, int mouseX, int mouseY, float partialTicks) {
+            int x = area.getX();
+            int y = area.getY();
+            switch (button) {
+                case ITEM_SUBSTITUTION -> (isItemSubstituteOn()
+                        ? Icon.S_SUBSTITUTION_ENABLED : Icon.S_SUBSTITUTION_DISABLED)
+                        .getBlitter().dest(x, y, 16, 16).blit(graphics);
+                case FLUID_SUBSTITUTION -> (isFluidSubstituteOn()
+                        ? Icon.S_FLUID_SUBSTITUTION_ENABLED : Icon.S_FLUID_SUBSTITUTION_DISABLED)
+                        .getBlitter().dest(x, y, 16, 16).blit(graphics);
+                case BATCH_PAGE -> drawBatchIcon(graphics, TEX_BATCH_PAGE, x, y);
+                case BATCH_CATEGORY -> drawBatchIcon(graphics, TEX_BATCH_CATEGORY, x, y);
+            }
+        }
+
+        private static void drawBatchIcon(GuiGraphics graphics, ResourceLocation texture, int x, int y) {
+            graphics.pose().pushPose();
+            graphics.pose().translate(x + 8, y + 8, 0);
+            graphics.pose().scale(2.0F, 2.0F, 1.0F);
+            graphics.blit(texture, -4, -4, 0, 0, 8, 8, 16, 16);
+            graphics.pose().popPose();
+        }
+    }
     /** 无线/非终端场景下使用的本地开关（与终端打开时由菜单同步） */
     public static boolean localSubstitute = false;
     public static boolean localSubstituteFluids = true;
@@ -38,10 +139,6 @@ public final class JeiPatternSubstitutionUi {
     private static final int BTN = 8;
     private static final int GAP = 2;
     private static final int PAD = 2;
-    /**
-     * 精灵表实际为 16×16 PNG，上排横向两帧（常态 u=0、悬停 u=8），下排未用。
-     * 此处必须写真实贴图高；若误写为 8，UV 会按“高 8px”归一化而把整张贴图压进 8 屏像素高，图标会变扁。
-     */
     private static final int BATCH_ICON_SHEET_W = 16;
     private static final int BATCH_ICON_SHEET_H = 16;
 
@@ -51,6 +148,7 @@ public final class JeiPatternSubstitutionUi {
     private static final ResourceLocation TEX_BATCH_CATEGORY =
             ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_category.png");
 
+    // Retained for compatibility with the old layout helpers; the active path uses JEI's native option-button layout.
     private static int lastItemX = Integer.MIN_VALUE;
     private static int lastItemY = Integer.MIN_VALUE;
     private static int lastFluidX = Integer.MIN_VALUE;

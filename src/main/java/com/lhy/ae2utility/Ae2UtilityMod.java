@@ -1,5 +1,6 @@
 package com.lhy.ae2utility;
 
+import com.lhy.ae2utility.compat.ModCapabilities;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -60,7 +61,7 @@ public class Ae2UtilityMod {
 
     private static void onClientSetup(@SuppressWarnings("unused") net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         // Guarded reference: EmiBatchScreenButtons touches EMI classes, so only load it when EMI is present.
-        if (net.neoforged.fml.ModList.get().isLoaded("emi")) {
+        if (ModCapabilities.hasEmi()) {
             com.lhy.ae2utility.emi.EmiBatchScreenButtons.register(NeoForge.EVENT_BUS);
         }
     }
