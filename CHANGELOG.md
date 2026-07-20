@@ -11,6 +11,7 @@
 5. 修复扩展 AE 样板供应器的红石输出 Mixin 目标解析，确保下单触发红石信号。
 6. 增加可开关的红石发信卡诊断日志，用于定位卡片检测、样板派发、状态机和方块输出问题。
 7. 补充原生及扩展样板供应器的下单入口/结果诊断信息，便于区分下单失败与红石输出链路故障。
+8. 修复瞬时派发配方无法触发“下单时”和“直到配方完成”红石信号的问题，并支持并行配方完成状态跟踪。
 
 ### English
 
@@ -21,6 +22,7 @@
 5. Fixed redstone-output Mixin target resolution for ExtendedAE pattern providers so orders can trigger the signal.
 6. Added opt-in redstone-card diagnostics for card detection, pattern dispatch, state transitions, and block output.
 7. Added dispatch entry/result diagnostics for native and extended pattern providers to distinguish order failures from signal-output failures.
+8. Fixed ORDER and UNTIL_RECIPE_COMPLETE signals for recipes dispatched instantly, including completion tracking across concurrent recipes.
 
 ## 1.7.0
 

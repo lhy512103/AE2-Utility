@@ -72,6 +72,27 @@ public interface PatternProviderSignalAccess {
         }
     }
 
+    /**
+     * 以 {@code pushPattern} 成功返回作为可靠的下单事件。部分配方会在同一调用内直接交给机器，
+     * 此时 {@code isBusy()} 和返还库存始终为假，不能依赖状态上升沿判断下单。
+     */
+    default void ae2utility$onSuccessfulPatternPush(Object host, boolean busy, boolean returnPending) {
+        boolean active = busy || returnPending;
+        if (ae2utility$isUntilRecipeMode()) {
+            com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "successful_push action=enable_until host={} busy={} returnPending={}",
+                    host == null ? "null" : host.getClass().getName(), busy, returnPending);
+            ae2utility$enableContinuousSignalFromHost(host);
+        } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
+            com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "successful_push action=order_pulse host={} busy={} returnPending={}",
+                    host == null ? "null" : host.getClass().getName(), busy, returnPending);
+            ae2utility$triggerSignalPulseFromHost(host);
+        }
+        // 同步当前采样，避免随后 sendStacksOut 再把同一次下单识别为状态上升沿而重复触发。
+        ae2utility$setLastRedstoneActive(active);
+    }
+
     default void ae2utility$triggerSignalPulse(long gameTime, int durationTicks) {
         long end = gameTime + Math.max(1, durationTicks);
         int clamped = end > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) end;

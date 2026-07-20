@@ -216,7 +216,7 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         ae2utility$rebuildPendingOutputs(pattern);
     }
 
-    /** 主驱动：grid tick 每次跑 sendStacksOut 后采样 isBusy + 待返还产物，驱动 ORDER/UNTIL 双边沿状态机。 */
+    /** 状态兜底：跟踪非瞬时派发的忙碌/返还状态，主要负责 UNTIL 的下降沿。 */
     @Inject(method = "sendStacksOut", at = @At("RETURN"))
     private void ae2utility$driveRedstoneStateMachine(CallbackInfoReturnable<Boolean> cir) {
         ae2utility$tickRedstoneStateMachine(host, isBusy(), !getReturnInv().isEmpty(), false);
@@ -266,8 +266,7 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         if (!cir.getReturnValueZ()) {
             return;
         }
-        // 派发瞬间补采样：覆盖 sendList 同 tick 即排空、grid tick 采样不到上升沿的瞬时配方。
-        ae2utility$tickRedstoneStateMachine(host, isBusy(), !getReturnInv().isEmpty(), false);
+        ae2utility$onSuccessfulPatternPush(host, isBusy(), !getReturnInv().isEmpty());
     }
 
     @Inject(method = "onStackReturnedToNetwork", at = @At("HEAD"))
@@ -275,10 +274,15 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         boolean craftMode = ae2utility$shouldEmitFor(RedstoneSignalCardMode.CRAFT);
         boolean waitingResultUnlock = unlockEvent == UnlockCraftingEvent.RESULT;
         boolean matchedPendingOutputs = ae2utility$consumeReturnedOutput(genericStack);
-        // UNTIL 拉低已交给双边沿状态机（下降沿）；此处仅负责 CRAFT 的逐键精确脉冲。
-        ae2utility$pendingCraftReturnRedstonePulse = genericStack != null && craftMode
+        boolean recipeComplete = genericStack != null
                 && (waitingResultUnlock || matchedPendingOutputs)
                 && ae2utility$pendingOutputReturns.isEmpty();
+        if (recipeComplete && ae2utility$isUntilRecipeMode()) {
+            Ae2UtilityRedstoneSignalDebugLog.pulse("until_recipe_complete host={} stack={}",
+                    host.getClass().getName(), genericStack);
+            ae2utility$disableContinuousSignalFromHost(host);
+        }
+        ae2utility$pendingCraftReturnRedstonePulse = recipeComplete && craftMode;
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             Ae2UtilityRedstoneSignalDebugLog.pulse(
                     "return_inventory_cb host={} unlockEvent={} craftMode={} pendingPulse={} "
@@ -355,7 +359,6 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
 
     @Unique
     private void ae2utility$rebuildPendingOutputs(IPatternDetails pattern) {
-        ae2utility$pendingOutputReturns.clear();
         if (pattern == null) {
             return;
         }

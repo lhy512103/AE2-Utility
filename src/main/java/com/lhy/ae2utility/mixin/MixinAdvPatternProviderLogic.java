@@ -68,9 +68,6 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
     private boolean ae2utility$lastRedstoneActive;
 
     @Unique
-    private boolean ae2utility$advancedMachineBranchTriggered;
-
-    @Unique
     private Object ae2utility$cachedHost;
 
     @Shadow
@@ -219,7 +216,7 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
         ae2utility$rebuildPendingOutputs(pattern);
     }
 
-    /** 主驱动：Adv grid tick 每次跑 sendStacksOut 后采样，驱动 ORDER/UNTIL 双边沿状态机。 */
+    /** 状态兜底：跟踪非瞬时派发的忙碌/返还状态，主要负责 UNTIL 的下降沿。 */
     @Inject(method = "sendStacksOut", at = @At("RETURN"))
     private void ae2utility$driveRedstoneStateMachine(CallbackInfoReturnable<Boolean> cir) {
         ae2utility$tickRedstoneStateMachine(ae2utility$host(), isBusy(), !getReturnInv().isEmpty(), false);
@@ -241,7 +238,6 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
     @Inject(method = "pushPattern", at = @At("HEAD"))
     private void ae2utility$pushPatternTearHead(IPatternDetails patternDetails, KeyCounter[] inputHolder,
         CallbackInfoReturnable<Boolean> cir) {
-        ae2utility$advancedMachineBranchTriggered = false;
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             ItemStack diagnosticCard = ae2utility$getRedstoneSignalCardStack();
             Ae2UtilityRedstoneSignalDebugLog.pulse(
@@ -264,36 +260,13 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
         NbtTearCardThreadLocal.clear();
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             Ae2UtilityRedstoneSignalDebugLog.pulse(
-                    "adv_push_pattern_return logic={} accepted={} busy={} returnPending={} machineBranch={}",
-                    this.getClass().getName(), cir.getReturnValueZ(), isBusy(), !getReturnInv().isEmpty(),
-                    ae2utility$advancedMachineBranchTriggered);
+                    "adv_push_pattern_return logic={} accepted={} busy={} returnPending={}",
+                    this.getClass().getName(), cir.getReturnValueZ(), isBusy(), !getReturnInv().isEmpty());
         }
         if (!cir.getReturnValueZ()) {
             return;
         }
-        if (ae2utility$advancedMachineBranchTriggered) {
-            // 机器分支：产物直接进机器、不入网络/returnInv，状态机抓不到，显式触发一次。
-            ae2utility$advancedMachineBranchTriggered = false;
-            if (ae2utility$isUntilRecipeMode()) {
-                ae2utility$enableContinuousSignalFromHost(ae2utility$host());
-            } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
-                ae2utility$triggerSignalPulseFromHost(ae2utility$host());
-            }
-            return;
-        }
-        // 普通派发：交给双边沿状态机采样（缓解瞬时配方）。
-        ae2utility$tickRedstoneStateMachine(ae2utility$host(), isBusy(), !getReturnInv().isEmpty(), false);
-    }
-
-    @Inject(
-            method = "pushPattern",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lappeng/api/implementations/blockentities/ICraftingMachine;pushPattern(Lappeng/api/crafting/IPatternDetails;[Lappeng/api/stacks/KeyCounter;Lnet/minecraft/core/Direction;)Z",
-                    shift = At.Shift.AFTER))
-    private void ae2utility$markCraftingMachineBranch(IPatternDetails patternDetails, KeyCounter[] inputHolder,
-            CallbackInfoReturnable<Boolean> cir) {
-        ae2utility$advancedMachineBranchTriggered = true;
+        ae2utility$onSuccessfulPatternPush(ae2utility$host(), isBusy(), !getReturnInv().isEmpty());
     }
 
     @Inject(method = "onStackReturnedToNetwork", at = @At("HEAD"))
@@ -301,10 +274,15 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
         boolean craftMode = ae2utility$shouldEmitFor(RedstoneSignalCardMode.CRAFT);
         boolean waitingResultUnlock = unlockEvent == UnlockCraftingEvent.RESULT;
         boolean matchedLastPushOutputs = ae2utility$consumeReturnedOutput(genericStack);
-        // UNTIL 拉低已交给双边沿状态机（下降沿）；此处仅负责 CRAFT 的逐键精确脉冲。
-        ae2utility$pendingCraftReturnRedstonePulse = genericStack != null && craftMode
+        boolean recipeComplete = genericStack != null
                 && (waitingResultUnlock || matchedLastPushOutputs)
                 && ae2utility$pendingOutputReturns.isEmpty();
+        if (recipeComplete && ae2utility$isUntilRecipeMode()) {
+            Ae2UtilityRedstoneSignalDebugLog.pulse("adv_until_recipe_complete logic={} stack={}",
+                    this.getClass().getName(), genericStack);
+            ae2utility$disableContinuousSignalFromHost(ae2utility$host());
+        }
+        ae2utility$pendingCraftReturnRedstonePulse = recipeComplete && craftMode;
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             Ae2UtilityRedstoneSignalDebugLog.pulse(
                     "adv_return_inventory_cb logic={} unlockEvent={} craftMode={} pendingPulse={} "
@@ -417,7 +395,6 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
 
     @Unique
     private void ae2utility$rebuildPendingOutputs(IPatternDetails pattern) {
-        ae2utility$pendingOutputReturns.clear();
         if (pattern == null) {
             return;
         }
