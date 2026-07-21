@@ -150,8 +150,9 @@ public abstract class MixinMeteoritePatternProviderLogic implements NbtTearLogic
         NbtTearCardDebug.logProviderCheck("meteorite_push_unlock_applied", patternDetails, this, card, filter, true,
                 "lock=" + logic.getCraftingLockedReason());
         PatternProviderLogicHost host = ((PatternProviderLogicInvoker) this).ae2utility$getHost();
-        // 上升沿采样；CRAFT 靠 workCraftedContents 事件源，UNTIL 拉低靠继承基类 sendStacksOut driver。
-        ae2utility$tickRedstoneStateMachine(host, logic.isBusy(), !logic.getReturnInv().isEmpty(), false);
+        // 自装配式样板绕过 PatternProviderLogic.pushPattern，必须在自己的成功返回点
+        // 转发下单事件；完成侧仍由输出返还回调/基类账本负责。
+        ae2utility$onSuccessfulPatternPush(host, logic.isBusy(), !logic.getReturnInv().isEmpty());
     }
 
     @Redirect(method = "workCraftedContents", at = @At(value = "INVOKE", target = "Lappeng/api/storage/MEStorage;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;Lappeng/api/networking/security/IActionSource;)J"))

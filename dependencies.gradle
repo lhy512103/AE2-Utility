@@ -14,9 +14,9 @@ dependencies {
     coreLocalRuntime "curse.maven:curios-309927:6529130"
 
     // ── 运行时配方查看器 ───────────────────────────────────────
-    // JEI 与 EMI 二选一（同时加载会冲突）；默认 JEI，测 EMI 集成时互换注释。
+    // JEI 与 EMI 二选一；当前运行配置切换为 EMI，便于测试 EMI 集成。
     coreLocalRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    // coreLocalRuntime "dev.emi:emi-neoforge:${emi_version}"
+    coreLocalRuntime "dev.emi:emi-neoforge:${emi_version}"
 
     // ── 运行时 AE2 扩展 ────────────────────────────────────────
     ae2AddonLocalRuntime "curse.maven:advancedae-1084104:${advancedae_file}"

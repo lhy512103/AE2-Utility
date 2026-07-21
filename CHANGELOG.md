@@ -4,25 +4,15 @@
 
 ### 中文
 
-1. 优化 JEI 左下角 AE2 Utility 按钮布局：批量编码按钮图标现在按 JEI 原生按钮尺寸显示。
+1. 优化 JEI/EMI 配方界面 AE2 Utility 按钮布局。
 2. 修复空白样板预检无法识别部分样板编码终端菜单槽位的问题。
-3. 增加 AE2 Wireless Terminals 无线通用终端合成界面的兼容识别，使其可以参与样板编码上下文和空白样板检测。
-4. NeoForge 开发版本更新至 21.1.233，兼容范围保持不变。
-5. 修复扩展 AE 样板供应器的红石输出 Mixin 目标解析，确保下单触发红石信号。
-6. 增加可开关的红石发信卡诊断日志，用于定位卡片检测、样板派发、状态机和方块输出问题。
-7. 补充原生及扩展样板供应器的下单入口/结果诊断信息，便于区分下单失败与红石输出链路故障。
-8. 修复瞬时派发配方无法触发“下单时”和“直到配方完成”红石信号的问题，并支持并行配方完成状态跟踪。
+3. 修复红石发信卡功能。
 
 ### English
 
-1. Improved the AE2 Utility button layout in the lower-left JEI recipe options tab; batch-encode icons now use the native button size.
+1. Improved the AE2 Utility button layout in the JEI and EMI recipe interfaces.
 2. Fixed blank-pattern prechecks missing blank patterns in some pattern-encoding terminal menu slots.
-3. Added compatibility detection for the AE2 Wireless Terminals universal wireless crafting interface so it participates in pattern-encoding context and blank-pattern checks.
-4. Updated the development NeoForge version to 21.1.233 without changing the supported version range.
-5. Fixed redstone-output Mixin target resolution for ExtendedAE pattern providers so orders can trigger the signal.
-6. Added opt-in redstone-card diagnostics for card detection, pattern dispatch, state transitions, and block output.
-7. Added dispatch entry/result diagnostics for native and extended pattern providers to distinguish order failures from signal-output failures.
-8. Fixed ORDER and UNTIL_RECIPE_COMPLETE signals for recipes dispatched instantly, including completion tracking across concurrent recipes.
+3. Fixed redstone signal card functionality.
 
 ## 1.7.0
 

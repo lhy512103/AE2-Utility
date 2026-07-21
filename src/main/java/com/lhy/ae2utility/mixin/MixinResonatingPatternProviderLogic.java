@@ -145,16 +145,19 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
     }
 
     @Inject(method = "pushPattern", at = @At("RETURN"))
-    private void ae2utility$clearResolvedKeys(CallbackInfoReturnable<Boolean> cir) {
+    private void ae2utility$clearResolvedKeys(IPatternDetails patternDetails, KeyCounter[] inputHolder,
+            CallbackInfoReturnable<Boolean> cir) {
         ae2utility$markedSimulateKeys.clear();
         ae2utility$markedModulateKeys.clear();
-        if (!cir.getReturnValueZ()) {
+        if (!cir.getReturnValueZ() || patternDetails == null
+                || !patternDetails.getClass().getName().endsWith("ResonatingPatternDetails")) {
             return;
         }
         var host = ((PatternProviderLogicInvoker) this).ae2utility$getHost();
         PatternProviderLogic logic = (PatternProviderLogic) (Object) this;
-        // 上升沿采样；下降沿（UNTIL 拉低）靠继承基类的 sendStacksOut driver，CRAFT 靠基类 onStackReturnedToNetwork。
-        ae2utility$tickRedstoneStateMachine(host, logic.isBusy(), !logic.getReturnInv().isEmpty(), false);
+        // 谐振样板由子类自定义路径接受，绕过基类 pushPattern；只在该类型的成功返回点
+        // 转发一次下单事件，普通样板仍由 MixinPatternProviderLogic 处理。
+        ae2utility$onSuccessfulPatternPush(host, logic.isBusy(), !logic.getReturnInv().isEmpty());
     }
 
     @Redirect(method = "pushPattern",

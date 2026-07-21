@@ -76,6 +76,9 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
     @Unique
     private boolean ae2utility$pendingCraftReturnRedstonePulse;
 
+    @Unique
+    private boolean ae2utility$pendingOutputTracking;
+
     /** 上一 tick 活跃态（isBusy || 待返还产物非空），供 ORDER/UNTIL 双边沿状态机检测边沿；不持久化。 */
     @Unique
     private boolean ae2utility$lastRedstoneActive;
@@ -129,6 +132,11 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         ae2utility$lastRedstoneActive = active;
     }
 
+    @Override
+    public boolean ae2utility$isPendingOutputTracking() {
+        return ae2utility$pendingOutputTracking && !ae2utility$pendingOutputReturns.isEmpty();
+    }
+
     @Inject(method = "writeToNBT", at = @At("TAIL"))
     private void ae2utility$writeTear(CompoundTag tag, HolderLookup.Provider registries, CallbackInfo ci) {
         ItemStack card = ae2utility$getTearHandler().getStackInSlot(0);
@@ -140,6 +148,9 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         }
         if (ae2utility$continuousSignalActive) {
             tag.putBoolean("ae2utility_continuous_signal_active", true);
+        }
+        if (ae2utility$pendingOutputTracking || !ae2utility$pendingOutputReturns.isEmpty()) {
+            tag.putBoolean("ae2utility_pending_output_tracking", true);
         }
         if (!ae2utility$pendingOutputReturns.isEmpty()) {
             var list = new net.minecraft.nbt.ListTag();
@@ -162,6 +173,7 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         ae2utility$continuousSignalActive = tag.getBoolean("ae2utility_continuous_signal_active");
         ae2utility$rebuildUnlockOutputWhatsAfterNbt();
         ae2utility$pendingOutputReturns.clear();
+        ae2utility$pendingOutputTracking = tag.getBoolean("ae2utility_pending_output_tracking");
         if (tag.contains(AE2UTILITY_PENDING_OUTPUTS, net.minecraft.nbt.Tag.TAG_LIST)) {
             var list = tag.getList(AE2UTILITY_PENDING_OUTPUTS, net.minecraft.nbt.Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {
@@ -171,6 +183,9 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
                 }
             }
         }
+        // Saves created before the marker was introduced are still considered active
+        // when they contain pending outputs.
+        ae2utility$pendingOutputTracking |= !ae2utility$pendingOutputReturns.isEmpty();
     }
 
     @Inject(method = "addDrops", at = @At("TAIL"))
@@ -189,20 +204,21 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         ae2utility$continuousSignalActive = false;
         ae2utility$lastRedstoneActive = false;
         ae2utility$pendingCraftReturnRedstonePulse = false;
+        ae2utility$pendingOutputTracking = false;
         ae2utility$pendingOutputReturns.clear();
     }
 
     @Inject(method = "resetCraftingLock", at = @At("TAIL"))
     private void ae2utility$clearUnlockOutputWhats(CallbackInfo ci) {
+        // This lock is AE2's primary-output lock. It may be reset for every new
+        // accepted pattern, while the redstone tracker must retain all batches.
         ae2utility$unlockOutputWhats.clear();
-        ae2utility$pendingOutputReturns.clear();
     }
 
     @Inject(method = "onPushPatternSuccess", at = @At("TAIL"))
     private void ae2utility$captureUnlockOutputWhats(IPatternDetails pattern, CallbackInfo ci) {
         ae2utility$unlockOutputWhats.clear();
         if (pattern == null) {
-            ae2utility$pendingOutputReturns.clear();
             return;
         }
         var seen = new LinkedHashSet<AEKey>();
@@ -219,7 +235,8 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
     /** 状态兜底：跟踪非瞬时派发的忙碌/返还状态，主要负责 UNTIL 的下降沿。 */
     @Inject(method = "sendStacksOut", at = @At("RETURN"))
     private void ae2utility$driveRedstoneStateMachine(CallbackInfoReturnable<Boolean> cir) {
-        ae2utility$tickRedstoneStateMachine(host, isBusy(), !getReturnInv().isEmpty(), false);
+        ae2utility$tickRedstoneStateMachine(host, isBusy(),
+                !getReturnInv().isEmpty() || ae2utility$isPendingOutputTracking(), false);
     }
 
     @Inject(method = "doWork", at = @At("HEAD"))
@@ -272,11 +289,14 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
     @Inject(method = "onStackReturnedToNetwork", at = @At("HEAD"))
     private void ae2utility$prepareCraftReturnPulseAndLogTear(GenericStack genericStack, CallbackInfo ci) {
         boolean craftMode = ae2utility$shouldEmitFor(RedstoneSignalCardMode.CRAFT);
-        boolean waitingResultUnlock = unlockEvent == UnlockCraftingEvent.RESULT;
         boolean matchedPendingOutputs = ae2utility$consumeReturnedOutput(genericStack);
         boolean recipeComplete = genericStack != null
-                && (waitingResultUnlock || matchedPendingOutputs)
+                && ae2utility$pendingOutputTracking
+                && matchedPendingOutputs
                 && ae2utility$pendingOutputReturns.isEmpty();
+        if (recipeComplete) {
+            ae2utility$pendingOutputTracking = false;
+        }
         if (recipeComplete && ae2utility$isUntilRecipeMode()) {
             Ae2UtilityRedstoneSignalDebugLog.pulse("until_recipe_complete host={} stack={}",
                     host.getClass().getName(), genericStack);
@@ -286,13 +306,13 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             Ae2UtilityRedstoneSignalDebugLog.pulse(
                     "return_inventory_cb host={} unlockEvent={} craftMode={} pendingPulse={} "
-                            + "waitingResultUnlock={} matchedPendingOutputs={} remainingOutputs={} stackBrief={}",
+                            + "matchedPendingOutputs={} tracking={} remainingOutputs={} stackBrief={}",
                     host.getClass().getName(),
                     unlockEvent != null ? unlockEvent.name() : "null",
                     craftMode,
                     ae2utility$pendingCraftReturnRedstonePulse,
-                    waitingResultUnlock,
                     matchedPendingOutputs,
+                    ae2utility$pendingOutputTracking,
                     ae2utility$pendingOutputReturns.size(),
                     genericStack != null ? genericStack.toString() : "null");
         }
@@ -321,32 +341,47 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
 
     @Unique
     private boolean ae2utility$consumeReturnedOutput(GenericStack genericStack) {
-        if (genericStack == null || ae2utility$pendingOutputReturns.isEmpty()) {
+        if (genericStack == null || genericStack.amount() <= 0 || ae2utility$pendingOutputReturns.isEmpty()) {
             return false;
         }
-        for (int i = 0; i < ae2utility$pendingOutputReturns.size(); i++) {
-            var expected = ae2utility$pendingOutputReturns.get(i);
-            if (!ae2utility$outputMatches(expected.what(), genericStack.what())) {
-                continue;
+
+        long remainingToConsume = genericStack.amount();
+        boolean matched = false;
+        while (remainingToConsume > 0) {
+            int matchedIndex = -1;
+            for (int i = 0; i < ae2utility$pendingOutputReturns.size(); i++) {
+                if (ae2utility$outputMatches(ae2utility$pendingOutputReturns.get(i).what(), genericStack.what())) {
+                    matchedIndex = i;
+                    break;
+                }
             }
-            long remaining = expected.amount() - genericStack.amount();
-            if (remaining > 0) {
-                ae2utility$pendingOutputReturns.set(i, new GenericStack(expected.what(), remaining));
+            if (matchedIndex < 0) {
+                break;
+            }
+
+            var expected = ae2utility$pendingOutputReturns.get(matchedIndex);
+            long consumed = Math.min(expected.amount(), remainingToConsume);
+            long left = expected.amount() - consumed;
+            remainingToConsume -= consumed;
+            matched = true;
+            if (left > 0) {
+                ae2utility$pendingOutputReturns.set(matchedIndex, new GenericStack(expected.what(), left));
             } else {
-                ae2utility$pendingOutputReturns.remove(i);
+                ae2utility$pendingOutputReturns.remove(matchedIndex);
             }
-            if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
-                Ae2UtilityRedstoneSignalDebugLog.pulse(
-                        "pending_output_consume host={} matched={} returnedAmount={} remainingAmount={} remainingEntries={}",
-                        host.getClass().getName(),
-                        expected.what(),
-                        genericStack.amount(),
-                        Math.max(remaining, 0),
-                        ae2utility$pendingOutputReturns.size());
-            }
-            return true;
         }
-        return false;
+
+        if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "pending_output_consume logic={} matched={} returnedAmount={} unassignedAmount={} remainingAmount={} remainingEntries={}",
+                    host.getClass().getName(),
+                    matched,
+                    genericStack.amount(),
+                    remainingToConsume,
+                    ae2utility$pendingOutputReturns.stream().mapToLong(GenericStack::amount).sum(),
+                    ae2utility$pendingOutputReturns.size());
+        }
+        return matched;
     }
 
     @Unique
@@ -369,10 +404,14 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
         }
         if (!addedAny && unlockEvent == UnlockCraftingEvent.RESULT && unlockStack != null) {
             ae2utility$mergePendingOutput(unlockStack.what(), unlockStack.amount());
+            addedAny = true;
+        }
+        if (addedAny) {
+            ae2utility$pendingOutputTracking = true;
         }
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             Ae2UtilityRedstoneSignalDebugLog.pulse(
-                    "pending_output_rebuild host={} unlockEvent={} outputs={}",
+                    "pending_output_merge host={} unlockEvent={} outputs={}",
                     host.getClass().getName(),
                     unlockEvent != null ? unlockEvent.name() : "null",
                     ae2utility$pendingOutputReturns);

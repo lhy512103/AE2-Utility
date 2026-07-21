@@ -25,6 +25,17 @@ public interface PatternProviderSignalAccess {
 
     void ae2utility$setLastRedstoneActive(boolean active);
 
+    /**
+     * Whether outputs from accepted patterns are still pending return to the network.
+     *
+     * <p>Some third-party providers expose a paged or asynchronously transferred return
+     * inventory, so an empty currently visible inventory does not necessarily mean the
+     * whole batch is complete.</p>
+     */
+    default boolean ae2utility$isPendingOutputTracking() {
+        return false;
+    }
+
     default boolean ae2utility$hasSignalPulse(long gameTime) {
         return ae2utility$isContinuousSignalActive() || ae2utility$getSignalPulseUntilTick() > gameTime;
     }
@@ -89,8 +100,10 @@ public interface PatternProviderSignalAccess {
                     host == null ? "null" : host.getClass().getName(), busy, returnPending);
             ae2utility$triggerSignalPulseFromHost(host);
         }
-        // 同步当前采样，避免随后 sendStacksOut 再把同一次下单识别为状态上升沿而重复触发。
-        ae2utility$setLastRedstoneActive(active);
+        // UNTIL 必须先记为 active：即使第三方供应器在同一次调用内完成派发，
+        // 也要让后续稳定 tick 观察到下降沿并关闭持续信号。ORDER/CRAFT 则只同步
+        // 实际可观察状态，避免瞬时订单在下一 tick 被误判为完成。
+        ae2utility$setLastRedstoneActive(ae2utility$isUntilRecipeMode() || active);
     }
 
     default void ae2utility$triggerSignalPulse(long gameTime, int durationTicks) {
