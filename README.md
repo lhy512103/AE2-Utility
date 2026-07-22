@@ -74,6 +74,36 @@ Main features of AE2: Utility:
 6. `Alt` clicking upload in the pattern encoding terminal attempts to upload all encoded patterns from the player inventory; cancelling skips that machine group, while old patterns without stored mapping data are not supported.
 7. Probabilistic outputs are automatically filtered during JEI encoding. Currently tested mainly with Mekanism recipes.
 
+## JEICT 可编辑样板草稿 / Editable JEICT Pattern Drafts
+
+### 中文
+
+安装 JEI Crafting Tree 后，AE2: Utility 可作为其 AE2 后端，为配方树节点详情中的迷你样板编码区提供实际编码与上传能力：
+
+- 将 JEICT 的可编辑草稿转换为 AE2 `GenericStack` 输入、备选原料与输出；
+- 支持处理样板最多 81 个输入槽和 27 个输出槽；
+- 保留用户选择的主要输出、次要输出、精确数量、物品/流体替换状态与输入顺序设置；
+- 删除副产物后，批量编码和上传只写入草稿中仍然存在的输出；
+- 合成、锻造与切石配方仍按 AE2 的结构化样板路径编码，不会静默降级为处理样板；
+- 客户端执行空白样板预检，服务端再次验证槽位数量、备选项、材料键、数量和主要输出；无效草稿不会消耗空白样板；
+- 批量请求继续使用服务端重复样板检查与上传队列，避免仅依赖界面状态作最终判断。
+
+该集成通过可选兼容层加载。JEICT 未安装时不会影响 AE2: Utility 的其他功能；JEICT 未检测到 AE2 后端时也不会显示样板草稿编辑区。
+
+### English
+
+With JEI Crafting Tree installed, AE2: Utility acts as its AE2 backend and turns the compact node-level pattern editor into a real encoding and upload workflow:
+
+- Converts editable JEICT drafts into AE2 `GenericStack` inputs, alternatives, and outputs.
+- Supports the AE2 processing-pattern limits of 81 input slots and 27 output slots.
+- Preserves the selected primary output, secondary outputs, exact amounts, item/fluid substitution state, and input-order setting.
+- When byproducts are removed, batch encoding and upload write only the outputs that remain in the draft.
+- Keeps crafting, smithing, and stonecutting recipes on AE2's structured-pattern paths instead of silently falling back to processing patterns.
+- Performs a client-side blank-pattern precheck and strict server-side validation of slot counts, alternatives, keys, amounts, and the primary output; invalid drafts do not consume blank patterns.
+- Retains server-side duplicate-pattern checks and the existing upload queue as the final authority for batch operations.
+
+The bridge is optional and reflection-based. AE2: Utility continues to work without JEICT, while JEICT hides the draft editor when no compatible AE2 backend is available.
+
 ## 依赖 / Dependencies
 
 | 模组 / Mod | 说明 / Notes |

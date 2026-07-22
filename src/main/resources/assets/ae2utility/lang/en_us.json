@@ -211,6 +211,6 @@
   "ae2utility.serverConfig.enableNbtTearDraconicEvolutionFusionInjectorBlacklist.tooltip": "On: the NBT Tear Card never fuzzy-matches Draconic Evolution basic, wyvern, awakened/draconic, or chaotic crafting injectors.\nOff: allow the card's normal fuzzy rules.",
   "ae2utility.serverConfig.nbtTearCardItemBlacklist": "Additional NBT Tear item blacklist",
   "ae2utility.serverConfig.nbtTearCardItemBlacklist.tooltip": "Extra item ids that the NBT Tear Card must never match by item-id-only. Built-in blacklist groups above have their own switches.",
-
-  "key.categories.ae2utility": "AE2 Utility"
+  "key.categories.ae2utility": "AE2 Utility",
+  "message.ae2utility.jeict_pattern_draft_invalid": "The pattern draft contains an input, output, or amount that AE2 cannot encode."
 }

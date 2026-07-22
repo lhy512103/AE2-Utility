@@ -568,6 +568,11 @@ public final class EncodePatternService {
 
         List<List<GenericStack>> inLists = payload.inputs();
         List<GenericStack> out = payload.outputs();
+        if (!isValidPatternPayload(inLists, out)) {
+            serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.jeict_pattern_draft_invalid"));
+            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            return EncodeOutcome.FAILURE;
+        }
 
         java.util.function.Predicate<appeng.api.stacks.AEKey> craftablePredicate =
                 grid != null ? key -> grid.getCraftingService().isCraftable(key) : null;
@@ -936,6 +941,28 @@ public final class EncodePatternService {
             }
         }
         return rawKey;
+    }
+
+    private static boolean isValidPatternPayload(List<List<GenericStack>> inputs, List<GenericStack> outputs) {
+        if (inputs == null || outputs == null || inputs.size() > 81 || outputs.isEmpty() || outputs.size() > 27
+                || outputs.getFirst() == null) {
+            return false;
+        }
+        boolean hasInput = false;
+        for (List<GenericStack> alternatives : inputs) {
+            if (alternatives == null) continue;
+            if (alternatives.size() > 64) return false;
+            for (GenericStack stack : alternatives) {
+                if (stack == null) continue;
+                if (stack.what() == null || stack.amount() <= 0) return false;
+                hasInput = true;
+            }
+        }
+        if (!hasInput) return false;
+        for (GenericStack stack : outputs) {
+            if (stack != null && (stack.what() == null || stack.amount() <= 0)) return false;
+        }
+        return outputs.getFirst().what() != null && outputs.getFirst().amount() > 0;
     }
 
     private static List<AEKey> collectCraftableKeysForRefresh(EncodePatternPacket payload) {
