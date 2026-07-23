@@ -1,8 +1,10 @@
 package com.lhy.ae2utility.mixin.eaep;
 
+import appeng.api.networking.IGrid;
 import com.lhy.ae2utility.network.CancelJeiBatchEncodeQueuePacket;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.service.PendingCraftableRefreshService;
+import com.lhy.ae2utility.service.WirelessTerminalContextResolver;
 import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,6 +13,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(targets = "com.extendedae_plus.util.uploadPattern.ProviderUploadUtil", remap = false)
 public abstract class ProviderUploadUtilMixin {
+    @Inject(method = "findPlayerGrid", at = @At("RETURN"), cancellable = true, remap = false)
+    private static void ae2utility$resolveWcwtCuriosGrid(ServerPlayer player,
+            CallbackInfoReturnable<IGrid> cir) {
+        if (cir.getReturnValue() != null || player == null) {
+            return;
+        }
+
+        var resolution = WirelessTerminalContextResolver.resolve(player);
+        if (!resolution.isReady()) {
+            return;
+        }
+
+        var node = resolution.host().getActionableNode();
+        if (node != null && node.getGrid() != null) {
+            cir.setReturnValue(node.getGrid());
+        }
+    }
+
     @Inject(method = "uploadPendingCtrlQPattern", at = @At("RETURN"), remap = false)
     private static void ae2utility$refreshCraftableCache(ServerPlayer player, long providerId,
             CallbackInfoReturnable<Boolean> cir) {

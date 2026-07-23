@@ -122,48 +122,49 @@ public final class JeiEncodePacketFactory {
         if (!shiftUpload || !ModList.get().isLoaded("extendedae_plus")) {
             return "";
         }
-        if (!(recipe instanceof Recipe<?> r)) {
-            return "";
-        }
-        if (r instanceof CraftingRecipe) {
+        Recipe<?> vanillaRecipe = recipe instanceof Recipe<?> r ? r : null;
+        ResourceLocation typeId = recipeTypeId(recipeLayout, vanillaRecipe);
+
+        if (vanillaRecipe instanceof CraftingRecipe) {
             // 合成类使用 EAEP 预置关键字
             return "crafting";
         }
-        ResourceLocation typeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(r.getType());
-        String mapped = mapRecipeTypeToSearchKey(r);
+        String mapped = vanillaRecipe != null ? mapRecipeTypeToSearchKey(vanillaRecipe) : null;
         if (isAdvancedAeReaction(typeId)) {
             if (mapped != null && !mapped.isEmpty() && !mapped.equalsIgnoreCase(typeId.getPath())) {
                 return mapped;
-            }
-            String categoryTitle = recipeCategoryTitle(recipeLayout);
-            if (!categoryTitle.isEmpty()) {
-                return categoryTitle;
             }
             return "reaction_chamber";
         }
         if (mapped != null && !mapped.isEmpty()) {
             return mapped;
         }
-        // 退回配方类型 id 的 path
+        // JEI 分类可能使用不实现原版 Recipe 的包装对象，退回分类 UID 的 path。
         return typeId != null ? typeId.getPath() : "";
+    }
+
+    private static @Nullable ResourceLocation recipeTypeId(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
+            @Nullable Recipe<?> recipe) {
+        if (recipe != null) {
+            ResourceLocation typeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(recipe.getType());
+            if (typeId != null) {
+                return typeId;
+            }
+        }
+        if (recipeLayout == null) {
+            return null;
+        }
+        try {
+            return recipeLayout.getRecipeCategory().getRecipeType().getUid();
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static boolean isAdvancedAeReaction(@Nullable ResourceLocation typeId) {
         return typeId != null
                 && typeId.getNamespace().equals("advanced_ae")
                 && typeId.getPath().equals("reaction");
-    }
-
-    private static String recipeCategoryTitle(@Nullable IRecipeLayoutDrawable<?> recipeLayout) {
-        if (recipeLayout == null) {
-            return "";
-        }
-        try {
-            String title = recipeLayout.getRecipeCategory().getTitle().getString();
-            return title == null ? "" : title.trim();
-        } catch (Throwable ignored) {
-            return "";
-        }
     }
 
     private static @Nullable String mapRecipeTypeToSearchKey(Recipe<?> recipe) {

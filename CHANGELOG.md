@@ -7,20 +7,16 @@
 1. Added an in-game Forge configuration screen accessible from the Mods list.
 2. Added Curios-slot detection for AE2WTLib and WCWT wireless terminals when encoding without an open terminal.
 3. Integrated the four AE2 Utility recipe-option buttons into JEI's native expandable option tab.
-4. Moved the AE2 Utility JEI recipe-option buttons above JEI's craftable-first and bookmark-first buttons.
-5. Added Advanced AE Reaction Chamber provider mapping for JEI pattern uploads.
-6. Redesigned the configuration screen with left-aligned option descriptions and compact right-side toggle buttons.
-7. Completed the Forge 1.20.1 release metadata, project license, contribution guide, repository links, and CI artifact packaging.
+4. Fixed EAEP provider discovery when a WCWT terminal is equipped in a Curios slot.
+5. Fixed empty Advanced AE Reaction Chamber mappings during JEI pattern uploads.
 
 ### 中文
 
 1. 新增可从模组列表直接进入的 Forge 游戏内配置界面。
 2. 未打开终端进行编码时，新增对 Curios 饰品栏内 AE2WTLib 与 WCWT 无线终端的识别。
 3. 将四个 AE2 Utility 配方选项按钮整合进 JEI 原生可扩展选项栏。
-4. 将 AE2 Utility 的 JEI 配方选项按钮移动到“优先显示可合成配方”和“优先显示书签配方”按钮上方。
-5. 新增 Advanced AE 反应仓在 JEI 上传样板时的供应器机器映射。
-6. 重做配置界面布局，改为左侧选项说明、右侧紧凑开关按钮。
-7. 补齐 Forge 1.20.1 发布所需的项目许可证、贡献指南、仓库链接与 CI 构建产物配置。
+4. 修复 WCWT 终端放入 Curios 饰品栏时，EAEP 映射界面无法获取供应器列表的问题。
+5. 修复 JEI 上传时 Advanced AE 反应仓映射为空的问题。
 
 ## 0.0.1-forge-1.20.1
 
