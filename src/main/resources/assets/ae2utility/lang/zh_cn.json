@@ -26,5 +26,7 @@
   "jei.tooltip.ae2utility.fluid_substitution.enabled": "流体替换已启用",
   "jei.tooltip.ae2utility.fluid_substitution.disabled": "流体替换已禁用",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "未开终端时允许 JEI 样板编码",
-  "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "开（默认）：背包/Curios 中携带具备编码能力的无线终端时，无需打开其 GUI 即可使用 JEI 样板编码。\n关：必须已打开样板编码类 ME 界面后才启用上述功能，可缓解卡顿。"
+  "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "开（默认）：背包/Curios 中携带具备编码能力的无线终端时，无需打开其 GUI 即可使用 JEI 样板编码。\n关：必须已打开样板编码类 ME 界面后才启用上述功能，可缓解卡顿。",
+  "ae2utility.config.title": "AE2 实用配置",
+  "ae2utility.config.boolean_value": "%1$s：%2$s"
 }

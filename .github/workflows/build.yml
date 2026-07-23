@@ -2,13 +2,21 @@ name: Build
 
 on:
   push:
+    branches:
+      - forge-1.20.1
   pull_request:
+    branches:
+      - forge-1.20.1
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v5
 
@@ -17,17 +25,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Gradle build
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Ensure gradlew is executable
+      - name: Ensure Gradle wrapper is executable
         run: chmod +x gradlew
 
-      - name: Compile and test jar
-        run: ./gradlew build --no-daemon
+      - name: Build
+        run: ./gradlew clean build --no-daemon
 
-      - name: Upload jar artifact
+      - name: Upload release jar
         uses: actions/upload-artifact@v6
         with:
-          name: ae2utility-forge-1.20.1-jar
-          path: build/libs/*.jar
+          name: ae2utility-forge-1.20.1
+          if-no-files-found: error
+          path: |
+            build/libs/ae2utility-*.jar
+            !build/libs/*-sources.jar

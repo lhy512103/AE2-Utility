@@ -64,7 +64,7 @@ public final class JeiEncodePacketFactory {
         }
         String patternName = derivePatternName(recipeId, outputs);
 
-        String providerSearchKey = computeEaepProviderSearchKey(recipe, shiftUpload);
+        String providerSearchKey = computeEaepProviderSearchKey(recipeLayout, recipe, shiftUpload);
         boolean craftingCategoryHint = isCraftingCategory(recipeLayout, recipe, inputs);
 
         return Optional.of(new EncodePatternPacket(
@@ -117,7 +117,8 @@ public final class JeiEncodePacketFactory {
     /**
      * 仅计算写入数据包的字符串，不修改 EAEP 全局静态。
      */
-    private static String computeEaepProviderSearchKey(Object recipe, boolean shiftUpload) {
+    private static String computeEaepProviderSearchKey(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
+            Object recipe, boolean shiftUpload) {
         if (!shiftUpload || !ModList.get().isLoaded("extendedae_plus")) {
             return "";
         }
@@ -128,13 +129,41 @@ public final class JeiEncodePacketFactory {
             // 合成类使用 EAEP 预置关键字
             return "crafting";
         }
+        ResourceLocation typeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(r.getType());
         String mapped = mapRecipeTypeToSearchKey(r);
+        if (isAdvancedAeReaction(typeId)) {
+            if (mapped != null && !mapped.isEmpty() && !mapped.equalsIgnoreCase(typeId.getPath())) {
+                return mapped;
+            }
+            String categoryTitle = recipeCategoryTitle(recipeLayout);
+            if (!categoryTitle.isEmpty()) {
+                return categoryTitle;
+            }
+            return "reaction_chamber";
+        }
         if (mapped != null && !mapped.isEmpty()) {
             return mapped;
         }
         // 退回配方类型 id 的 path
-        ResourceLocation typeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(r.getType());
         return typeId != null ? typeId.getPath() : "";
+    }
+
+    private static boolean isAdvancedAeReaction(@Nullable ResourceLocation typeId) {
+        return typeId != null
+                && typeId.getNamespace().equals("advanced_ae")
+                && typeId.getPath().equals("reaction");
+    }
+
+    private static String recipeCategoryTitle(@Nullable IRecipeLayoutDrawable<?> recipeLayout) {
+        if (recipeLayout == null) {
+            return "";
+        }
+        try {
+            String title = recipeLayout.getRecipeCategory().getTitle().getString();
+            return title == null ? "" : title.trim();
+        } catch (Throwable ignored) {
+            return "";
+        }
     }
 
     private static @Nullable String mapRecipeTypeToSearchKey(Recipe<?> recipe) {

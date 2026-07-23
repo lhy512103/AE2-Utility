@@ -21,6 +21,7 @@ dependencies {
     //  compileOnly — 仅编译期，不打入运行时
     // ══════════════════════════════════════════════════════════
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:${v.curios.get()}:api")
+    compileOnly fg.deobf(libs.ae2wcwt)
     compileOnly "mezz.jei:jei-1.20.1-forge:${v.jei.get()}"
     compileOnly "dev.emi:emi-forge:${v.emi.get()}:api"
     // EAEP 作为 compileOnly：直接 import com.extendedae_plus.* 公开 API 类

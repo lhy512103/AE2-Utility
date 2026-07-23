@@ -59,6 +59,25 @@ public final class WirelessTerminalContextResolver {
             }
         }
 
+        for (CuriosWirelessTerminalLookup.Candidate candidate : CuriosWirelessTerminalLookup.findCandidates(player)) {
+            foundWirelessTerminal = true;
+            WirelessTerminalMenuHost host = CuriosWirelessTerminalLookup.locate(player, candidate);
+            if (host == null || host.getItemStack().isEmpty()) {
+                continue;
+            }
+
+            refreshWcwtHostBeforeLinkRead(host);
+            if (hostConnectedOrWcwtGridUsable(host)) {
+                Resolution resolution = new Resolution(
+                        Status.READY,
+                        host,
+                        -1,
+                        "curios " + candidate.slotId() + "[" + candidate.slotIndex() + "]");
+                cacheResolution(player, resolution);
+                return resolution;
+            }
+        }
+
         Resolution resolution = new Resolution(foundWirelessTerminal ? Status.DISCONNECTED : Status.NO_WIRELESS, null, -1, "none");
         cacheResolution(player, resolution);
         return resolution;

@@ -19,6 +19,12 @@ public final class WirelessEncodeTerminalItems {
     private WirelessEncodeTerminalItems() {
     }
 
+    public static boolean isWcwt(ItemStack stack) {
+        ResourceLocation key = stack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return key != null && (WCWT_NAMESPACE.equals(key.getNamespace())
+                || LEGACY_WCWT_NAMESPACE.equals(key.getNamespace()));
+    }
+
     public static boolean mayProvideWirelessEncoding(ItemStack stack) {
         if (stack.isEmpty()) {
             return false;
@@ -30,7 +36,7 @@ public final class WirelessEncodeTerminalItems {
         if (key == null) {
             return false;
         }
-        if (WCWT_NAMESPACE.equals(key.getNamespace()) || LEGACY_WCWT_NAMESPACE.equals(key.getNamespace())) {
+        if (isWcwt(stack)) {
             return true;
         }
         String id = key.toString();

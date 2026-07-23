@@ -1,11 +1,13 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
+issueTrackerURL="https://github.com/lhy512103/Create-Package/issues"
 
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
+displayURL="https://github.com/lhy512103/Create-Package/tree/forge-1.20.1"
 authors="${mod_authors}"
 description='''${mod_description}'''
 

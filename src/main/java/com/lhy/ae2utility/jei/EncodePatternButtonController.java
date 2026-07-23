@@ -29,6 +29,7 @@ import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
+import com.lhy.ae2utility.service.CuriosWirelessTerminalLookup;
 import com.lhy.ae2utility.service.WirelessEncodeTerminalItems;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
@@ -209,7 +210,7 @@ public final class EncodePatternButtonController {
                 return true;
             }
         }
-        return false;
+        return CuriosWirelessTerminalLookup.hasCandidate(player);
     }
 
     private static RecipeAnalysis analyzeRecipeSlots(Object recipe, IRecipeSlotsView slotsView) {
