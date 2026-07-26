@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.7.3
+
+### 中文
+
+#### 新增
+
+- 新增面向第三方模组的 `Ae2UtilityApi` v1，统一提供样板编码与上传、终端与机器拉料、机器传输注册、功能卡状态机和配方查找分类扩展能力。
+- 新增新版 JEI Crafting Tree 的可编辑样板草稿后端，支持草稿验证、数量与候选编辑，以及合成、锻造、切石和处理样板的编码与上传。
+- 新增公共 API 开发文档和 API Javadoc 发布产物。
+
+#### 修改
+
+- 修改 JEI/EMI 多候选输入的编码逻辑，优先采用收藏栏命中的候选；该行为现在由统一的客户端配置控制并默认开启，关闭后恢复原始候选顺序。
+- 修改机器传输配置与配方查找分类器，使其支持第三方注册扩展，并加强 API 请求与候选数据的不可变性和边界校验。
+- 修改模组显示名称为 `AE2 Utility`，并按 1.7.3 当前功能重写中英文 README。
+
+#### 修复
+
+- 修复 JEI Crafting Tree 草稿编辑数量可能被原始原料数量覆盖、部分版本候选结构差异导致输入丢失，以及锻造和切石样板模式识别不准确的问题。
+- 修复 Applied Mekanistics 化学品子类型可能无法转换为 AE2 存储键的问题。
+
+#### 移除
+
+- 移除无条件输出的启动调试探针和过期的内部改进建议文档。
+
+### English
+
+#### Added
+
+- Added the `Ae2UtilityApi` v1 integration API for pattern encoding and upload, terminal and machine transfers, machine transfer registration, card state machines, and recipe-finder classification extensions.
+- Added an editable pattern-draft backend for the latest JEI Crafting Tree, including draft validation, amount and alternative editing, and encode/upload support for crafting, smithing, stonecutting, and processing patterns.
+- Added public API documentation and an API Javadoc artifact.
+
+#### Changed
+
+- Changed JEI/EMI encoding of multi-alternative inputs to prefer matching favorites. A shared client option now controls this behavior, defaults to enabled, and restores the original alternative order when disabled.
+- Changed machine transfer profiles and recipe-finder classifiers to support third-party registration, with stronger immutability and boundary validation for API requests and candidate data.
+- Changed the displayed mod name to `AE2 Utility` and rewrote the English and Chinese README for the current 1.7.3 feature set.
+
+#### Fixed
+
+- Fixed JEI Crafting Tree draft amounts being overwritten by original ingredient amounts, inputs being lost with differing candidate structures, and smithing or stonecutting drafts using an incorrect pattern mode.
+- Fixed Applied Mekanistics chemical subtypes sometimes failing to convert into AE2 storage keys.
+
+#### Removed
+
+- Removed the unconditional startup debug probe and the obsolete internal improvement-suggestions document.
+
 ## 1.7.2
 
 ### 中文

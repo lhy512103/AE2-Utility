@@ -193,6 +193,8 @@
   "gui.ae2utility.recipe_tree.plus_hint_left": "Left click: open JEI to choose a recipe",
   "gui.ae2utility.recipe_tree.plus_hint_right": "Right click: open the built-in candidate panel",
   "gui.ae2utility.recipe_tree.no_jei_recipe": "No available recipe",
+  "ae2utility.config.preferFavoritesForPatternEncoding": "Prefer JEI/EMI favorites when encoding patterns",
+  "ae2utility.config.preferFavoritesForPatternEncoding.tooltip": "On (default): when a recipe input has multiple alternatives, encode the first matching JEI bookmark or EMI favorite.\\nOff: do not read favorites; encode using the original alternative order provided by JEI/EMI.",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "Allow JEI pattern encode without opening a terminal GUI",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "On (default): with a wireless pattern-encoding-capable terminal in backpack/Curios, JEI encode works without opening its GUI.\nOff: enable only after opening a pattern-encoding ME screen — can reduce lag.\n(Client only; server policy goes in server config.)",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "Show “full category / all pages” JEI batch-encode button",

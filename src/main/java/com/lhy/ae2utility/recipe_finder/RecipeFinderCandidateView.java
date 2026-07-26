@@ -5,6 +5,7 @@ import java.util.Set;
 
 import net.minecraft.world.item.ItemStack;
 
+import com.lhy.ae2utility.api.recipe.RecipeCandidateView;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 
 public record RecipeFinderCandidateView(
@@ -24,5 +25,20 @@ public record RecipeFinderCandidateView(
         List<String> inputDisplayNames,
         List<String> extraOutputDisplayNames,
         boolean encodable,
-        EncodePatternPacket encodePacket) {
+        EncodePatternPacket encodePacket) implements RecipeCandidateView {
+    public RecipeFinderCandidateView {
+        previewStack = previewStack.copy();
+        outputItemIds = Set.copyOf(outputItemIds);
+        inputItemIds = Set.copyOf(inputItemIds);
+        involvedModIds = Set.copyOf(involvedModIds);
+        inputFeatureKeys = Set.copyOf(inputFeatureKeys);
+        outputFeatureKeys = Set.copyOf(outputFeatureKeys);
+        inputDisplayNames = List.copyOf(inputDisplayNames);
+        extraOutputDisplayNames = List.copyOf(extraOutputDisplayNames);
+    }
+
+    @Override
+    public ItemStack previewStack() {
+        return previewStack.copy();
+    }
 }

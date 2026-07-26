@@ -3,11 +3,17 @@ package com.lhy.ae2utility.client;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * 客户端 JEI 相关选项（生成 {@code config/ae2utility-client.toml}）。
+ * 客户端 JEI / EMI 相关选项（生成 {@code config/ae2utility-client.toml}）。
  */
 public final class Ae2UtilityClientConfig {
     public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     public static final ModConfigSpec SPEC;
+
+    /**
+     * 为 {@code true}（默认）时：样板编码优先使用 JEI 书签或 EMI 收藏项命中的输入候选；
+     * 为 {@code false} 时：不读取收藏栏，保留配方查看器提供的原始候选顺序。
+     */
+    public static final ModConfigSpec.BooleanValue PREFER_FAVORITES_FOR_PATTERN_ENCODING;
 
     /**
      * 为 {@code true}（默认）时：仅背包/Curios 中有无线编码终端即可在 JEI 使用样板编码与高亮，并通过 {@link com.lhy.ae2utility.jei.CraftableStateCache}
@@ -31,6 +37,12 @@ public final class Ae2UtilityClientConfig {
     public static final ModConfigSpec.BooleanValue REUSE_PROVIDER_WITHIN_BATCH;
 
     static {
+        PREFER_FAVORITES_FOR_PATTERN_ENCODING = BUILDER
+                .comment(
+                        "Prefer JEI bookmarks or EMI favorites when choosing among pattern input alternatives.",
+                        "If false, do not read favorites and preserve the original alternative order.")
+                .translation("ae2utility.config.preferFavoritesForPatternEncoding")
+                .define("preferFavoritesForPatternEncoding", true);
         ALLOW_JEI_PATTERN_ENCODE_WITHOUT_OPEN_TERMINAL = BUILDER
                 .comment(
                         "If true (default), JEI encode works when you carry a wireless encoding terminal without opening it.",
@@ -56,6 +68,10 @@ public final class Ae2UtilityClientConfig {
     }
 
     private Ae2UtilityClientConfig() {
+    }
+
+    public static boolean preferFavoritesForPatternEncoding() {
+        return PREFER_FAVORITES_FOR_PATTERN_ENCODING.get();
     }
 
     public static boolean allowJeiPatternEncodeWithoutOpenTerminal() {

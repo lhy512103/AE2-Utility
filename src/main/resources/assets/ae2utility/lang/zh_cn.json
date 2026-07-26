@@ -194,6 +194,8 @@
   "gui.ae2utility.recipe_tree.plus_hint_left": "左键：打开 JEI 选择配方",
   "gui.ae2utility.recipe_tree.plus_hint_right": "右键：打开内置候选面板",
   "gui.ae2utility.recipe_tree.no_jei_recipe": "无可用配方",
+  "ae2utility.config.preferFavoritesForPatternEncoding": "样板编码优先使用 JEI/EMI 收藏项",
+  "ae2utility.config.preferFavoritesForPatternEncoding.tooltip": "开（默认）：配方输入槽有多个候选时，若其中存在 JEI 书签或 EMI 收藏项，则优先使用收藏栏中最靠前的候选进行编码。\\n关：不读取收藏栏，按 JEI/EMI 提供的原始候选顺序编码。",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "未开终端时允许 JEI 样板编码",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "开（默认）：背包/Curios 中携带具备编码能力的无线终端时，无需打开其 GUI 即可使用 JEI 样板编码。\n关：必须已打开样板编码类 ME 界面后才启用上述功能，可缓解卡顿。\n（本项仅客户端，服务端需通过服务端配置。）",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "显示「整类全分页」JEI 批量编码按钮",

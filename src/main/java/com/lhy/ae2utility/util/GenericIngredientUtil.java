@@ -29,6 +29,20 @@ public final class GenericIngredientUtil {
         return new GenericStack(key, normalizedAmount);
     }
 
+    /**
+     * Converts an editable pattern slot while treating the draft amount as authoritative.
+     * JEI ingredient objects retain their original stack amount, so the normal conversion helper
+     * must not be used after the player changes a slot quantity.
+     */
+    public static @Nullable GenericStack toGenericStackExact(@Nullable ITypedIngredient<?> ingredient, long amount) {
+        return ingredient == null ? null : toGenericStackExact(ingredient.getIngredient(), amount);
+    }
+
+    public static @Nullable GenericStack toGenericStackExact(@Nullable Object ingredient, long amount) {
+        AEKey key = toAEKey(ingredient);
+        return key == null ? null : new GenericStack(key, Math.max(1L, amount));
+    }
+
     public static @Nullable AEKey toAEKey(@Nullable Object ingredient) {
         if (ingredient instanceof ItemStack stack && !stack.isEmpty()) {
             return appeng.api.stacks.AEItemKey.of(stack);
@@ -68,16 +82,29 @@ public final class GenericIngredientUtil {
     }
 
     private static @Nullable AEKey toAppliedMekanisticsKey(@Nullable Object ingredient) {
-        if (ingredient == null || !"mekanism.api.chemical.ChemicalStack".equals(ingredient.getClass().getName())) {
-            return null;
-        }
+        if (!isMekanismChemicalStack(ingredient)) return null;
         try {
             Class<?> chemicalStackClass = ingredient.getClass();
-            Class<?> mekanismKeyClass = Class.forName("me.ramidzkh.mekae2.ae2.MekanismKey");
-            Object key = mekanismKeyClass.getMethod("of", chemicalStackClass).invoke(null, ingredient);
-            return key instanceof AEKey aeKey ? aeKey : null;
+            ClassLoader loader = GenericIngredientUtil.class.getClassLoader();
+            Class<?> mekanismKeyClass = Class.forName("me.ramidzkh.mekae2.ae2.MekanismKey", true, loader);
+            for (var method : mekanismKeyClass.getMethods()) {
+                if (!method.getName().equals("of") || method.getParameterCount() != 1
+                        || !method.getParameterTypes()[0].isAssignableFrom(chemicalStackClass)) {
+                    continue;
+                }
+                Object key = method.invoke(null, ingredient);
+                return key instanceof AEKey aeKey ? aeKey : null;
+            }
         } catch (ReflectiveOperationException | LinkageError ignored) {
-            return null;
         }
+        return null;
+    }
+
+    private static boolean isMekanismChemicalStack(@Nullable Object ingredient) {
+        if (ingredient == null) return false;
+        for (Class<?> type = ingredient.getClass(); type != null; type = type.getSuperclass()) {
+            if ("mekanism.api.chemical.ChemicalStack".equals(type.getName())) return true;
+        }
+        return false;
     }
 }

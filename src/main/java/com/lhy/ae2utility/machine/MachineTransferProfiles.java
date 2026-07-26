@@ -33,10 +33,17 @@ public final class MachineTransferProfiles {
     public static final MachineTransferProfile INSCRIBER = new MachineTransferProfile(
             "inscriber", InscriberMenu.class, RecipeType.createFromVanilla(AERecipeTypes.INSCRIBER), 40, 42, 41);
 
-    private static final List<MachineTransferProfile> ALL = buildAll();
-    private static final Map<String, MachineTransferProfile> BY_ID = createById();
+    private static final Map<String, MachineTransferProfile> PROFILES = createProfiles();
 
     private MachineTransferProfiles() {
+    }
+
+    private static Map<String, MachineTransferProfile> createProfiles() {
+        Map<String, MachineTransferProfile> profiles = new LinkedHashMap<>();
+        for (MachineTransferProfile profile : buildAll()) {
+            profiles.put(profile.id(), profile);
+        }
+        return profiles;
     }
 
     private static List<MachineTransferProfile> buildAll() {
@@ -93,30 +100,44 @@ public final class MachineTransferProfiles {
         }
     }
 
-    public static List<MachineTransferProfile> all() {
-        return ALL;
+    public static synchronized List<MachineTransferProfile> all() {
+        return List.copyOf(PROFILES.values());
+    }
+
+    public static synchronized void register(MachineTransferProfile profile) {
+        if (profile == null) {
+            throw new IllegalArgumentException("profile is required");
+        }
+        if (PROFILES.containsKey(profile.id())) {
+            throw new IllegalArgumentException("machine transfer profile already registered: " + profile.id());
+        }
+        PROFILES.put(profile.id(), profile);
     }
 
     @Nullable
-    public static MachineTransferProfile byId(String id) {
-        return BY_ID.get(id);
+    public static synchronized MachineTransferProfile byId(String id) {
+        return PROFILES.get(id);
     }
 
     @Nullable
-    public static MachineTransferProfile forMenu(AbstractContainerMenu menu) {
-        for (MachineTransferProfile profile : ALL) {
+    public static synchronized String resolveId(net.minecraft.resources.ResourceLocation id) {
+        String namespaced = id.toString();
+        if (PROFILES.containsKey(namespaced)) {
+            return namespaced;
+        }
+        if ("ae2utility".equals(id.getNamespace()) && PROFILES.containsKey(id.getPath())) {
+            return id.getPath();
+        }
+        return null;
+    }
+
+    @Nullable
+    public static synchronized MachineTransferProfile forMenu(AbstractContainerMenu menu) {
+        for (MachineTransferProfile profile : PROFILES.values()) {
             if (profile.matches(menu)) {
                 return profile;
             }
         }
         return null;
-    }
-
-    private static Map<String, MachineTransferProfile> createById() {
-        Map<String, MachineTransferProfile> profiles = new LinkedHashMap<>();
-        for (MachineTransferProfile profile : ALL) {
-            profiles.put(profile.id(), profile);
-        }
-        return profiles;
     }
 }

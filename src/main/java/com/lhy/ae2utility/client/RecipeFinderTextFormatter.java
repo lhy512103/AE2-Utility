@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
+import com.lhy.ae2utility.api.Ae2UtilityApi;
 import com.lhy.ae2utility.recipe_finder.RecipeFinderFeatureClassifier;
 
 /** Formatting-only helpers extracted from the recipe finder screen. */
@@ -28,7 +29,7 @@ public final class RecipeFinderTextFormatter {
     public static String sampleSummary(ItemStack sample, Function<String, String> labeler) {
         String modId = BuiltInRegistries.ITEM.getKey(sample.getItem()).getNamespace();
         String modName = RecipeFinderFeatureClassifier.modDisplayName(modId);
-        Set<String> features = RecipeFinderFeatureClassifier.classifyItemStack(sample).stream()
+        Set<String> features = Ae2UtilityApi.recipeFinder().classify(sample).stream()
                 .filter(f -> !"other".equals(f)).collect(Collectors.toSet());
         if (features.isEmpty()) {
             return "样本模组: " + modName;

@@ -22,6 +22,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import com.lhy.ae2utility.api.Ae2UtilityApi;
 import com.lhy.ae2utility.menu.RecipeFinderMenu;
 import com.lhy.ae2utility.jei.BulkEncodeSessions;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
@@ -245,7 +246,7 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
         if (sample == null || sample.isEmpty()) return List.copyOf(src);
         String sampleId = BuiltInRegistries.ITEM.getKey(sample.getItem()).toString();
         String sampleModId = BuiltInRegistries.ITEM.getKey(sample.getItem()).getNamespace();
-        Set<String> features = RecipeFinderFeatureClassifier.classifyItemStack(sample).stream()
+        Set<String> features = Ae2UtilityApi.recipeFinder().classify(sample).stream()
                 .filter(f -> !"other".equals(f))
                 .collect(Collectors.toSet());
 

@@ -48,6 +48,9 @@ import net.minecraft.world.inventory.Slot;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.Ae2UtilityServerConfig;
+import com.lhy.ae2utility.api.pattern.PatternEncodingBatch;
+import com.lhy.ae2utility.api.pattern.PatternEncodingRequest;
+import com.lhy.ae2utility.api.pattern.PatternUploadMode;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
@@ -86,6 +89,27 @@ public final class EncodePatternService {
     private static final ConcurrentHashMap<UUID, EaepShiftBlankRefundHold> EAEP_SHIFT_BLANK_PENDING = new ConcurrentHashMap<>();
 
     private EncodePatternService() {}
+
+    public static void handleApi(ServerPlayer player, PatternEncodingRequest request) {
+        handle(player, toPayload(request, false, false, 0));
+    }
+
+    public static void handleApiBatch(ServerPlayer player, PatternEncodingBatch batch) {
+        List<EncodePatternPacket> payloads = batch.requests().stream()
+                .map(request -> toPayload(request, true, batch.fullRecipeCategory(), batch.sessionId()))
+                .toList();
+        handleBatch(player, payloads);
+    }
+
+    private static EncodePatternPacket toPayload(PatternEncodingRequest request, boolean sequential,
+            boolean fullCategory, int sessionId) {
+        return new EncodePatternPacket(
+                request.inputs(), request.outputs(), request.recipeId(), request.patternName(),
+                request.providerSearchKey(), request.providerDisplayName(),
+                request.uploadMode() == PatternUploadMode.UPLOAD,
+                request.substitute(), request.substituteFluids(), request.preserveInputOrder(),
+                sequential, fullCategory, sessionId, request.craftingRecipeHint());
+    }
 
     public static void handle(Player player, EncodePatternPacket payload) {
         if (!(player instanceof ServerPlayer serverPlayer)) {

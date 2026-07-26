@@ -8,6 +8,8 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 
+import com.lhy.ae2utility.api.Ae2UtilityApi;
+import com.lhy.ae2utility.api.card.RedstoneSignalHost;
 import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 import com.lhy.ae2utility.item.RedstoneSignalCardItem;
 
@@ -64,23 +66,8 @@ public interface PatternProviderSignalAccess {
                     host == null ? "null" : host.getClass().getName(), busy, returnPending, active,
                     ae2utility$getLastRedstoneActive(), card.isEmpty() ? "missing" : card.getItem(), mode, allowCraftOnFall);
         }
-        if (active == ae2utility$getLastRedstoneActive()) {
-            return;
-        }
-        ae2utility$setLastRedstoneActive(active);
-        if (active) {
-            if (ae2utility$isUntilRecipeMode()) {
-                ae2utility$enableContinuousSignalFromHost(host);
-            } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
-                ae2utility$triggerSignalPulseFromHost(host);
-            }
-        } else {
-            if (ae2utility$isUntilRecipeMode()) {
-                ae2utility$disableContinuousSignalFromHost(host);
-            } else if (allowCraftOnFall && ae2utility$shouldEmitFor(RedstoneSignalCardMode.CRAFT)) {
-                ae2utility$triggerSignalPulseFromHost(host);
-            }
-        }
+        Ae2UtilityApi.cards().updateRedstoneSignal(
+                ae2utility$asPublicSignalHost(host), busy, returnPending, allowCraftOnFall);
     }
 
     /**
@@ -88,22 +75,41 @@ public interface PatternProviderSignalAccess {
      * 此时 {@code isBusy()} 和返还库存始终为假，不能依赖状态上升沿判断下单。
      */
     default void ae2utility$onSuccessfulPatternPush(Object host, boolean busy, boolean returnPending) {
-        boolean active = busy || returnPending;
-        if (ae2utility$isUntilRecipeMode()) {
-            com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
-                    "successful_push action=enable_until host={} busy={} returnPending={}",
-                    host == null ? "null" : host.getClass().getName(), busy, returnPending);
-            ae2utility$enableContinuousSignalFromHost(host);
-        } else if (ae2utility$shouldEmitFor(RedstoneSignalCardMode.ORDER)) {
-            com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
-                    "successful_push action=order_pulse host={} busy={} returnPending={}",
-                    host == null ? "null" : host.getClass().getName(), busy, returnPending);
-            ae2utility$triggerSignalPulseFromHost(host);
-        }
-        // UNTIL 必须先记为 active：即使第三方供应器在同一次调用内完成派发，
-        // 也要让后续稳定 tick 观察到下降沿并关闭持续信号。ORDER/CRAFT 则只同步
-        // 实际可观察状态，避免瞬时订单在下一 tick 被误判为完成。
-        ae2utility$setLastRedstoneActive(ae2utility$isUntilRecipeMode() || active);
+        Ae2UtilityApi.cards().onSuccessfulPatternPush(
+                ae2utility$asPublicSignalHost(host), busy, returnPending);
+    }
+
+    private RedstoneSignalHost ae2utility$asPublicSignalHost(Object host) {
+        return new RedstoneSignalHost() {
+            @Override
+            public ItemStack signalCard() {
+                return ae2utility$getRedstoneSignalCardStack();
+            }
+
+            @Override
+            public boolean lastActive() {
+                return ae2utility$getLastRedstoneActive();
+            }
+
+            @Override
+            public void setLastActive(boolean active) {
+                ae2utility$setLastRedstoneActive(active);
+            }
+
+            @Override
+            public void triggerPulse(int durationTicks) {
+                ae2utility$triggerSignalPulseFromHost(host);
+            }
+
+            @Override
+            public void setContinuousSignal(boolean active) {
+                if (active) {
+                    ae2utility$enableContinuousSignalFromHost(host);
+                } else {
+                    ae2utility$disableContinuousSignalFromHost(host);
+                }
+            }
+        };
     }
 
     default void ae2utility$triggerSignalPulse(long gameTime, int durationTicks) {

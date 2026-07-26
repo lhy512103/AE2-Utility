@@ -29,6 +29,7 @@ import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 
+import com.lhy.ae2utility.api.Ae2UtilityApi;
 import com.lhy.ae2utility.jei.Ae2UtilityJeiPlugin;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
@@ -171,7 +172,7 @@ public final class RecipeFinderJeiIndexer {
         Set<String> features = new LinkedHashSet<>();
         for (IRecipeSlotView slot : slots) {
             for (ITypedIngredient<?> ingredient : slot.getAllIngredients().toList()) {
-                features.addAll(RecipeFinderFeatureClassifier.classifyIngredient(ingredient.getIngredient()));
+                features.addAll(Ae2UtilityApi.recipeFinder().classify(ingredient.getIngredient()));
             }
         }
         if (features.isEmpty()) {

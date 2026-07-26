@@ -251,3 +251,25 @@ tasks.named("jar", Jar).configure {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
 }
+
+tasks.named("javadoc", Javadoc).configure {
+    source = fileTree("src/main/java") {
+        include "com/lhy/ae2utility/api/**/*.java"
+        exclude "**/*Impl.java"
+    }
+    classpath = sourceSets.main.compileClasspath
+    options.encoding = "UTF-8"
+    options.charSet = "UTF-8"
+    options.docEncoding = "UTF-8"
+    options.addStringOption("Xdoclint:none", "-quiet")
+}
+
+tasks.register("apiJavadocJar", Jar) {
+    dependsOn tasks.named("javadoc")
+    archiveClassifier = "api-javadoc"
+    from tasks.named("javadoc").map { it.destinationDir }
+}
+
+tasks.named("assemble").configure {
+    dependsOn tasks.named("apiJavadocJar")
+}

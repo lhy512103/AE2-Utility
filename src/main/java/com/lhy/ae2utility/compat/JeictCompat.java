@@ -7,9 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
+import com.mojang.logging.LogUtils;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
 import com.lhy.ae2utility.client.jei.BlankPatternClientPrecheck;
@@ -37,6 +39,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <p>All calls are reflective so AE2 Utility can still build and run without JEICT.
  */
 public final class JeictCompat {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static volatile boolean backendRegistrationAttempted;
 
     private JeictCompat() {
@@ -51,11 +54,16 @@ public final class JeictCompat {
             return false;
         }
         try {
+            LOGGER.info("[AE2U-JEICT] openFromLayout requested current={} return={} thread={}",
+                    screenName(Minecraft.getInstance().screen), screenName(returnScreen), Thread.currentThread().getName());
             Class<?> api = Class.forName("com.lhy.jeict.api.JeiCraftingTreeApi");
             api.getMethod("openFromLayout", IRecipeLayoutDrawable.class, Screen.class)
                     .invoke(null, recipeLayout, returnScreen);
+            LOGGER.info("[AE2U-JEICT] openFromLayout invocation completed current={}",
+                    screenName(Minecraft.getInstance().screen));
             return true;
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            LOGGER.error("[AE2U-JEICT] openFromLayout failed", failure);
             return false;
         }
     }
@@ -65,11 +73,17 @@ public final class JeictCompat {
             return false;
         }
         try {
+            LOGGER.info("[AE2U-JEICT] open requested current={} return={} recipeClass={} thread={}",
+                    screenName(Minecraft.getInstance().screen), screenName(returnScreen),
+                    recipe == null ? "<null>" : recipe.getClass().getName(), Thread.currentThread().getName());
             Class<?> api = Class.forName("com.lhy.jeict.api.JeiCraftingTreeApi");
             api.getMethod("open", Object.class, IRecipeSlotsView.class, Screen.class)
                     .invoke(null, recipe, recipeSlots, returnScreen);
+            LOGGER.info("[AE2U-JEICT] open invocation completed current={}",
+                    screenName(Minecraft.getInstance().screen));
             return true;
-        } catch (Throwable ignored) {
+        } catch (Throwable failure) {
+            LOGGER.error("[AE2U-JEICT] open failed", failure);
             return false;
         }
     }
@@ -133,17 +147,19 @@ public final class JeictCompat {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static Object patternMode(Class<?> returnType, Object recipe) {
-        String mode = isCraftingRecipe(recipe) ? "CRAFTING" : "PROCESSING";
+        String mode = patternModeName(recipe);
         return returnType.isEnum() ? Enum.valueOf((Class<? extends Enum>) returnType, mode) : null;
     }
 
-    private static boolean isCraftingRecipe(Object recipe) {
+    private static String patternModeName(Object recipe) {
         Object recipeId = invoke(recipe, "recipeId");
-        if (!(recipeId instanceof ResourceLocation id) || Minecraft.getInstance().level == null) return false;
+        if (!(recipeId instanceof ResourceLocation id) || Minecraft.getInstance().level == null) return "PROCESSING";
         var holder = Minecraft.getInstance().level.getRecipeManager().byKey(id).orElse(null);
-        return holder != null && (holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe
-                || holder.value() instanceof net.minecraft.world.item.crafting.SmithingRecipe
-                || holder.value() instanceof net.minecraft.world.item.crafting.StonecutterRecipe);
+        if (holder == null) return "PROCESSING";
+        if (holder.value() instanceof net.minecraft.world.item.crafting.SmithingRecipe) return "SMITHING_TABLE";
+        if (holder.value() instanceof net.minecraft.world.item.crafting.StonecutterRecipe) return "STONECUTTING";
+        if (holder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe) return "CRAFTING";
+        return "PROCESSING";
     }
 
     private static List<Component> validatePatternDraft(Object request) {
@@ -254,7 +270,7 @@ public final class JeictCompat {
                 Object ingredient = invoke(slot, "ingredient");
                 long amount = longValue(invoke(slot, "amount"), 1L);
                 GenericStack stack = ingredient instanceof ITypedIngredient<?> typed
-                        ? GenericIngredientUtil.toGenericStack(typed, amount) : null;
+                        ? GenericIngredientUtil.toGenericStackExact(typed, amount) : null;
                 outputs.add(stack);
             }
         }
@@ -267,7 +283,7 @@ public final class JeictCompat {
         boolean substitute = booleanValue(invoke(draft, "substituteItems"));
         boolean substituteFluids = booleanValue(invoke(draft, "substituteFluids"));
         boolean preserveInputOrder = !Boolean.FALSE.equals(invoke(draft, "preserveInputOrder"));
-        boolean crafting = "CRAFTING".equals(String.valueOf(invoke(draft, "mode")));
+        boolean crafting = !"PROCESSING".equals(String.valueOf(invoke(draft, "mode")));
         return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerKey, providerKey,
                 uploadMode, substitute, substituteFluids, preserveInputOrder, uploadMode, false, bulkSid, crafting);
     }
@@ -281,10 +297,17 @@ public final class JeictCompat {
             for (int i = 0; i < alternatives.size(); i++) {
                 Object candidate = alternatives.get(Math.floorMod(selected + i, alternatives.size()));
                 if (candidate instanceof ITypedIngredient<?> typed) {
-                    GenericStack stack = GenericIngredientUtil.toGenericStack(typed, amount);
+                    GenericStack stack = GenericIngredientUtil.toGenericStackExact(typed, amount);
                     if (stack != null) converted.add(stack);
                 }
             }
+        }
+        // Older/newer JEICT slot implementations may not expose their alternative list with the
+        // exact reflective shape expected above. The selected ingredient is sufficient for a valid
+        // processing pattern and keeps editable drafts compatible across bridge versions.
+        if (converted.isEmpty() && invoke(slot, "ingredient") instanceof ITypedIngredient<?> selectedIngredient) {
+            GenericStack stack = GenericIngredientUtil.toGenericStackExact(selectedIngredient, amount);
+            if (stack != null) converted.add(stack);
         }
         return converted;
     }
@@ -399,6 +422,10 @@ public final class JeictCompat {
         lines.add(Component.translatable("gui.ae2utility.recipe_tree.overview_substitution_encode_hint")
                 .withStyle(ChatFormatting.DARK_AQUA));
         return lines;
+    }
+
+    private static String screenName(@Nullable Screen screen) {
+        return screen == null ? "<null>" : screen.getClass().getName();
     }
 
     private static @Nullable Object invoke(Object target, String methodName) {

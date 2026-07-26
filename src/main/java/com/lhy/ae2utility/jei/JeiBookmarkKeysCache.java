@@ -7,6 +7,8 @@ import java.util.List;
 
 import appeng.api.stacks.AEKey;
 
+import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+
 /**
  * JEI 收藏栏 AEKey 列表；同一客户端 tick 内最多反射采样一次。
  */
@@ -18,6 +20,10 @@ public final class JeiBookmarkKeysCache {
     }
 
     public static List<AEKey> getBookmarkKeys() {
+        if (!Ae2UtilityClientConfig.preferFavoritesForPatternEncoding()) {
+            return List.of();
+        }
+
         long tickGeneration = JeiClientCacheContext.getTickGeneration();
         if (cacheTickGeneration == tickGeneration) {
             return cachedKeys;

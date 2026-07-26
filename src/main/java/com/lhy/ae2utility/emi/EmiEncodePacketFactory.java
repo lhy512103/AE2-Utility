@@ -9,8 +9,10 @@ import org.jetbrains.annotations.Nullable;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
+import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
 import com.lhy.ae2utility.network.EncodePatternPacket;
@@ -69,6 +71,7 @@ public final class EmiEncodePacketFactory {
 
     private static List<List<GenericStack>> toInputSlots(List<EmiIngredient> ingredients) {
         List<List<GenericStack>> slots = new ArrayList<>();
+        List<AEKey> favoriteKeys = favoriteKeys();
         for (EmiIngredient ingredient : ingredients) {
             if (ingredient == null || ingredient.isEmpty()) {
                 slots.add(List.of());
@@ -91,9 +94,41 @@ public final class EmiEncodePacketFactory {
                     alternatives.add(generic);
                 }
             }
-            slots.add(alternatives.isEmpty() ? null : alternatives);
+            if (alternatives.isEmpty()) {
+                slots.add(null);
+                continue;
+            }
+            GenericStack favorite = firstFavoriteAlternative(alternatives, favoriteKeys);
+            slots.add(favorite == null ? alternatives : List.of(favorite));
         }
         return slots;
+    }
+
+    private static List<AEKey> favoriteKeys() {
+        if (!Ae2UtilityClientConfig.preferFavoritesForPatternEncoding()) {
+            return List.of();
+        }
+
+        List<AEKey> keys = new ArrayList<>();
+        for (EmiStack stack : EmiFavoriteStacks.snapshot()) {
+            GenericStack generic = toGenericStack(stack, stack.getAmount());
+            if (generic != null && generic.what() != null && !keys.contains(generic.what())) {
+                keys.add(generic.what());
+            }
+        }
+        return keys;
+    }
+
+    private static @Nullable GenericStack firstFavoriteAlternative(List<GenericStack> alternatives,
+            List<AEKey> favoriteKeys) {
+        for (AEKey favoriteKey : favoriteKeys) {
+            for (GenericStack alternative : alternatives) {
+                if (favoriteKey.equals(alternative.what())) {
+                    return alternative;
+                }
+            }
+        }
+        return null;
     }
 
     private static List<GenericStack> toOutputs(List<EmiStack> stacks) {
