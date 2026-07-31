@@ -31,6 +31,7 @@ import com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog;
 import com.lhy.ae2utility.debug.NbtTearCardDebug;
 import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
+import com.lhy.ae2utility.integration.ae2.PatternProviderFeatureCardCache;
 import com.lhy.ae2utility.integration.ae2.PatternProviderSignalAccess;
 import com.lhy.ae2utility.item.NbtTearCardItem;
 
@@ -48,6 +49,9 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
 
     @Unique
     private ItemStackHandler ae2utility$tearHandler;
+
+    @Unique
+    private PatternProviderFeatureCardCache ae2utility$featureCardCache;
 
     @Unique
     private final List<AEKey> ae2utility$unlockOutputWhats = new ArrayList<>();
@@ -82,9 +86,25 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
     @Override
     public ItemStackHandler ae2utility$getTearHandler() {
         if (ae2utility$tearHandler == null) {
-            ae2utility$tearHandler = new ItemStackHandler(1);
+            ae2utility$tearHandler = new ItemStackHandler(1) {
+                @Override
+                protected void onContentsChanged(int slot) {
+                    if (ae2utility$featureCardCache != null) {
+                        ae2utility$featureCardCache.invalidate();
+                    }
+                }
+            };
         }
         return ae2utility$tearHandler;
+    }
+
+    @Override
+    public PatternProviderFeatureCardCache ae2utility$getFeatureCardCache() {
+        if (ae2utility$featureCardCache == null) {
+            ae2utility$featureCardCache = new PatternProviderFeatureCardCache(this,
+                    () -> ae2utility$getTearHandler().getStackInSlot(0));
+        }
+        return ae2utility$featureCardCache;
     }
 
     @Override

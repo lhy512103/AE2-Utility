@@ -89,17 +89,18 @@ final class CardApiImpl implements CardApi {
             return;
         }
         host.setLastActive(active);
-        RedstoneSignalMode mode = modeOf(host.signalCard());
+        ItemStack signalCard = host.signalCard();
+        RedstoneSignalMode mode = modeOf(signalCard);
         if (active) {
             if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
                 host.setContinuousSignal(true);
             } else if (mode == RedstoneSignalMode.ORDER) {
-                host.triggerPulse(durationOrDefault(host.signalCard()));
+                host.triggerPulse(durationOrDefault(signalCard));
             }
         } else if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
             host.setContinuousSignal(false);
         } else if (allowCraftOnFallingEdge && mode == RedstoneSignalMode.CRAFT) {
-            host.triggerPulse(durationOrDefault(host.signalCard()));
+            host.triggerPulse(durationOrDefault(signalCard));
         }
     }
 
@@ -108,11 +109,12 @@ final class CardApiImpl implements CardApi {
         if (host == null) {
             throw new IllegalArgumentException("host is required");
         }
-        RedstoneSignalMode mode = modeOf(host.signalCard());
+        ItemStack signalCard = host.signalCard();
+        RedstoneSignalMode mode = modeOf(signalCard);
         if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
             host.setContinuousSignal(true);
         } else if (mode == RedstoneSignalMode.ORDER) {
-            host.triggerPulse(durationOrDefault(host.signalCard()));
+            host.triggerPulse(durationOrDefault(signalCard));
         }
         host.setLastActive(mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE || busy || returnPending);
     }

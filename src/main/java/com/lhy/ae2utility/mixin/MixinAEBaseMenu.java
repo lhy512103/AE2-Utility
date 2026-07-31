@@ -12,8 +12,9 @@ import appeng.menu.AEBaseMenu;
 import appeng.menu.SlotSemantics;
 
 import com.lhy.ae2utility.compat.PatternProviderMenuCompat;
+import com.lhy.ae2utility.integration.ae2.Ae2UtilitySlotSemantics;
 import com.lhy.ae2utility.item.NbtTearCardItem;
-import com.lhy.ae2utility.item.RedstoneSignalCardItem;
+import com.lhy.ae2utility.menu.PatternProviderFeatureCardPolicy;
 
 /**
  * 在菜单校验层统一限制：一个样板供应器的全部升级槽里最多只允许存在一张撕裂卡。
@@ -22,7 +23,7 @@ import com.lhy.ae2utility.item.RedstoneSignalCardItem;
 public abstract class MixinAEBaseMenu {
     @Inject(method = "isValidForSlot", at = @At("HEAD"), cancellable = true)
     private void ae2utility$enforceSingleTearAcrossUpgradeSlots(Slot slot, ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
-        if (!(stack.getItem() instanceof NbtTearCardItem) && !(stack.getItem() instanceof RedstoneSignalCardItem)) {
+        if (!PatternProviderFeatureCardPolicy.isFeatureCard(stack)) {
             return;
         }
         if (!PatternProviderMenuCompat.isSupportedPatternProviderMenu(this)) {
@@ -35,27 +36,29 @@ public abstract class MixinAEBaseMenu {
         }
         AEBaseMenu menu = (AEBaseMenu) (Object) this;
         var slotSemantic = menu.getSlotSemantic(slot);
-        if (slotSemantic != SlotSemantics.UPGRADE && slotSemantic != null) {
+        if (slotSemantic != SlotSemantics.UPGRADE
+                && slotSemantic != Ae2UtilitySlotSemantics.FEATURE_CARD
+                && slotSemantic != null) {
             return;
         }
 
-        var upgradeSlots = menu.getSlots(SlotSemantics.UPGRADE);
-        if (upgradeSlots == null) {
-            return;
+        if (ae2utility$containsSameCardType(menu.getSlots(SlotSemantics.UPGRADE), slot, stack)
+                || ae2utility$containsSameCardType(menu.getSlots(Ae2UtilitySlotSemantics.FEATURE_CARD), slot, stack)) {
+            cir.setReturnValue(false);
         }
+    }
 
-        for (Slot upgradeSlot : upgradeSlots) {
-            if (upgradeSlot == slot) {
-                continue;
-            }
-            if (stack.getItem() instanceof NbtTearCardItem && upgradeSlot.getItem().getItem() instanceof NbtTearCardItem) {
-                cir.setReturnValue(false);
-                return;
-            }
-            if (stack.getItem() instanceof RedstoneSignalCardItem && upgradeSlot.getItem().getItem() instanceof RedstoneSignalCardItem) {
-                cir.setReturnValue(false);
-                return;
+    private static boolean ae2utility$containsSameCardType(Iterable<? extends Slot> slots, Slot target,
+            ItemStack candidate) {
+        if (slots == null) {
+            return false;
+        }
+        for (Slot existingSlot : slots) {
+            if (existingSlot != target
+                    && PatternProviderFeatureCardPolicy.hasSameCardType(candidate, existingSlot.getItem())) {
+                return true;
             }
         }
+        return false;
     }
 }

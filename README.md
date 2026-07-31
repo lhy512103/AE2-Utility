@@ -6,7 +6,7 @@
 
 AE2 Utility is an **Applied Energistics 2** companion mod for **Minecraft 1.21.1 + NeoForge**. It provides recipe ingredient transfer, JEI/EMI pattern encoding and upload, a recipe finder, and pattern-provider utility cards.
 
-Current version: **1.7.3**
+Current version: **1.7.4**
 
 ### Key Features
 
@@ -131,7 +131,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 AE2 Utility 是面向 **Minecraft 1.21.1 + NeoForge** 的 Applied Energistics 2 辅助模组，提供配方拉料、JEI/EMI 样板编码与上传、配方查找器以及样板供应器功能卡。
 
-当前版本：**1.7.3**
+当前版本：**1.7.4**
 
 ### 主要功能
 

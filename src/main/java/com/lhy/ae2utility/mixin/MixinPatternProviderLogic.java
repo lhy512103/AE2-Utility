@@ -35,6 +35,7 @@ import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 import com.lhy.ae2utility.debug.NbtTearCardDebug;
 import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
+import com.lhy.ae2utility.integration.ae2.PatternProviderFeatureCardCache;
 import com.lhy.ae2utility.integration.ae2.PatternProviderSignalAccess;
 import com.lhy.ae2utility.item.NbtTearCardItem;
 
@@ -56,6 +57,9 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
 
     @Unique
     private ItemStackHandler ae2utility$tearHandler;
+
+    @Unique
+    private PatternProviderFeatureCardCache ae2utility$featureCardCache;
 
     /**
      * 推样板成功后收集的产物键：用于 CRAFT 回传脉冲匹配；在 {@code LOCK_UNTIL_RESULT} 时亦供撕裂卡 {@code equals} 重定向。
@@ -95,11 +99,23 @@ public abstract class MixinPatternProviderLogic implements NbtTearLogicAccess, P
             ae2utility$tearHandler = new ItemStackHandler(1) {
                 @Override
                 protected void onContentsChanged(int slot) {
+                    if (ae2utility$featureCardCache != null) {
+                        ae2utility$featureCardCache.invalidate();
+                    }
                     host.saveChanges();
                 }
             };
         }
         return ae2utility$tearHandler;
+    }
+
+    @Override
+    public PatternProviderFeatureCardCache ae2utility$getFeatureCardCache() {
+        if (ae2utility$featureCardCache == null) {
+            ae2utility$featureCardCache = new PatternProviderFeatureCardCache(this,
+                    () -> ae2utility$getTearHandler().getStackInSlot(0));
+        }
+        return ae2utility$featureCardCache;
     }
 
     @Override

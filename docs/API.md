@@ -19,7 +19,7 @@ API 在完整 AE2: Utility 模组 JAR 中发布，不提供独立运行的 API �
 
 ```groovy
 dependencies {
-    compileOnly files("libs/ae2utility-1.7.3.jar")
+    compileOnly files("libs/ae2utility-1.7.4.jar")
 }
 ```
 

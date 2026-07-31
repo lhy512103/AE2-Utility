@@ -26,6 +26,7 @@ import com.lhy.ae2utility.card.NbtTearFilter;
 import com.lhy.ae2utility.debug.NbtTearCardDebug;
 import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
+import com.lhy.ae2utility.integration.ae2.PatternProviderFeatureCardCache;
 import com.lhy.ae2utility.integration.ae2.PatternProviderSignalAccess;
 import com.lhy.ae2utility.item.NbtTearCardItem;
 
@@ -43,6 +44,9 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
     private ItemStackHandler ae2utility$tearHandler;
 
     @Unique
+    private PatternProviderFeatureCardCache ae2utility$featureCardCache;
+
+    @Unique
     private int ae2utility$signalPulseUntilTick;
 
     @Unique
@@ -58,11 +62,23 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
             ae2utility$tearHandler = new ItemStackHandler(1) {
                 @Override
                 protected void onContentsChanged(int slot) {
+                    if (ae2utility$featureCardCache != null) {
+                        ae2utility$featureCardCache.invalidate();
+                    }
                     host.saveChanges();
                 }
             };
         }
         return ae2utility$tearHandler;
+    }
+
+    @Override
+    public PatternProviderFeatureCardCache ae2utility$getFeatureCardCache() {
+        if (ae2utility$featureCardCache == null) {
+            ae2utility$featureCardCache = new PatternProviderFeatureCardCache(this,
+                    () -> ae2utility$getTearHandler().getStackInSlot(0));
+        }
+        return ae2utility$featureCardCache;
     }
 
     @Override

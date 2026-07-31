@@ -4,14 +4,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-import appeng.api.upgrades.IUpgradeInventory;
-import appeng.api.upgrades.IUpgradeableObject;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 
 import com.lhy.ae2utility.api.Ae2UtilityApi;
 import com.lhy.ae2utility.api.card.RedstoneSignalHost;
 import com.lhy.ae2utility.card.RedstoneSignalCardMode;
-import com.lhy.ae2utility.item.RedstoneSignalCardItem;
 
 public interface PatternProviderSignalAccess {
     int ae2utility$getSignalPulseUntilTick();
@@ -66,6 +63,9 @@ public interface PatternProviderSignalAccess {
                     host == null ? "null" : host.getClass().getName(), busy, returnPending, active,
                     ae2utility$getLastRedstoneActive(), card.isEmpty() ? "missing" : card.getItem(), mode, allowCraftOnFall);
         }
+        if (active == ae2utility$getLastRedstoneActive()) {
+            return;
+        }
         Ae2UtilityApi.cards().updateRedstoneSignal(
                 ae2utility$asPublicSignalHost(host), busy, returnPending, allowCraftOnFall);
     }
@@ -98,7 +98,7 @@ public interface PatternProviderSignalAccess {
 
             @Override
             public void triggerPulse(int durationTicks) {
-                ae2utility$triggerSignalPulseFromHost(host);
+                ae2utility$triggerSignalPulseFromHost(host, durationTicks);
             }
 
             @Override
@@ -121,41 +121,9 @@ public interface PatternProviderSignalAccess {
     }
 
     default ItemStack ae2utility$getRedstoneSignalCardStack() {
-        if (!(this instanceof NbtTearLogicAccess access)) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack dedicated = access.ae2utility$getTearHandler().getStackInSlot(0);
-        if (dedicated.getItem() instanceof RedstoneSignalCardItem) {
-            return dedicated;
-        }
-
-        if ((Object) this instanceof IUpgradeableObject upgradeableObject) {
-            ItemStack fromUpgrades = ae2utility$findRedstoneSignalCard(upgradeableObject.getUpgrades());
-            if (!fromUpgrades.isEmpty()) {
-                return fromUpgrades;
-            }
-        }
-
-        ItemStack fromReflectedUpgrades = ae2utility$findRedstoneSignalCardReflectively(this);
-        if (!fromReflectedUpgrades.isEmpty()) {
-            return fromReflectedUpgrades;
-        }
-
-        try {
-            Class<?> compatProvider = Class.forName("com.extendedae_plus.api.bridge.CompatUpgradeProvider");
-            if (compatProvider.isInstance(this)) {
-                Object inventory = compatProvider.getMethod("eap$getCompatUpgrades").invoke(this);
-                if (inventory instanceof IUpgradeInventory upgrades) {
-                    ItemStack fromCompat = ae2utility$findRedstoneSignalCard(upgrades);
-                    if (!fromCompat.isEmpty()) {
-                        return fromCompat;
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-
-        return ItemStack.EMPTY;
+        return this instanceof NbtTearLogicAccess access
+                ? access.ae2utility$getFeatureCardCache().redstoneSignalCard()
+                : ItemStack.EMPTY;
     }
 
     default boolean ae2utility$shouldEmitFor(RedstoneSignalCardMode mode) {
@@ -176,6 +144,10 @@ public interface PatternProviderSignalAccess {
     }
 
     default void ae2utility$triggerSignalPulseFromHost(Object host) {
+        ae2utility$triggerSignalPulseFromHost(host, ae2utility$resolveRedstoneOutputDurationTicks());
+    }
+
+    default void ae2utility$triggerSignalPulseFromHost(Object host, int durationTicks) {
         BlockEntity blockEntity = ae2utility$getHostBlockEntity(host);
         if (blockEntity == null) {
             return;
@@ -185,11 +157,13 @@ public interface PatternProviderSignalAccess {
             return;
         }
         boolean wasActive = ae2utility$hasSignalPulse(level.getGameTime());
-        int durationTicks = ae2utility$resolveRedstoneOutputDurationTicks();
-        com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
-                "trigger pulse block={} pos={} wasActive={} durationTicks={} modeCard={}",
-                blockEntity.getClass().getName(), blockEntity.getBlockPos(), wasActive, durationTicks,
-                ae2utility$getRedstoneSignalCardStack().isEmpty() ? "missing" : "present");
+        durationTicks = Math.max(1, durationTicks);
+        if (com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
+            com.lhy.ae2utility.debug.Ae2UtilityRedstoneSignalDebugLog.pulse(
+                    "trigger pulse block={} pos={} wasActive={} durationTicks={} modeCard={}",
+                    blockEntity.getClass().getName(), blockEntity.getBlockPos(), wasActive, durationTicks,
+                    ae2utility$getRedstoneSignalCardStack().isEmpty() ? "missing" : "present");
+        }
         ae2utility$triggerSignalPulse(level.getGameTime(), durationTicks);
         ae2utility$saveHostChanges(host);
         if (!wasActive) {
@@ -259,32 +233,6 @@ public interface PatternProviderSignalAccess {
         try {
             host.getClass().getMethod("saveChanges").invoke(host);
         } catch (ReflectiveOperationException ignored) {
-        }
-    }
-
-    private static ItemStack ae2utility$findRedstoneSignalCard(IUpgradeInventory upgrades) {
-        if (upgrades == null) {
-            return ItemStack.EMPTY;
-        }
-        for (ItemStack stack : upgrades) {
-            if (stack.getItem() instanceof RedstoneSignalCardItem) {
-                return stack;
-            }
-        }
-        return ItemStack.EMPTY;
-    }
-
-    private static ItemStack ae2utility$findRedstoneSignalCardReflectively(Object owner) {
-        if (owner == null) {
-            return ItemStack.EMPTY;
-        }
-        try {
-            Object upgrades = owner.getClass().getMethod("getUpgrades").invoke(owner);
-            return upgrades instanceof IUpgradeInventory inventory
-                    ? ae2utility$findRedstoneSignalCard(inventory)
-                    : ItemStack.EMPTY;
-        } catch (ReflectiveOperationException ignored) {
-            return ItemStack.EMPTY;
         }
     }
 }

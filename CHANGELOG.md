@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.7.4
+
+### 中文
+
+#### 修复
+
+- 优化大量样板供应器场景下的功能卡检测性能，降低服务端延迟。
+- 优化红石发信卡状态机，减少无效对象创建和重复读取。
+- 修复 AE2U 功能卡槽错误接收其它模组升级卡的问题。
+
+### English
+
+#### Fixed
+
+- Improved feature-card detection performance with large numbers of pattern providers to reduce server latency.
+- Optimized the redstone signal-card state machine to avoid unnecessary allocations and repeated reads.
+- Fixed the AE2U feature-card slot incorrectly accepting upgrade cards from other mods.
+
 ## 1.7.3
 
 ### 中文

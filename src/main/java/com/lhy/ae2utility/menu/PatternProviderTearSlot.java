@@ -3,13 +3,12 @@ package com.lhy.ae2utility.menu;
 import java.util.function.Predicate;
 
 import net.minecraft.world.item.ItemStack;
-import appeng.api.upgrades.Upgrades;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
 
 /**
- * 样板供应器上的“额外升级槽”；仍然作为撕裂卡逻辑的承载槽使用，但准入规则与普通升级槽一致，
- * 以便在 EAEP / AppFlux 的升级面板里表现为正常的第 3 个升级槽。
+ * 样板供应器上的 AE2U 功能卡槽。准入策略由调用方显式提供，避免把其它模组的全局升级卡
+ * 误路由到本槽。
  * <p>
  * 继承自 {@link SlotItemHandler} 而非 {@link appeng.menu.slot.AppEngSlot}，
  * 需显式 override {@link #isActive()} 为 {@code true}，确保 AE2 的 {@code UpgradesPanel}
@@ -17,10 +16,6 @@ import net.neoforged.neoforge.items.SlotItemHandler;
  */
 public final class PatternProviderTearSlot extends SlotItemHandler {
     private final Predicate<ItemStack> validator;
-
-    public PatternProviderTearSlot(IItemHandler handler, int index, int x, int y) {
-        this(handler, index, x, y, stack -> !stack.isEmpty() && Upgrades.isUpgradeCardItem(stack));
-    }
 
     public PatternProviderTearSlot(IItemHandler handler, int index, int x, int y, Predicate<ItemStack> validator) {
         super(handler, index, x, y);
