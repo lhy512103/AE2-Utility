@@ -55,12 +55,17 @@ public final class ModNetworking {
                         (payload, context) -> context.enqueueWork(() -> RecipeTreeUploadResultPacket.handle(payload)))
                 .playToClient(CancelClientUploadQueuesPacket.TYPE, CancelClientUploadQueuesPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> CancelClientUploadQueuesPacket.handle(payload)))
+                .playToClient(InventoryProviderSelectionPreparedPacket.TYPE, InventoryProviderSelectionPreparedPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> InventoryProviderSelectionPreparedPacket.handle(payload)))
                 .playToClient(InventoryProviderUploadAckPacket.TYPE, InventoryProviderUploadAckPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> InventoryProviderUploadAckPacket.handle(payload)))
                 .playToClient(SyncEaepProviderSearchKeyPacket.TYPE, SyncEaepProviderSearchKeyPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> SyncEaepProviderSearchKeyPacket.handle(payload)))
                 .playToServer(UploadInventoryPatternsToMatrixPacket.TYPE, UploadInventoryPatternsToMatrixPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> InventoryPatternMatrixUploadService.handle((net.minecraft.server.level.ServerPlayer) context.player(), payload)))
+                .playToServer(PrepareInventoryProviderSelectionPacket.TYPE, PrepareInventoryProviderSelectionPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> InventoryPatternProviderUploadService.prepareSelection(
+                                (net.minecraft.server.level.ServerPlayer) context.player(), payload)))
                 .playToServer(UploadInventoryPatternToProviderPacket.TYPE, UploadInventoryPatternToProviderPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> InventoryPatternProviderUploadService.handle((net.minecraft.server.level.ServerPlayer) context.player(), payload)))
                 .playToClient(FallbackToProviderSelectionPacket.TYPE, FallbackToProviderSelectionPacket.STREAM_CODEC,

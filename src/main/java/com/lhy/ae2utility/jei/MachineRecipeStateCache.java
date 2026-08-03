@@ -36,6 +36,9 @@ public final class MachineRecipeStateCache {
         }
 
         if (entry == null || now - entry.lastRequestMs() >= REQUEST_INTERVAL_MS) {
+            if (!RecipeTransferPacketHelper.canEncodeRequestedIngredients(copiedIngredients)) {
+                return null;
+            }
             PacketDistributor.sendToServer(new QueryMachineRecipeStatePacket(containerId, profileId, copiedIngredients));
             CACHE.put(cacheKey, new CacheEntry(copiedIngredients, entry != null ? entry.packet() : null, now));
             trimCache();

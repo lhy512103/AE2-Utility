@@ -1,6 +1,5 @@
 package com.lhy.ae2utility.network;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -29,21 +28,14 @@ public record PullRecipeInputsPacket(boolean maxTransfer, boolean craftMissing,
     private static PullRecipeInputsPacket decode(RegistryFriendlyByteBuf buffer) {
         boolean maxTransfer = buffer.readBoolean();
         boolean craftMissing = buffer.readBoolean();
-        int size = buffer.readVarInt();
-        List<RequestedIngredient> ingredients = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            ingredients.add(RequestedIngredient.decode(buffer));
-        }
-        return new PullRecipeInputsPacket(maxTransfer, craftMissing, ingredients);
+        return new PullRecipeInputsPacket(maxTransfer, craftMissing,
+                RecipeTransferPacketHelper.readRequestedIngredients(buffer));
     }
 
     private void write(RegistryFriendlyByteBuf buffer) {
         buffer.writeBoolean(maxTransfer);
         buffer.writeBoolean(craftMissing);
-        buffer.writeVarInt(requestedIngredients.size());
-        for (RequestedIngredient ingredient : requestedIngredients) {
-            ingredient.write(buffer);
-        }
+        RecipeTransferPacketHelper.writeRequestedIngredients(buffer, requestedIngredients);
     }
 
     @Override
@@ -55,23 +47,6 @@ public record PullRecipeInputsPacket(boolean maxTransfer, boolean craftMissing,
         public RequestedIngredient(List<ItemStack> alternatives, int count) {
             this.alternatives = alternatives.stream().map(ItemStack::copy).toList();
             this.count = count;
-        }
-
-        private static RequestedIngredient decode(RegistryFriendlyByteBuf buffer) {
-            int size = buffer.readVarInt();
-            List<ItemStack> alternatives = new ArrayList<>(size);
-            for (int i = 0; i < size; i++) {
-                alternatives.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer));
-            }
-            return new RequestedIngredient(alternatives, buffer.readVarInt());
-        }
-
-        private void write(RegistryFriendlyByteBuf buffer) {
-            buffer.writeVarInt(alternatives.size());
-            for (ItemStack alternative : alternatives) {
-                ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, alternative);
-            }
-            buffer.writeVarInt(count);
         }
 
         public RequestedIngredient copy() {

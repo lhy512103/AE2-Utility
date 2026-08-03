@@ -33,6 +33,7 @@ import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;
 import com.lhy.ae2utility.network.PullMachineRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 
 public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> implements IRecipeTransferHandler<C, R> {
     private static final int RED_SLOT_HIGHLIGHT_COLOR = 0x66FF0000;
@@ -74,6 +75,10 @@ public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> im
         }
         if (inputSlots.size() > profile.inputSlotCount()) {
             return transferHelper.createInternalError();
+        }
+        if (!RecipeTransferPacketHelper.canEncodeRequestedIngredients(requestedIngredients)) {
+            return transferHelper.createUserErrorWithTooltip(
+                    Component.translatable("message.ae2utility.recipe_request_too_large"));
         }
 
         if (!doTransfer) {

@@ -258,20 +258,62 @@ public final class RecipeTransferPacketHelper {
     }
 
     public static List<RequestedIngredient> readRequestedIngredients(RegistryFriendlyByteBuf buffer) {
-        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_REQUESTED_INGREDIENTS, "requestedIngredients");
-        List<RequestedIngredient> ingredients = new ArrayList<>(size);
+        int size = buffer.readVarInt();
+        boolean exceededLimits = size < 0 || size > NetworkValidation.MAX_REQUESTED_INGREDIENTS;
+        long totalAlternatives = 0;
+        List<RequestedIngredient> ingredients = new ArrayList<>(Math.min(Math.max(size, 0),
+                NetworkValidation.MAX_REQUESTED_INGREDIENTS));
         for (int i = 0; i < size; i++) {
-            int alternativesSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_ALTERNATIVES_PER_INGREDIENT, "alternatives");
-            List<ItemStack> alternatives = new ArrayList<>(alternativesSize);
-            for (int j = 0; j < alternativesSize; j++) {
-                alternatives.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer));
+            int alternativesSize = buffer.readVarInt();
+            if (alternativesSize < 0) {
+                return List.of();
             }
-            ingredients.add(new RequestedIngredient(alternatives, buffer.readVarInt()));
+            totalAlternatives = Math.min(Integer.MAX_VALUE, totalAlternatives + alternativesSize);
+            boolean keepIngredient = !exceededLimits
+                    && alternativesSize <= NetworkValidation.MAX_ALTERNATIVES_PER_INGREDIENT
+                    && totalAlternatives <= NetworkValidation.MAX_TOTAL_INGREDIENT_ALTERNATIVES;
+            if (!keepIngredient) {
+                exceededLimits = true;
+            }
+
+            List<ItemStack> alternatives = keepIngredient ? new ArrayList<>(alternativesSize) : List.of();
+            for (int j = 0; j < alternativesSize; j++) {
+                ItemStack alternative = ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer);
+                if (keepIngredient) {
+                    alternatives.add(alternative);
+                }
+            }
+            int count = buffer.readVarInt();
+            if (keepIngredient) {
+                ingredients.add(new RequestedIngredient(alternatives, count));
+            }
         }
-        return ingredients;
+        return exceededLimits ? List.of() : ingredients;
+    }
+
+    public static boolean canEncodeRequestedIngredients(List<RequestedIngredient> ingredients) {
+        if (ingredients.size() > NetworkValidation.MAX_REQUESTED_INGREDIENTS) {
+            return false;
+        }
+        long totalAlternatives = 0;
+        for (RequestedIngredient ingredient : ingredients) {
+            int alternativesSize = ingredient.alternatives().size();
+            if (alternativesSize > NetworkValidation.MAX_ALTERNATIVES_PER_INGREDIENT) {
+                return false;
+            }
+            totalAlternatives = Math.min(Integer.MAX_VALUE, totalAlternatives + alternativesSize);
+            if (totalAlternatives > NetworkValidation.MAX_TOTAL_INGREDIENT_ALTERNATIVES) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static void writeRequestedIngredients(RegistryFriendlyByteBuf buffer, List<RequestedIngredient> ingredients) {
+        if (!canEncodeRequestedIngredients(ingredients)) {
+            buffer.writeVarInt(0);
+            return;
+        }
         buffer.writeVarInt(ingredients.size());
         for (RequestedIngredient ingredient : ingredients) {
             buffer.writeVarInt(ingredient.alternatives().size());

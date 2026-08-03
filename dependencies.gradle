@@ -5,6 +5,8 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     compileOnly "dev.emi:emi-neoforge:${emi_version}"
+    // Optional compile-time contract for direct EAEP integration; remains optional at runtime.
+    compileOnly "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
 
     // ── 运行时核心模组 ─────────────────────────────────────────
     coreLocalRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
@@ -16,7 +18,7 @@ dependencies {
     // ── 运行时配方查看器 ───────────────────────────────────────
     // JEI 与 EMI 二选一；当前运行配置切换为 EMI，便于测试 EMI 集成。
     coreLocalRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    coreLocalRuntime "dev.emi:emi-neoforge:${emi_version}"
+    //coreLocalRuntime "dev.emi:emi-neoforge:${emi_version}"
 
     // ── 运行时 AE2 扩展 ────────────────────────────────────────
     ae2AddonLocalRuntime "curse.maven:advancedae-1084104:${advancedae_file}"

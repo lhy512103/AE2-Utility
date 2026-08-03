@@ -13,6 +13,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 
+import com.lhy.ae2utility.card.NbtTearCardThreadLocal;
 import com.lhy.ae2utility.card.NbtTearExecutionHelper;
 
 /**
@@ -32,8 +33,10 @@ public class MixinProcessingStylePatternPushInputs {
     @Inject(method = "pushInputsToExternalInventory", at = @At("HEAD"), cancellable = true)
     private void ae2utility$pushInputsWithTear(KeyCounter[] inputHolder, IPatternDetails.PatternInputSink inputSink,
             CallbackInfo ci) {
-        if (NbtTearExecutionHelper.pushSparseInputsWithTear(inputHolder, inputSink, sparseInputs)) {
-            ci.cancel();
+        if (NbtTearCardThreadLocal.get() == null) {
+            return;
         }
+        NbtTearExecutionHelper.pushSparseInputsWithTear(inputHolder, inputSink, sparseInputs);
+        ci.cancel();
     }
 }

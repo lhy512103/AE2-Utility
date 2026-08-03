@@ -16,6 +16,7 @@ import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.integration.eaep.EaepProviderListRequest;
 import com.lhy.ae2utility.init.ModDataComponents;
+import com.lhy.ae2utility.network.PrepareInventoryProviderSelectionPacket;
 import com.lhy.ae2utility.network.UploadInventoryPatternToProviderPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -33,6 +34,8 @@ public final class InventoryPatternUploadQueue {
     private static final Deque<Integer> PENDING_SLOTS = new ArrayDeque<>();
     private static final Deque<PendingGroup> PENDING_GROUPS = new ArrayDeque<>();
     private static boolean selectingProvider;
+    /** 上一个目标拒绝写入后，重开的界面必须由玩家显式改选，禁止再次自动命中同一目标。 */
+    private static boolean manualProviderChoiceRequired;
     private static int totalPatterns;
     private static int sentPatterns;
     private static int waitTicks;
@@ -42,6 +45,9 @@ public final class InventoryPatternUploadQueue {
     private static String currentPatternName = "";
 
     private static Integer awaitingUploadAckSlot;
+    private static Integer awaitingProviderPreparationSlot;
+    private static Integer preparedNetworkUploadSlot;
+    private static boolean awaitingProviderListOpen;
 
     private record PendingGroup(List<Integer> slots, String searchKey) {
     }
@@ -79,6 +85,65 @@ public final class InventoryPatternUploadQueue {
         return ok;
     }
 
+    private static boolean prepareCurrentNetworkUpload(boolean openProviderListAfterAck) {
+        Integer slot = PENDING_SLOTS.peekFirst();
+        if (slot == null || awaitingProviderPreparationSlot != null) {
+            return false;
+        }
+        try {
+            awaitingProviderPreparationSlot = slot;
+            awaitingProviderListOpen = openProviderListAfterAck;
+            PacketDistributor.sendToServer(new PrepareInventoryProviderSelectionPacket(slot));
+            InventoryPatternUploadDebug.info("prepare_provider_selection", "sent slot={} openList={}",
+                    slot, openProviderListAfterAck);
+            return true;
+        } catch (Throwable t) {
+            awaitingProviderPreparationSlot = null;
+            awaitingProviderListOpen = false;
+            InventoryPatternUploadDebug.warn("prepare_provider_selection", "failed slot={} error={}", slot, t.toString());
+            return false;
+        }
+    }
+
+    public static void handleProviderSelectionPrepared(int playerSlotIndex, boolean success) {
+        if (awaitingProviderPreparationSlot == null
+                || awaitingProviderPreparationSlot.intValue() != playerSlotIndex) {
+            InventoryPatternUploadDebug.warn("prepare_provider_selection",
+                    "ignored stale ack slot={} expected={} success={}",
+                    playerSlotIndex, awaitingProviderPreparationSlot, success);
+            return;
+        }
+        boolean openProviderList = awaitingProviderListOpen;
+        awaitingProviderPreparationSlot = null;
+        awaitingProviderListOpen = false;
+        preparedNetworkUploadSlot = success ? playerSlotIndex : null;
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (!success || player == null) {
+            if (player != null) {
+                player.displayClientMessage(Component.literal("批量上传失败：无法准备供应器上传")
+                        .withStyle(ChatFormatting.RED), true);
+            }
+            resetAll();
+            return;
+        }
+        if (!openProviderList) {
+            sendNext();
+            return;
+        }
+        if (!selectingProvider || !requestProvidersList()) {
+            player.displayClientMessage(Component.literal("批量上传失败：无法打开供应器列表")
+                    .withStyle(ChatFormatting.RED), true);
+            resetAll();
+            return;
+        }
+        if (!currentSearchKey.isBlank()) {
+            player.displayClientMessage(Component.literal("已按机器关键词筛选：" + currentSearchKey)
+                    .withStyle(ChatFormatting.GRAY), true);
+        }
+        InventoryPatternUploadDebug.info("prepare_provider_selection",
+                "prepared and requested provider list slot={} searchKey={}", playerSlotIndex, currentSearchKey);
+    }
+
     public static List<Integer> collectEncodedPatternSlots(LocalPlayer player) {
         List<Integer> slots = new ArrayList<>();
         if (player == null) {
@@ -108,6 +173,10 @@ public final class InventoryPatternUploadQueue {
         return selectingProvider;
     }
 
+    public static boolean requiresManualProviderChoice() {
+        return selectingProvider && manualProviderChoiceRequired;
+    }
+
     public static void startDirectUpload(List<Integer> slots, long chosenProviderId, String chosenProviderName) {
         if (slots == null || slots.isEmpty()) {
             return;
@@ -116,6 +185,7 @@ public final class InventoryPatternUploadQueue {
         PENDING_SLOTS.addAll(slots);
         totalPatterns = slots.size();
         selectingProvider = false;
+        manualProviderChoiceRequired = false;
         providerId = chosenProviderId;
         providerName = chosenProviderName == null ? "" : chosenProviderName;
         InventoryPatternUploadDebug.info("start_direct_upload", "slots={} providerId={} providerName={}",
@@ -126,11 +196,12 @@ public final class InventoryPatternUploadQueue {
     public static void cancelSelection() {
         if (selectingProvider) {
             InventoryPatternUploadDebug.info("cancel_selection", "selection cancelled while waiting provider");
+            clearPreparedNetworkUploadOnServer();
             resetSelectionState();
             if (!PENDING_GROUPS.isEmpty()) {
                 startNextSelection();
             } else {
-                RecipeTreeUploadProgressState.clear();
+                clearProviderSelectionSession();
             }
         }
     }
@@ -143,6 +214,7 @@ public final class InventoryPatternUploadQueue {
             return;
         }
         selectingProvider = false;
+        manualProviderChoiceRequired = false;
         providerId = chosenProviderId;
         providerName = chosenProviderName == null ? "" : chosenProviderName;
         InventoryPatternUploadDebug.info("begin_uploading", "providerId={} providerName={} pendingSlots={}",
@@ -180,6 +252,9 @@ public final class InventoryPatternUploadQueue {
             return;
         }
         awaitingUploadAckSlot = null;
+        if (preparedNetworkUploadSlot != null && preparedNetworkUploadSlot.intValue() == slotIndex) {
+            preparedNetworkUploadSlot = null;
+        }
         LocalPlayer player = Minecraft.getInstance().player;
         if (success) {
             PENDING_SLOTS.pollFirst();
@@ -219,8 +294,9 @@ public final class InventoryPatternUploadQueue {
         providerName = "";
         waitTicks = 0;
         selectingProvider = true;
+        manualProviderChoiceRequired = true;
         totalPatterns = PENDING_SLOTS.size();
-        if (!requestProvidersList()) {
+        if (!prepareCurrentNetworkUpload(true)) {
             player.displayClientMessage(
                     Component.translatable("message.ae2utility.inventory_upload_reopen_providers_failed").withStyle(ChatFormatting.RED),
                     true);
@@ -242,6 +318,13 @@ public final class InventoryPatternUploadQueue {
             return;
         }
         LocalPlayer player = Minecraft.getInstance().player;
+        if (providerId < 0
+                && (preparedNetworkUploadSlot == null || preparedNetworkUploadSlot.intValue() != nextSlot.intValue())) {
+            if (!prepareCurrentNetworkUpload(false)) {
+                finishWithError();
+            }
+            return;
+        }
         currentPatternName = resolvePatternName(player, nextSlot.intValue());
         RecipeTreeUploadProgressState.setCurrent(currentPatternName, providerName.isBlank() ? currentSearchKey : providerName);
         InventoryPatternUploadDebug.info("send_next", "sending playerSlotIndex={} queueSizeIncludingHead={}", nextSlot,
@@ -281,7 +364,7 @@ public final class InventoryPatternUploadQueue {
         if (!PENDING_GROUPS.isEmpty()) {
             startNextSelection();
         } else {
-            RecipeTreeUploadProgressState.clear();
+            clearProviderSelectionSession();
         }
     }
 
@@ -334,25 +417,23 @@ public final class InventoryPatternUploadQueue {
         }
 
         currentSearchKey = UNKNOWN_GROUP_KEY.equals(group.searchKey()) ? "" : group.searchKey();
+        prepareSelection(group.slots());
         currentPatternName = resolvePatternName(player, group.slots().get(0));
         RecipeTreeUploadProgressState.setCurrent(currentPatternName, currentSearchKey);
         if (!presetProviderSearchKey(currentSearchKey)) {
             InventoryPatternUploadDebug.warn("start_next_selection", "failed to preset search key={}", currentSearchKey);
         }
-        if (!requestProvidersList()) {
-            InventoryPatternUploadDebug.warn("start_next_selection", "request providers list failed searchKey={}", currentSearchKey);
-            player.displayClientMessage(Component.literal("批量上传失败：无法打开供应器列表").withStyle(ChatFormatting.RED), true);
+        if (!prepareCurrentNetworkUpload(true)) {
+            InventoryPatternUploadDebug.warn("start_next_selection", "prepare provider selection failed searchKey={}", currentSearchKey);
+            player.displayClientMessage(Component.literal("批量上传失败：无法准备供应器列表").withStyle(ChatFormatting.RED), true);
             resetAll();
             return;
-        }
-        prepareSelection(group.slots());
-        if (!currentSearchKey.isBlank()) {
-            player.displayClientMessage(Component.literal("已按机器关键词筛选：" + currentSearchKey).withStyle(ChatFormatting.GRAY), true);
         }
         EaepUploadDebugLog.info(
                 "startNextSelection searchKey={} slots={} selectingProvider={} totalPatterns={}",
                 currentSearchKey, group.slots(), selectingProvider, totalPatterns);
-        InventoryPatternUploadDebug.info("start_next_selection", "searchKey={} slots={}", currentSearchKey, group.slots());
+        InventoryPatternUploadDebug.info("start_next_selection", "waiting preparation searchKey={} slots={}",
+                currentSearchKey, group.slots());
     }
 
     private static boolean presetProviderSearchKey(String rawKey) {
@@ -360,10 +441,11 @@ public final class InventoryPatternUploadQueue {
             return true;
         }
         String resolvedKey = com.lhy.ae2utility.integration.eaep.EaepReflection.resolveSearchKeyAlias(rawKey);
-        if (resolvedKey == null) {
+        if (resolvedKey == null || resolvedKey.isBlank()) {
             InventoryPatternUploadDebug.warn("preset_search_key", "resolveAlias failed rawKey={}", rawKey);
             return false;
         }
+        EaepPendingProviderSearch.offerResolvedFilter(resolvedKey);
         return com.lhy.ae2utility.integration.eaep.EaepReflection.setLastProviderSearchKey(resolvedKey);
     }
 
@@ -415,8 +497,12 @@ public final class InventoryPatternUploadQueue {
         InventoryPatternUploadDebug.info("reset", "clearingState pending={} selectingProvider={} totalPatterns={} sentPatterns={} waitTicks={} providerId={} providerName={}",
                 PENDING_SLOTS, selectingProvider, totalPatterns, sentPatterns, waitTicks, providerId, providerName);
         awaitingUploadAckSlot = null;
+        awaitingProviderPreparationSlot = null;
+        preparedNetworkUploadSlot = null;
+        awaitingProviderListOpen = false;
         PENDING_SLOTS.clear();
         selectingProvider = false;
+        manualProviderChoiceRequired = false;
         totalPatterns = 0;
         sentPatterns = 0;
         waitTicks = 0;
@@ -426,7 +512,23 @@ public final class InventoryPatternUploadQueue {
     }
 
     private static void resetAll() {
+        if (awaitingProviderPreparationSlot != null || preparedNetworkUploadSlot != null) {
+            clearPreparedNetworkUploadOnServer();
+        }
         resetSelectionState();
+        clearProviderSelectionSession();
+    }
+
+    private static void clearPreparedNetworkUploadOnServer() {
+        try {
+            PacketDistributor.sendToServer(new PrepareInventoryProviderSelectionPacket(-1));
+        } catch (Throwable t) {
+            InventoryPatternUploadDebug.warn("prepare_provider_selection", "failed to clear pending state error={}",
+                    t.toString());
+        }
+    }
+
+    private static void clearProviderSelectionSession() {
         PENDING_GROUPS.clear();
         currentSearchKey = "";
         RecipeTreeUploadProgressState.clear();

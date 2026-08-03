@@ -55,6 +55,8 @@ import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.init.ModDataComponents;
+import com.lhy.ae2utility.integration.eaep.EaepDirectCompat;
+import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.InvalidateCraftableCachePacket;
 import com.lhy.ae2utility.network.SyncEaepProviderSearchKeyPacket;
@@ -624,6 +626,8 @@ public final class EncodePatternService {
             return EncodeOutcome.FAILURE;
         }
 
+        EaepReflection.writeEncoderAttribution(serverPlayer, encodedPattern);
+
         if (batchMode && EncodePatternDuplicateChecker.batchNetworkAlreadyContains(serverPlayer, grid, encodedPattern)) {
             JeiEncodeQueueDebugLog.info(
                     "encode batch skip duplicate player={} recipeId={} gridNull={} jeiSequentialQueue={}",
@@ -691,24 +695,13 @@ public final class EncodePatternService {
                          * 处理样板（processing）不进装配矩阵，直接走供应器待定队列，避免误判为「矩阵已满」而上传失败。
                          */
                         if (canUploadToMatrix) {
-                            boolean uploadedMatrix = com.lhy.ae2utility.integration.eaep.EaepReflection
+                            boolean uploadedMatrix = EaepDirectCompat
                                     .uploadPatternToMatrix(serverPlayer, encodedPattern, eaepGrid);
                             EaepUploadDebugLog.info(
                                     "EncodePattern matrix upload attempted recipeId={} canMatrixHint={} uploaded={}",
                                     payload.recipeId(), canUploadToMatrix, uploadedMatrix);
 
                             if (uploadedMatrix) {
-                                disarmEaepShiftBlankRefund(serverPlayer);
-                                String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
-                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                                return EncodeOutcome.SUCCESS;
-                            }
-
-                            if (InventoryPatternMatrixUploadService.tryDirectMatrixInsert(serverPlayer, encodedPattern, eaepGrid)) {
-                                EaepUploadDebugLog.info(
-                                        "EncodePattern matrix direct insert ok (fallback) recipeId={}",
-                                        payload.recipeId());
                                 disarmEaepShiftBlankRefund(serverPlayer);
                                 String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
                                 RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);

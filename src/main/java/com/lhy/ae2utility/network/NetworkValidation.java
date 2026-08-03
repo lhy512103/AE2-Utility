@@ -5,7 +5,8 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 /** Shared defensive limits for client-originated payloads. */
 public final class NetworkValidation {
     public static final int MAX_REQUESTED_INGREDIENTS = 128;
-    public static final int MAX_ALTERNATIVES_PER_INGREDIENT = 64;
+    public static final int MAX_ALTERNATIVES_PER_INGREDIENT = 512;
+    public static final int MAX_TOTAL_INGREDIENT_ALTERNATIVES = 4096;
     public static final int MAX_PATTERN_BATCH = 256;
     public static final int MAX_INVENTORY_SLOTS = 128;
     public static final int MAX_RECIPE_INPUT_SLOTS = 81;

@@ -88,8 +88,6 @@ neoForge {
             client()
             gameDirectory = file('run/client')
             sourceSet = sourceSets.clientRuntime
-            // Temporary diagnostics for the pattern-provider redstone signal card.
-            systemProperty 'ae2utility.debugRedstoneSignal', 'true'
         }
         server {
             server()

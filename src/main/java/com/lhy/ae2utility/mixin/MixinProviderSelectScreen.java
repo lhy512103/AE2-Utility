@@ -23,7 +23,6 @@ import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.network.EaepSequentialProviderDismissPacket;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -32,7 +31,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @Mixin(targets = "com.extendedae_plus.client.screen.ProviderSelectScreen", remap = false)
 public class MixinProviderSelectScreen {
-    private static final int PAGE_SIZE = 6;
 
     @Shadow
     private EditBox searchBox;
@@ -42,9 +40,6 @@ public class MixinProviderSelectScreen {
 
     @Shadow
     private List<String> fNames;
-
-    @Shadow
-    private List<Button> entryButtons;
 
     @Shadow
     private int page;
@@ -74,6 +69,7 @@ public class MixinProviderSelectScreen {
                 + " awaitingAny=" + RecipeTreeUploadQueue.awaitingAnyProviderUpload()
                 + " awaitingSequential=" + RecipeTreeUploadQueue.awaitingSequentialProviderUpload()
                 + " selectingProvider=" + InventoryPatternUploadQueue.isSelectingProvider()
+                + " manualChoice=" + InventoryPatternUploadQueue.requiresManualProviderChoice()
                 + " closeByChoice=" + ae2utility$closeTriggeredByProviderChoice
                 + " page=" + page
                 + " providers=" + (fIds != null ? fIds.size() : -1)
@@ -149,6 +145,12 @@ public class MixinProviderSelectScreen {
      */
     @Inject(method = "tryAutoUploadIfUniqueMatch", at = @At("HEAD"), cancellable = true, remap = false)
     private void ae2utility$suppressNativeAutoUploadWhenRememberedAbsent(CallbackInfo ci) {
+        if (InventoryPatternUploadQueue.requiresManualProviderChoice()) {
+            InventoryPatternUploadDebug.info("provider_auto_choose",
+                    "native auto upload suppressed after previous target rejected");
+            ci.cancel();
+            return;
+        }
         if (!Ae2UtilityClientConfig.reuseProviderWithinBatch()) {
             return;
         }
@@ -191,7 +193,8 @@ public class MixinProviderSelectScreen {
      */
     @Unique
     private boolean ae2utility$tryAutoChooseProvider() {
-        if (ae2utility$sequentialUniqueProviderAutoFired) {
+        if (ae2utility$sequentialUniqueProviderAutoFired
+                || InventoryPatternUploadQueue.requiresManualProviderChoice()) {
             return false;
         }
         if (!RecipeTreeUploadQueue.awaitingSequentialProviderUpload()
@@ -287,49 +290,6 @@ public class MixinProviderSelectScreen {
         ae2utility$closeTriggeredByProviderChoice = true;
         ((Screen) (Object) this).onClose();
         ci.cancel();
-    }
-
-    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-    private void ae2utility$batchUploadByMouse(double mouseX, double mouseY, int button,
-            CallbackInfoReturnable<Boolean> cir) {
-        if (RecipeTreeUploadQueue.awaitingAnyProviderUpload() || InventoryPatternUploadQueue.isSelectingProvider()) {
-            EaepUploadDebugLog.info("ProviderSelectScreen.mouseClicked x={} y={} button={} {}",
-                    mouseX, mouseY, button, ae2utility$stateSummary());
-        }
-        if (button != 0 || !InventoryPatternUploadQueue.isSelectingProvider()) {
-            return;
-        }
-        InventoryPatternUploadDebug.info("provider_mouse_clicked",
-                "mouseX={} mouseY={} page={} entryButtons={}", mouseX, mouseY, page, entryButtons.size());
-        for (int i = 0; i < entryButtons.size(); i++) {
-            Button btn = entryButtons.get(i);
-            InventoryPatternUploadDebug.info("provider_mouse_clicked",
-                    "buttonIndex={} x={} y={} width={} height={} visible={} active={} hover={}",
-                    i, btn.getX(), btn.getY(), btn.getWidth(), btn.getHeight(), btn.visible, btn.active,
-                    btn.isMouseOver(mouseX, mouseY));
-            if (!btn.visible || !btn.active) {
-                continue;
-            }
-            if (!btn.isMouseOver(mouseX, mouseY)) {
-                continue;
-            }
-            int actualIdx = page * PAGE_SIZE + i;
-            InventoryPatternUploadDebug.info("provider_mouse_clicked",
-                    "buttonHit buttonIndex={} actualIdx={} buttonLabel={}",
-                    i, actualIdx, btn.getMessage().getString());
-            if (actualIdx < 0 || actualIdx >= fIds.size()) {
-                InventoryPatternUploadDebug.warn("provider_mouse_clicked",
-                        "actualIdx out of range actualIdx={} fIdsSize={}", actualIdx, fIds.size());
-                InventoryPatternUploadQueue.cancelSelection();
-                cir.setReturnValue(true);
-                return;
-            }
-            InventoryPatternUploadQueue.beginUploading(fIds.get(actualIdx), fNames.get(actualIdx));
-            ae2utility$closeTriggeredByProviderChoice = true;
-            ((Screen) (Object) this).onClose();
-            cir.setReturnValue(true);
-            return;
-        }
     }
 
     @Inject(method = "keyPressed", at = @At("HEAD"))

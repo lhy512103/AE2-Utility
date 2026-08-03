@@ -117,6 +117,7 @@
   "gui.ae2utility.recipe_tree.amount_exact": "数量：%1$s",
   "message.ae2utility.no_terminal_link": "AE2实用：当前终端未连接到可用的 ME 网络。",
   "message.ae2utility.no_item_inputs": "AE2实用：该 JEI 配方没有可拉取的物品输入。",
+  "message.ae2utility.recipe_request_too_large": "AE2实用：该配方包含过多可替代材料，已停止查询和转移以避免断开连接。",
   "message.ae2utility.no_wireless_terminal": "未检测到可用的无线终端",
   "message.ae2utility.wireless_terminal_unavailable": "无线终端当前不可用或未连接",
   "message.ae2utility.move_items": "填充物品",

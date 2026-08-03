@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.5
+
+### 中文
+
+#### 修改
+
+- 修复多候选 JEI 配方可能导致断开连接的问题，超限请求现在会安全停止并显示提示。
+- 修复未启用 NBT 撕裂卡时，处理样板输入可能被错误拦截的问题。
+- 修复通过 JEI 或 EMI 编码的样板缺少 ExtendedAE Plus 编码者信息的问题。
+- 修复通过 AE2 Utility 上传的处理样板无法使用 ExtendedAE Plus“撤回上次上传样板”功能的问题。
+
+### English
+
+#### Changed
+
+- Fixed JEI recipes with many ingredient alternatives potentially causing disconnects; oversized requests now stop safely and display a message.
+- Fixed processing-pattern inputs potentially being intercepted without an active NBT Tear Card.
+- Fixed patterns encoded through JEI or EMI missing ExtendedAE Plus encoder attribution.
+- Fixed processing patterns uploaded through AE2 Utility not working with ExtendedAE Plus's “return last uploaded pattern” feature.
+
 ## 1.7.4
 
 ### 中文

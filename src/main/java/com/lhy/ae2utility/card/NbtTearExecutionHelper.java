@@ -15,10 +15,15 @@ public final class NbtTearExecutionHelper {
     private NbtTearExecutionHelper() {
     }
 
-    public static boolean pushSparseInputsWithTear(
+    public static void pushSparseInputsWithTear(
             KeyCounter[] inputHolder,
             IPatternDetails.PatternInputSink inputSink,
             List<GenericStack> sparseInputs) {
+        NbtTearFilter filter = NbtTearCardThreadLocal.get();
+        if (filter == null) {
+            throw new IllegalStateException("NBT tear input push requires an active tear-card context");
+        }
+
         var allInputs = new KeyCounter();
         for (var counter : inputHolder) {
             allInputs.addAll(counter);
@@ -31,7 +36,7 @@ public final class NbtTearExecutionHelper {
 
             var expectedKey = sparseInput.what();
             var amount = sparseInput.amount();
-            var actualKey = resolveAvailableKey(allInputs, expectedKey, amount);
+            var actualKey = resolveAvailableKey(allInputs, expectedKey, amount, filter);
             long available = actualKey == null ? 0 : allInputs.get(actualKey);
 
             if (actualKey == null || available < amount) {
@@ -43,19 +48,15 @@ public final class NbtTearExecutionHelper {
             inputSink.pushInput(actualKey, amount);
             allInputs.remove(actualKey, amount);
         }
-
-        return true;
     }
 
-    private static AEKey resolveAvailableKey(KeyCounter allInputs, AEKey expectedKey, long amount) {
+    private static AEKey resolveAvailableKey(
+            KeyCounter allInputs,
+            AEKey expectedKey,
+            long amount,
+            NbtTearFilter filter) {
         if (allInputs.get(expectedKey) >= amount) {
             return expectedKey;
-        }
-
-        NbtTearFilter filter = NbtTearCardThreadLocal.get();
-        if (filter == null) {
-            NbtTearCardDebug.logFuzzyCraftSearch("push_inputs", expectedKey, null, false, "filter_null");
-            return null;
         }
 
         for (var fuzzy : allInputs.findFuzzy(expectedKey, FuzzyMode.IGNORE_ALL)) {

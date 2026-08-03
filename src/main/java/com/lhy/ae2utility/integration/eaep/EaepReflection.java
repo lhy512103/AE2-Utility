@@ -6,9 +6,11 @@ import java.lang.reflect.Method;
 import org.jetbrains.annotations.Nullable;
 
 import appeng.api.networking.IGrid;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.crafting.Recipe;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -27,6 +29,17 @@ public final class EaepReflection {
 
     public static boolean isLoaded() {
         return ModList.get().isLoaded(MOD_ID);
+    }
+
+    /**
+     * EAEP 1.5.5 writes this field from its encoding-menu mixin and reads it when building pattern tooltips.
+     */
+    public static void writeEncoderAttribution(ServerPlayer player, ItemStack pattern) {
+        if (!isLoaded() || pattern.isEmpty()) {
+            return;
+        }
+        CustomData.update(DataComponents.CUSTOM_DATA, pattern,
+                tag -> tag.putString("encodePlayer", player.getGameProfile().getName()));
     }
 
     public static @Nullable String defaultCraftingSearchKey() {

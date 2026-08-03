@@ -117,6 +117,7 @@
   "gui.ae2utility.recipe_tree.amount_exact": "Amount: %1$s",
   "message.ae2utility.no_terminal_link": "AE2 Utility: the current terminal is not connected to an available ME network.",
   "message.ae2utility.no_item_inputs": "AE2 Utility: this JEI recipe has no item inputs to request.",
+  "message.ae2utility.recipe_request_too_large": "AE2 Utility: this recipe has too many ingredient alternatives; querying and transfer were stopped to avoid disconnecting.",
   "message.ae2utility.no_wireless_terminal": "No usable wireless terminal was found",
   "message.ae2utility.wireless_terminal_unavailable": "The wireless terminal is currently unavailable or disconnected",
   "message.ae2utility.move_items": "Move items",
