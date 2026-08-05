@@ -31,14 +31,25 @@ public final class EncodePatternInputChooser {
      */
     public static @Nullable GenericStack pickEncodedInput(List<GenericStack> alts, @Nullable MEStorage inventory,
             @Nullable Predicate<AEKey> craftable, boolean preserveInputOrder) {
+        return pickEncodedInput(alts, inventory, craftable, preserveInputOrder, key -> false);
+    }
+
+    public static @Nullable GenericStack pickEncodedInput(List<GenericStack> alts, @Nullable MEStorage inventory,
+            @Nullable Predicate<AEKey> craftable, boolean preserveInputOrder, Predicate<AEKey> excluded) {
         if (alts == null || alts.isEmpty()) {
             return null;
         }
-        if (alts.size() == 1) {
-            return alts.get(0);
+        List<GenericStack> eligible = alts.stream()
+                .filter(alt -> alt != null && alt.what() != null && !excluded.test(alt.what()))
+                .toList();
+        if (eligible.isEmpty()) {
+            return null;
+        }
+        if (eligible.size() == 1) {
+            return eligible.getFirst();
         }
         if (preserveInputOrder) {
-            return alts.get(0);
+            return eligible.getFirst();
         }
         /*
          * 对齐原版 AE2 样板编码（appeng.integration.modules.itemlists.EncodingHelper#ENTRY_COMPARATOR）：
@@ -50,7 +61,7 @@ public final class EncodePatternInputChooser {
         int bestCraftable = -1;
         int bestUndamaged = -1;
         long bestStored = -1L;
-        for (GenericStack alt : alts) {
+        for (GenericStack alt : eligible) {
             if (alt == null || alt.what() == null) {
                 continue;
             }
@@ -72,7 +83,7 @@ public final class EncodePatternInputChooser {
             return best;
         }
         // 候选全为空键：退回「组件特异性优先」（变体/带 NBT 的优先于素物品），再取首项
-        List<GenericStack> sortedAlts = new ArrayList<>(alts);
+        List<GenericStack> sortedAlts = new ArrayList<>(eligible);
         sortedAlts.sort(Comparator.comparingInt(PullIngredientOrdering::genericStackItemSpecificityRank).reversed());
         return sortedAlts.get(0);
     }

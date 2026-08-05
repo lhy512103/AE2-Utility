@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.7.6
+
+### 中文
+
+#### 修复
+
+- 修复多候选配方编码时，书签或可合成优先可能把配方输出选作输入并生成自循环样板的问题。
+- 修复样板编码包仍按每槽 64 个候选解码、超限时可能导致断开连接的问题；每槽现支持 512 个候选，发送端会安全拒绝更大的请求。
+- 修复部分合成样板缺少 ExtendedAE Plus“由 XX 编码”信息的问题。
+
+### English
+
+#### Fixed
+
+- Fixed bookmark and craftable priority potentially selecting a recipe output as its own input when encoding recipes with alternatives, creating self-referential patterns.
+- Fixed pattern-encoding packets still decoding at 64 alternatives per slot and potentially disconnecting on larger inputs; each slot now supports 512 alternatives, and the sender safely rejects larger requests.
+- Fixed some crafting patterns missing ExtendedAE Plus “encoded by XX” attribution.
+
 ## 1.7.5
 
 ### 中文

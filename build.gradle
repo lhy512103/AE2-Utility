@@ -195,6 +195,12 @@ repositories {
 
 apply from: "$rootDir/dependencies.gradle"
 
+// Create declares Flywheel with a dynamic version range. Pin the cached, compatible
+// version so runClient does not require Create Maven metadata during dependency resolution.
+configurations.configureEach {
+    resolutionStrategy.force("dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}")
+}
+
 // 纯逻辑测试不需要启动 Minecraft 客户端；使用 JUnit 5 验证状态、编码和边界规则。
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.11.4')

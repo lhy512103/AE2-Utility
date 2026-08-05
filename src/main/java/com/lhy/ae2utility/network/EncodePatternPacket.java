@@ -112,15 +112,22 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         buffer.writeBoolean(substituteFluids);
         buffer.writeBoolean(preserveInputOrder);
 
-        buffer.writeVarInt(inputs.size());
-        for (List<GenericStack> slotInputs : inputs) {
+        List<List<GenericStack>> encodedInputs = inputs;
+        List<GenericStack> encodedOutputs = outputs;
+        if (!canEncodeStacks(inputs, outputs)) {
+            encodedInputs = List.of();
+            encodedOutputs = List.of();
+        }
+
+        buffer.writeVarInt(encodedInputs.size());
+        for (List<GenericStack> slotInputs : encodedInputs) {
             buffer.writeBoolean(slotInputs != null);
             if (slotInputs != null) {
                 writeGenericStacks(buffer, slotInputs);
             }
         }
 
-        writeGenericStacks(buffer, outputs);
+        writeGenericStacks(buffer, encodedOutputs);
         buffer.writeBoolean(jeiSequentialQueue);
         buffer.writeBoolean(jeiFullCategoryBatch);
         buffer.writeVarInt(bulkEncodeSessionId);
@@ -138,6 +145,27 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
             }
         }
         return list;
+    }
+
+    static boolean canEncodeStacks(List<List<GenericStack>> inputs, List<GenericStack> outputs) {
+        if (inputs.size() > NetworkValidation.MAX_RECIPE_INPUT_SLOTS
+                || outputs.size() > NetworkValidation.MAX_STACKS_PER_SLOT) {
+            return false;
+        }
+        long totalStacks = outputs.size();
+        for (List<GenericStack> slotInputs : inputs) {
+            if (slotInputs == null) {
+                continue;
+            }
+            if (slotInputs.size() > NetworkValidation.MAX_STACKS_PER_SLOT) {
+                return false;
+            }
+            totalStacks += slotInputs.size();
+            if (totalStacks > NetworkValidation.MAX_TOTAL_PATTERN_STACKS) {
+                return false;
+            }
+        }
+        return totalStacks <= NetworkValidation.MAX_TOTAL_PATTERN_STACKS;
     }
 
     private static void writeGenericStacks(RegistryFriendlyByteBuf buffer, List<GenericStack> stacks) {

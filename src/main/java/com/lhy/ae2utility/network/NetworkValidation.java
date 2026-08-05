@@ -10,7 +10,8 @@ public final class NetworkValidation {
     public static final int MAX_PATTERN_BATCH = 256;
     public static final int MAX_INVENTORY_SLOTS = 128;
     public static final int MAX_RECIPE_INPUT_SLOTS = 81;
-    public static final int MAX_STACKS_PER_SLOT = 64;
+    public static final int MAX_STACKS_PER_SLOT = 512;
+    public static final int MAX_TOTAL_PATTERN_STACKS = 4096;
     public static final int MAX_CRAFTABLE_KEYS = 2048;
 
     private NetworkValidation() {

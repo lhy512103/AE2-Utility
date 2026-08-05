@@ -41,8 +41,15 @@ public final class RecipeTransferPacketHelper {
     }
 
     public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
+        return getGenericStacks(slotsView, role, java.util.Set.of());
+    }
+
+    public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role,
+            java.util.Set<AEKey> excludedBookmarkKeys) {
         List<List<GenericStack>> slots = new ArrayList<>();
-        List<AEKey> bookmarkedKeys = getBookmarkKeys();
+        List<AEKey> bookmarkedKeys = getBookmarkKeys().stream()
+                .filter(key -> !excludedBookmarkKeys.contains(key))
+                .toList();
 
         for (IRecipeSlotView slotView : slotsView.getSlotViews(role)) {
             List<GenericStack> alternatives = collectEncodeAlternativesForInputSlot(slotView, bookmarkedKeys);

@@ -59,6 +59,7 @@ import com.lhy.ae2utility.integration.eaep.EaepDirectCompat;
 import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.InvalidateCraftableCachePacket;
+import com.lhy.ae2utility.network.NetworkValidation;
 import com.lhy.ae2utility.network.SyncEaepProviderSearchKeyPacket;
 import com.lhy.ae2utility.util.EncodePatternInputChooser;
 
@@ -315,7 +316,12 @@ public final class EncodePatternService {
                     recognizedStructured = true;
                     // 对齐原版 AE2 EncodingHelper#encodeCraftingRecipe：按配方自身的 3x3 原料逐格摆放，
                     // 不依赖 JEI 槽位布局，避免映射错位导致编码失败而回退处理样板。
-                    ItemStack[] inArray = buildCraftingGridFromRecipe(craftingRecipe, in, inventory, craftable);
+                    ItemStack[] inArray = buildCraftingGridFromRecipe(
+                            craftingRecipe, in, inventory, craftable, out.stream()
+                                    .filter(java.util.Objects::nonNull)
+                                    .map(GenericStack::what)
+                                    .filter(java.util.Objects::nonNull)
+                                    .collect(java.util.stream.Collectors.toUnmodifiableSet()));
 
                     ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : toItemStack(out.get(0));
                     if (outStack == null) {
@@ -435,7 +441,8 @@ public final class EncodePatternService {
      * </ol>
      */
     private static ItemStack[] buildCraftingGridFromRecipe(CraftingRecipe recipe, List<GenericStack> chosenInputs,
-            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable) {
+            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable,
+            Set<AEKey> outputKeys) {
         ItemStack[] inArray = new ItemStack[9];
         Arrays.fill(inArray, ItemStack.EMPTY);
         List<Ingredient> ingredients3x3 =
@@ -460,13 +467,17 @@ public final class EncodePatternService {
             for (java.util.Iterator<ItemStack> it = chosenPool.iterator(); it.hasNext();) {
                 ItemStack candidate = it.next();
                 if (ingredient.test(candidate)) {
+                    AEItemKey candidateKey = AEItemKey.of(candidate);
+                    if (candidateKey != null && outputKeys.contains(candidateKey)) {
+                        continue;
+                    }
                     chosen = candidate;
                     it.remove();
                     break;
                 }
             }
             if (chosen.isEmpty()) {
-                chosen = pickBestForIngredient(ingredient, inventory, craftable);
+                chosen = pickBestForIngredient(ingredient, inventory, craftable, outputKeys);
             }
             inArray[slot] = chosen;
         }
@@ -474,7 +485,8 @@ public final class EncodePatternService {
     }
 
     private static ItemStack pickBestForIngredient(Ingredient ingredient,
-            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable) {
+            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable,
+            Set<AEKey> outputKeys) {
         ItemStack[] items = ingredient.getItems();
         if (items.length == 0) {
             return ItemStack.EMPTY;
@@ -487,12 +499,13 @@ public final class EncodePatternService {
             }
         }
         if (!candidates.isEmpty()) {
-            GenericStack best = EncodePatternInputChooser.pickEncodedInput(candidates, inventory, craftable, false);
+            GenericStack best = EncodePatternInputChooser.pickEncodedInput(
+                    candidates, inventory, craftable, false, outputKeys::contains);
             if (best != null && best.what() instanceof AEItemKey k) {
                 return k.toStack();
             }
         }
-        return items[0];
+        return ItemStack.EMPTY;
     }
 
     private static boolean eaepMatrixDuplicateAbortSingle(ServerPlayer serverPlayer, EncodePatternPacket payload,
@@ -602,13 +615,24 @@ public final class EncodePatternService {
 
         java.util.function.Predicate<appeng.api.stacks.AEKey> craftablePredicate =
                 grid != null ? key -> grid.getCraftingService().isCraftable(key) : null;
+        Set<AEKey> outputKeys = out.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<GenericStack> in = new ArrayList<>();
         for (List<GenericStack> alts : inLists) {
             if (alts == null || alts.isEmpty()) {
                 in.add(null);
             } else {
-                in.add(EncodePatternInputChooser.pickEncodedInput(alts, inventory, craftablePredicate,
-                        payload.preserveInputOrder()));
+                GenericStack chosen = EncodePatternInputChooser.pickEncodedInput(alts, inventory, craftablePredicate,
+                        payload.preserveInputOrder(), outputKeys::contains);
+                if (chosen == null) {
+                    serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.jeict_pattern_draft_invalid"));
+                    RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                    return EncodeOutcome.FAILURE;
+                }
+                in.add(chosen);
             }
         }
 
@@ -961,14 +985,17 @@ public final class EncodePatternService {
     }
 
     private static boolean isValidPatternPayload(List<List<GenericStack>> inputs, List<GenericStack> outputs) {
-        if (inputs == null || outputs == null || inputs.size() > 81 || outputs.isEmpty() || outputs.size() > 27
-                || outputs.getFirst() == null) {
+        if (inputs == null || outputs == null || inputs.size() > NetworkValidation.MAX_RECIPE_INPUT_SLOTS
+                || outputs.isEmpty() || outputs.size() > 27 || outputs.getFirst() == null) {
             return false;
         }
+        long totalStacks = outputs.size();
         boolean hasInput = false;
         for (List<GenericStack> alternatives : inputs) {
             if (alternatives == null) continue;
-            if (alternatives.size() > 64) return false;
+            if (alternatives.size() > NetworkValidation.MAX_STACKS_PER_SLOT) return false;
+            totalStacks += alternatives.size();
+            if (totalStacks > NetworkValidation.MAX_TOTAL_PATTERN_STACKS) return false;
             for (GenericStack stack : alternatives) {
                 if (stack == null) continue;
                 if (stack.what() == null || stack.amount() <= 0) return false;

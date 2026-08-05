@@ -17,4 +17,12 @@ class NetworkValidationTest {
         assertThrows(IllegalArgumentException.class, () -> NetworkValidation.requireSize(-1, 10, "items"));
         assertThrows(IllegalArgumentException.class, () -> NetworkValidation.requireSize(11, 10, "items"));
     }
+    @Test
+    void acceptsLargePatternAlternativeLists() {
+        assertDoesNotThrow(() -> NetworkValidation.requireSize(71,
+                NetworkValidation.MAX_STACKS_PER_SLOT, "input alternatives"));
+        assertDoesNotThrow(() -> NetworkValidation.requireSize(NetworkValidation.MAX_STACKS_PER_SLOT,
+                NetworkValidation.MAX_STACKS_PER_SLOT, "input alternatives"));
+    }
+
 }

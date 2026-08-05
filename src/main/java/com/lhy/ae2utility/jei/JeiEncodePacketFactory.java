@@ -31,8 +31,14 @@ public final class JeiEncodePacketFactory {
             boolean jeiFullCategoryBatch, int bulkEncodeSessionId) {
         IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
         Object recipe = recipeLayout.getRecipe();
-        List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(slotsView, RecipeIngredientRole.INPUT);
         List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipe, slotsView);
+        java.util.Set<appeng.api.stacks.AEKey> outputKeys = outputs.stream()
+                .filter(Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
+                slotsView, RecipeIngredientRole.INPUT, outputKeys);
 
         boolean hasInput = inputs.stream().anyMatch(Objects::nonNull);
         boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);

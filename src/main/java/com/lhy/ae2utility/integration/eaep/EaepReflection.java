@@ -32,10 +32,12 @@ public final class EaepReflection {
     }
 
     /**
-     * EAEP 1.5.5 writes this field from its encoding-menu mixin and reads it when building pattern tooltips.
+     * Stores the attribution in the same custom-data field used by ExtendedAE-Plus.
+     * Keeping this on every encoded pattern also makes the value survive inventory,
+     * matrix, and provider upload paths even when EAEP is loaded after the pattern is created.
      */
     public static void writeEncoderAttribution(ServerPlayer player, ItemStack pattern) {
-        if (!isLoaded() || pattern.isEmpty()) {
+        if (pattern.isEmpty()) {
             return;
         }
         CustomData.update(DataComponents.CUSTOM_DATA, pattern,

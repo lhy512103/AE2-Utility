@@ -35,8 +35,13 @@ public final class EmiEncodePacketFactory {
     }
 
     public static Optional<EncodePatternPacket> tryCreate(EmiRecipe recipe, boolean upload) {
-        List<List<GenericStack>> inputs = toInputSlots(recipe.getInputs());
         List<GenericStack> outputs = toOutputs(recipe.getOutputs());
+        java.util.Set<AEKey> outputKeys = outputs.stream()
+                .filter(Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        List<List<GenericStack>> inputs = toInputSlots(recipe.getInputs(), outputKeys);
 
         boolean hasInput = inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
         boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
@@ -69,9 +74,12 @@ public final class EmiEncodePacketFactory {
                 craftingCategoryHint));
     }
 
-    private static List<List<GenericStack>> toInputSlots(List<EmiIngredient> ingredients) {
+    private static List<List<GenericStack>> toInputSlots(List<EmiIngredient> ingredients,
+            java.util.Set<AEKey> outputKeys) {
         List<List<GenericStack>> slots = new ArrayList<>();
-        List<AEKey> favoriteKeys = favoriteKeys();
+        List<AEKey> favoriteKeys = favoriteKeys().stream()
+                .filter(key -> !outputKeys.contains(key))
+                .toList();
         for (EmiIngredient ingredient : ingredients) {
             if (ingredient == null || ingredient.isEmpty()) {
                 slots.add(List.of());
