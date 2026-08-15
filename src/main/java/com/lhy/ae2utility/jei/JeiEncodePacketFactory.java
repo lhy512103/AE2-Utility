@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.jei;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,6 +22,7 @@ import mezz.jei.api.recipe.RecipeIngredientRole;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.integration.eaep.EaepReflection;
+import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 
 public final class JeiEncodePacketFactory {
@@ -32,6 +34,15 @@ public final class JeiEncodePacketFactory {
         IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
         Object recipe = recipeLayout.getRecipe();
         List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipe, slotsView);
+        boolean multiblockStructureDraft = MultiblockStructurePatternCompat.isSupportedRecipe(
+                recipe, hasStructureInputs(slotsView), hasActualOutputs(slotsView));
+        if (multiblockStructureDraft) {
+            GenericStack draftOutput = MultiblockStructurePatternCompat.createDraftOutput(recipe);
+            if (draftOutput == null) {
+                return Optional.empty();
+            }
+            outputs = List.of(draftOutput);
+        }
         java.util.Set<appeng.api.stacks.AEKey> outputKeys = outputs.stream()
                 .filter(Objects::nonNull)
                 .map(GenericStack::what)
@@ -39,8 +50,16 @@ public final class JeiEncodePacketFactory {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
                 slotsView, RecipeIngredientRole.INPUT, outputKeys);
+        if (multiblockStructureDraft) {
+            inputs = filterMultiblockStructureInputs(slotsView, inputs);
+            if (!hasMeaningfulInputs(inputs)) {
+                inputs = MultiblockStructurePatternCompat.extractStructureInputs(recipe).stream()
+                        .map(List::of)
+                        .toList();
+            }
+        }
 
-        boolean hasInput = inputs.stream().anyMatch(Objects::nonNull);
+        boolean hasInput = hasMeaningfulInputs(inputs);
         boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
         boolean hasUnsupportedInput = inputs.stream().anyMatch(slot -> slot == null);
         boolean hasUnsupportedOutput = outputs.stream().anyMatch(Objects::isNull);
@@ -55,14 +74,14 @@ public final class JeiEncodePacketFactory {
         }
 
         ResourceLocation recipeId = null;
-        if (recipe instanceof RecipeHolder<?> holder) {
+        if (!multiblockStructureDraft && recipe instanceof RecipeHolder<?> holder) {
             recipeId = holder.id();
         }
         String patternName = derivePatternName(recipeId, outputs);
 
         String providerSearchKey = computeEaepProviderSearchKey(recipe, shiftUpload);
 
-        boolean craftingCategoryHint = isCraftingCategory(recipeLayout, recipe, inputs);
+        boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipeLayout, recipe, inputs);
 
         return Optional.of(new EncodePatternPacket(
                 inputs,
@@ -79,6 +98,40 @@ public final class JeiEncodePacketFactory {
                 jeiFullCategoryBatch,
                 bulkEncodeSessionId,
                 craftingCategoryHint));
+    }
+
+    private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
+        return inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
+    }
+
+    private static boolean hasStructureInputs(IRecipeSlotsView slotsView) {
+        return slotsView.getSlotViews(RecipeIngredientRole.INPUT).stream()
+                .anyMatch(slot -> slot.getItemStacks().anyMatch(stack -> !stack.isEmpty()));
+    }
+
+    private static boolean hasActualOutputs(IRecipeSlotsView slotsView) {
+        return slotsView.getSlotViews(RecipeIngredientRole.OUTPUT).stream()
+                .anyMatch(slot -> slot.getAllIngredients().findAny().isPresent());
+    }
+
+    private static List<List<GenericStack>> filterMultiblockStructureInputs(IRecipeSlotsView slotsView,
+            List<List<GenericStack>> inputs) {
+        List<mezz.jei.api.gui.ingredient.IRecipeSlotView> inputSlots =
+                slotsView.getSlotViews(RecipeIngredientRole.INPUT);
+        List<List<GenericStack>> filtered = new ArrayList<>(inputs.size());
+        for (int index = 0; index < inputs.size(); index++) {
+            if (index < inputSlots.size()) {
+                List<net.minecraft.world.item.ItemStack> alternatives = inputSlots.get(index).getItemStacks()
+                        .filter(stack -> !stack.isEmpty())
+                        .map(net.minecraft.world.item.ItemStack::copy)
+                        .toList();
+                if (MultiblockStructurePatternCompat.isFilteredHatchSlot(alternatives)) {
+                    continue;
+                }
+            }
+            filtered.add(inputs.get(index));
+        }
+        return filtered;
     }
 
     /**

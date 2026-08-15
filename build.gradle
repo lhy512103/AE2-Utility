@@ -191,9 +191,56 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    maven {
+        name = "LDLib Maven"
+        url = "https://maven.firstdarkdev.xyz/snapshots"
+        content {
+            includeGroup "com.lowdragmc.ldlib2"
+        }
+    }
 }
 
 apply from: "$rootDir/dependencies.gradle"
+
+configurations {
+    neoEcoApi
+}
+
+dependencies {
+    neoEcoApi "maven.modrinth:neoecoae:${neoecoae_version}"
+}
+
+def neoEcoSanitizedJar = layout.buildDirectory.file("neoeco/neoecoae-${neoecoae_version}-dev.jar")
+
+tasks.register("sanitizeNeoEcoJar", Jar) {
+    archiveFileName = "neoecoae-${neoecoae_version}-dev.jar"
+    destinationDirectory = layout.buildDirectory.dir("neoeco")
+    dependsOn configurations.neoEcoApi
+    from {
+        zipTree(configurations.neoEcoApi.singleFile).matching {
+            exclude "META-INF/jarjar/Registrate-*.jar"
+            exclude "META-INF/jarjar/metadata.json"
+        }
+    }
+}
+
+configurations.named("compileClasspath") {
+    extendsFrom(configurations.neoEcoApi)
+}
+
+dependencies {
+    compileOnly files(neoEcoSanitizedJar)
+    compatibilityLocalRuntime files(neoEcoSanitizedJar)
+    compatibilityLocalRuntime "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
+}
+
+tasks.named("compileJava").configure {
+    dependsOn("sanitizeNeoEcoJar")
+}
+
+tasks.named("prepareClientRun").configure {
+    dependsOn("sanitizeNeoEcoJar")
+}
 
 // Create declares Flywheel with a dynamic version range. Pin the cached, compatible
 // version so runClient does not require Create Maven metadata during dependency resolution.
@@ -257,11 +304,12 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named("javadoc", Javadoc).configure {
+    dependsOn tasks.named("classes")
     source = fileTree("src/main/java") {
         include "com/lhy/ae2utility/api/**/*.java"
         exclude "**/*Impl.java"
     }
-    classpath = sourceSets.main.compileClasspath
+    classpath = sourceSets.main.output + sourceSets.main.compileClasspath
     options.encoding = "UTF-8"
     options.charSet = "UTF-8"
     options.docEncoding = "UTF-8"

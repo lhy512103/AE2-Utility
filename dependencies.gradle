@@ -23,6 +23,7 @@ dependencies {
     // ── 运行时 AE2 扩展 ────────────────────────────────────────
     ae2AddonLocalRuntime "curse.maven:advancedae-1084104:${advancedae_file}"
     ae2AddonLocalRuntime "curse.maven:ae2-crystal-science-1435174:8112039"
+    ae2AddonLocalRuntime "curse.maven:ae2-import-export-card-982512:8033654"
     ae2AddonLocalRuntime "curse.maven:ex-pattern-provider-892005:${extendedae_file}"
     ae2AddonLocalRuntime "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
     ae2AddonLocalRuntime "curse.maven:applied-energistics-2-wireless-terminals-459929:${ae2wt_terminals_file}"
@@ -31,7 +32,14 @@ dependencies {
     ae2AddonLocalRuntime "curse.maven:mega-cells-622112:${mega_cells_file}"
     ae2AddonLocalRuntime "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
     ae2AddonLocalRuntime "curse.maven:merequester-688367:7844592"
-    ae2AddonLocalRuntime "curse.maven:ae2-lightning-tech-1527395:8265021"
+    // AE2 Lightning Tech 2.x requires Thunderbolt Core.
+    ae2AddonLocalRuntime "curse.maven:thunderbolt-core-1631756:8616071"
+    ae2AddonLocalRuntime "curse.maven:ae2-lightning-tech-1527395:8616068"
+    ae2AddonLocalRuntime "curse.maven:data-energistics-1565514:8429524"
+    ae2AddonLocalRuntime "curse.maven:aeinfinitybooster-559313:8377914"
+    ae2AddonLocalRuntime "curse.maven:clientsort-1049891:8172893"
+    ae2AddonLocalRuntime "curse.maven:inventory-essentials-368825:8362286"
+    ae2AddonLocalRuntime "curse.maven:balm-531761:8424824"
 
     // ── 运行时依赖与集成目标 ───────────────────────────────────
     compatibilityLocalRuntime "curse.maven:glodium-957920:${glodium_file}"
@@ -67,6 +75,8 @@ dependencies {
     compatibilityLocalRuntime "curse.maven:cucumber-272335:8035802"
     compatibilityLocalRuntime "curse.maven:productivebees-377897:${productivebees_file}"
     compatibilityLocalRuntime "curse.maven:allthecompressed-514045:${allthecompressed_file}"
+    compatibilityLocalRuntime "curse.maven:ato-405593:7825464"
+    compatibilityLocalRuntime "curse.maven:allthemodium-364466:7974403"
     compatibilityLocalRuntime "curse.maven:sophisticated-storage-619320:${sophisticated_storage_file}"
     compatibilityLocalRuntime "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
     compatibilityLocalRuntime "curse.maven:logistics-network-1448257:${logistics_network_file}"

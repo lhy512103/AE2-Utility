@@ -14,6 +14,7 @@ import appeng.api.stacks.GenericStack;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.integration.eaep.EaepReflection;
+import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
@@ -34,16 +35,47 @@ public final class EmiEncodePacketFactory {
     private EmiEncodePacketFactory() {
     }
 
+    public static boolean isMultiblockStructureRecipe(@Nullable EmiRecipe recipe) {
+        if (recipe == null) {
+            return false;
+        }
+        Object backingRecipe = recipe.getBackingRecipe();
+        Object structureRecipe = resolveStructureRecipe(recipe, backingRecipe);
+        return MultiblockStructurePatternCompat.isSupportedRecipe(
+                structureRecipe, hasStructureInputs(recipe.getInputs()), hasActualOutputs(recipe.getOutputs()));
+    }
+
     public static Optional<EncodePatternPacket> tryCreate(EmiRecipe recipe, boolean upload) {
+        Object backingRecipe = recipe.getBackingRecipe();
+        Object structureRecipe = resolveStructureRecipe(recipe, backingRecipe);
         List<GenericStack> outputs = toOutputs(recipe.getOutputs());
+        boolean multiblockStructureDraft = MultiblockStructurePatternCompat.isSupportedRecipe(
+                structureRecipe, hasStructureInputs(recipe.getInputs()), hasActualOutputs(recipe.getOutputs()));
+        if (multiblockStructureDraft) {
+            GenericStack draftOutput = MultiblockStructurePatternCompat.createDraftOutput(structureRecipe);
+            if (draftOutput == null) {
+                return Optional.empty();
+            }
+            outputs = List.of(draftOutput);
+        }
         java.util.Set<AEKey> outputKeys = outputs.stream()
                 .filter(Objects::nonNull)
                 .map(GenericStack::what)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        List<List<GenericStack>> inputs = toInputSlots(recipe.getInputs(), outputKeys);
+        List<EmiIngredient> encodingInputs = multiblockStructureDraft
+                ? recipe.getInputs().stream()
+                        .filter(ingredient -> !isFilteredMultiblockInput(ingredient))
+                        .toList()
+                : recipe.getInputs();
+        List<List<GenericStack>> inputs = toInputSlots(encodingInputs, outputKeys);
+        if (multiblockStructureDraft && !hasMeaningfulInputs(inputs)) {
+            inputs = MultiblockStructurePatternCompat.extractStructureInputs(structureRecipe).stream()
+                    .map(List::of)
+                    .toList();
+        }
 
-        boolean hasInput = inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
+        boolean hasInput = hasMeaningfulInputs(inputs);
         boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
         boolean hasUnsupportedInput = inputs.stream().anyMatch(Objects::isNull);
         boolean hasUnsupportedOutput = outputs.stream().anyMatch(Objects::isNull);
@@ -51,11 +83,10 @@ public final class EmiEncodePacketFactory {
             return Optional.empty();
         }
 
-        ResourceLocation recipeId = toResourceLocation(recipe.getId());
-        Object backingRecipe = recipe.getBackingRecipe();
+        ResourceLocation recipeId = multiblockStructureDraft ? null : toResourceLocation(recipe.getId());
         String patternName = derivePatternName(recipeId, outputs);
         String providerSearchKey = computeEaepProviderSearchKey(recipe, backingRecipe, upload);
-        boolean craftingCategoryHint = isCraftingCategory(recipe, backingRecipe, inputs);
+        boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipe, backingRecipe, inputs);
 
         return Optional.of(new EncodePatternPacket(
                 inputs,
@@ -72,6 +103,39 @@ public final class EmiEncodePacketFactory {
                 false,
                 0,
                 craftingCategoryHint));
+    }
+
+    private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
+        return inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
+    }
+
+    private static Object resolveStructureRecipe(EmiRecipe recipe, @Nullable Object backingRecipe) {
+        if (recipe instanceof dev.emi.emi.jemi.JemiRecipe<?> jemi && jemi.recipe != null) {
+            return jemi.recipe;
+        }
+        return backingRecipe != null ? backingRecipe : recipe;
+    }
+
+    private static boolean hasStructureInputs(List<EmiIngredient> ingredients) {
+        return ingredients.stream().anyMatch(ingredient -> ingredient != null && !ingredient.isEmpty()
+                && ingredient.getEmiStacks().stream().anyMatch(stack -> stack != null
+                        && !stack.isEmpty() && !stack.getItemStack().isEmpty()));
+    }
+
+    private static boolean hasActualOutputs(List<EmiStack> outputs) {
+        return outputs.stream().anyMatch(stack -> stack != null && !stack.isEmpty());
+    }
+
+    private static boolean isFilteredMultiblockInput(@Nullable EmiIngredient ingredient) {
+        if (ingredient == null || ingredient.isEmpty()) {
+            return false;
+        }
+        List<ItemStack> alternatives = ingredient.getEmiStacks().stream()
+                .map(EmiStack::getItemStack)
+                .filter(stack -> stack != null && !stack.isEmpty())
+                .map(ItemStack::copy)
+                .toList();
+        return MultiblockStructurePatternCompat.isFilteredHatchSlot(alternatives);
     }
 
     private static List<List<GenericStack>> toInputSlots(List<EmiIngredient> ingredients,

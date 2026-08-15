@@ -24,7 +24,8 @@ public class Ae2UtilityEmiPlugin implements EmiPlugin {
     }
 
     private static void decorateRecipe(EmiRecipe recipe, WidgetHolder widgets) {
-        if (recipe == null || !recipe.supportsRecipeTree()) {
+        if (recipe == null || (!recipe.supportsRecipeTree()
+                && !EmiEncodePacketFactory.isMultiblockStructureRecipe(recipe))) {
             return;
         }
         if (EmiEncodePacketFactory.tryCreate(recipe, false).isEmpty()) {
