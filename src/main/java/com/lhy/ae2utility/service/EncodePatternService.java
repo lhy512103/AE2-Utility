@@ -23,7 +23,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.SmithingRecipe;
@@ -58,10 +57,13 @@ import com.lhy.ae2utility.init.ModDataComponents;
 import com.lhy.ae2utility.integration.eaep.EaepDirectCompat;
 import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.network.EncodePatternPacket;
+import com.lhy.ae2utility.network.EncodePreviewResultPacket;
 import com.lhy.ae2utility.network.InvalidateCraftableCachePacket;
 import com.lhy.ae2utility.network.NetworkValidation;
+import com.lhy.ae2utility.network.QueryEncodePreviewPacket;
 import com.lhy.ae2utility.network.SyncEaepProviderSearchKeyPacket;
 import com.lhy.ae2utility.util.EncodePatternInputChooser;
+import com.lhy.ae2utility.util.PatternEncodingPreview;
 
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
@@ -84,7 +86,8 @@ public final class EncodePatternService {
 
     private record EncodeContext(MEStorage inventory, IActionSource actionSource, @Nullable IGrid grid) {}
 
-    private record EncodeComputation(ItemStack encodedPattern, boolean canUploadToMatrix) {}
+    private record EncodeComputation(ItemStack encodedPattern, boolean canUploadToMatrix,
+            List<GenericStack> encodedInputs) {}
 
     private record EaepShiftBlankRefundHold(MEStorage inventory, IActionSource actionSource, BlankPatternSource source,
             AEItemKey blankKey) {}
@@ -128,6 +131,77 @@ public final class EncodePatternService {
                         false, true);
             }
         }
+    }
+
+    /**
+     * 悬停预览：走与真正编码相同的选材/编码，但不消耗空白样板。把即将写入样板的输入按 JEI 槽序回传。
+     */
+    public static void handlePreview(Player player, QueryEncodePreviewPacket payload) {
+        if (!(player instanceof ServerPlayer serverPlayer) || payload == null || payload.recipe() == null) {
+            return;
+        }
+        EncodePreviewResultPacket result = EncodePreviewResultPacket.empty(payload.requestId());
+        try {
+            result = previewEncodedPattern(serverPlayer, payload.requestId(), payload.recipe());
+        } catch (Throwable ignored) {
+        }
+        PacketDistributor.sendToPlayer(serverPlayer, result);
+    }
+
+    private static EncodePreviewResultPacket previewEncodedPattern(ServerPlayer serverPlayer, int requestId,
+            EncodePatternPacket payload) {
+        EncodeContext ctx = resolveEncodeContext(serverPlayer);
+        if (ctx == null) {
+            return EncodePreviewResultPacket.empty(requestId);
+        }
+        if (Ae2UtilityServerConfig.requireOpenPatternEncodingMenuForJei()
+                && !serverPlayerHasOpenPatternEncodingLikeMenu(serverPlayer)) {
+            return EncodePreviewResultPacket.empty(requestId);
+        }
+        List<List<GenericStack>> inLists = payload.inputs();
+        List<GenericStack> out = payload.outputs();
+        if (!isValidPatternPayload(inLists, out)) {
+            return EncodePreviewResultPacket.empty(requestId);
+        }
+        java.util.function.Predicate<AEKey> craftablePredicate =
+                ctx.grid() != null ? key -> ctx.grid().getCraftingService().isCraftable(key) : null;
+        Set<AEKey> outputKeys = out.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        List<GenericStack> in = new ArrayList<>();
+        for (List<GenericStack> alts : inLists) {
+            if (alts == null || alts.isEmpty()) {
+                in.add(null);
+            } else {
+                GenericStack chosen = EncodePatternInputChooser.pickEncodedInput(alts, ctx.inventory(), craftablePredicate,
+                        payload.preserveInputOrder(), outputKeys::contains);
+                if (chosen == null) {
+                    return EncodePreviewResultPacket.empty(requestId);
+                }
+                in.add(chosen);
+            }
+        }
+        if (in.isEmpty() || out.isEmpty()) {
+            return EncodePreviewResultPacket.empty(requestId);
+        }
+        EncodeComputation computation = computeEncodedPattern(serverPlayer, payload, in, out, ctx.inventory(),
+                craftablePredicate);
+        if (computation.encodedPattern().isEmpty()) {
+            return EncodePreviewResultPacket.empty(requestId);
+        }
+        PatternEncodingPreview panel = PatternEncodingPreview.fromEncodedPattern(
+                computation.encodedPattern(), serverPlayer.level(), payload.substitute(), payload.substituteFluids());
+        if (panel == null) {
+            panel = PatternEncodingPreview.fromSlots(
+                    PatternEncodingPreview.resolveMode(payload.recipeId(), payload.craftingCategoryHint(),
+                            PatternEncodingPreview.presentCount(in), serverPlayer.level()),
+                    computation.encodedInputs(), payload.outputs(), payload.substitute(), payload.substituteFluids());
+        }
+        return new EncodePreviewResultPacket(requestId, computation.encodedInputs(), panel.mode(),
+                panel.inputs(), panel.outputs(), panel.substituteItems(), panel.substituteFluids(),
+                panel.extraInputs(), panel.extraOutputs());
     }
 
     public static void handleBatch(ServerPlayer serverPlayer, List<EncodePatternPacket> patterns) {
@@ -302,11 +376,17 @@ public final class EncodePatternService {
             @Nullable java.util.function.Predicate<AEKey> craftable) {
         ItemStack encodedPattern = ItemStack.EMPTY;
         boolean canUploadToMatrix = false;
+        List<GenericStack> encodedInputs = List.of();
         // 一旦把配方识别为合成/锻造/切石这类「结构化」配方，就绝不能再静默回退成处理样板，
         // 否则会出现「合成样板被写成处理样板」（原版 AE 编码终端不会这样）。
         boolean recognizedStructured = false;
 
         int meaningfulInputCount = countMeaningfulInputs(in);
+        Set<AEKey> outputKeys = out.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         if (payload.recipeId() != null) {
             var recipeHolder = serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId()).orElse(null);
@@ -314,25 +394,22 @@ public final class EncodePatternService {
                 if (recipeHolder.value() instanceof CraftingRecipe craftingRecipe && meaningfulInputCount <= 9
                         && craftingRecipe.canCraftInDimensions(3, 3)) {
                     recognizedStructured = true;
-                    // 对齐原版 AE2 EncodingHelper#encodeCraftingRecipe：按配方自身的 3x3 原料逐格摆放，
-                    // 不依赖 JEI 槽位布局，避免映射错位导致编码失败而回退处理样板。
-                    ItemStack[] inArray = buildCraftingGridFromRecipe(
-                            craftingRecipe, in, inventory, craftable, out.stream()
-                                    .filter(java.util.Objects::nonNull)
-                                    .map(GenericStack::what)
-                                    .filter(java.util.Objects::nonNull)
-                                    .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+                    // 对齐原版 AE2 EncodingHelper#encodeCraftingRecipe：按配方自身的 3x3 原料，从网络匹配项里选材。
+                    ItemStack[] inArray = EncodePatternInputChooser.buildCraftingGridFromRecipe(
+                            craftingRecipe, inventory, craftable, outputKeys, serverPlayer.getInventory().items);
 
-                    ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : toItemStack(out.get(0));
+                    ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : EncodePatternInputChooser.toItemStack(out.get(0));
                     if (outStack == null) {
                         outStack = ItemStack.EMPTY;
                     }
                     encodedPattern = PatternDetailsHelper.encodeCraftingPattern((RecipeHolder) recipeHolder, inArray, outStack,
                             payload.substitute(), payload.substituteFluids());
+                    encodedInputs = EncodePatternInputChooser.alignCraftingGridToJeiSlots(in, inArray);
                     canUploadToMatrix = true;
                 } else if (recipeHolder.value() instanceof SmithingRecipe) {
                     recognizedStructured = true;
                     encodedPattern = encodeSmithingPatternFlexible((RecipeHolder<?>) recipeHolder, payload, in, out);
+                    encodedInputs = in;
                     canUploadToMatrix = !encodedPattern.isEmpty();
                 } else if (recipeHolder.value() instanceof StonecutterRecipe) {
                     recognizedStructured = true;
@@ -341,6 +418,7 @@ public final class EncodePatternService {
                     if (inKey != null && outKey != null) {
                         encodedPattern = PatternDetailsHelper.encodeStonecuttingPattern((RecipeHolder) recipeHolder, inKey, outKey,
                                 payload.substitute());
+                        encodedInputs = in;
                         canUploadToMatrix = true;
                     }
                 }
@@ -353,12 +431,13 @@ public final class EncodePatternService {
                 // 仅在真正反查到 3x3 合成配方时才视为结构化合成；否则保持 false，让其按处理样板编码，
                 // 避免 Create 动力合成器这类「JEI 看似合成、实则放不进 3x3」的配方点击后无任何样板产出。
                 recognizedStructured = true;
-                ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : toItemStack(out.get(0));
+                ItemStack outStack = out.isEmpty() || out.get(0) == null ? ItemStack.EMPTY : EncodePatternInputChooser.toItemStack(out.get(0));
                 if (outStack == null) {
                     outStack = ItemStack.EMPTY;
                 }
                 encodedPattern = PatternDetailsHelper.encodeCraftingPattern((RecipeHolder) fallback.recipeHolder(),
                         fallback.inputs(), outStack, payload.substitute(), payload.substituteFluids());
+                encodedInputs = EncodePatternInputChooser.alignCraftingGridToJeiSlots(in, fallback.inputs());
                 canUploadToMatrix = true;
             }
         }
@@ -370,10 +449,14 @@ public final class EncodePatternService {
             List<GenericStack> procOut = out.stream().filter(java.util.Objects::nonNull).toList();
             if (!procIn.isEmpty() && !procOut.isEmpty()) {
                 encodedPattern = PatternDetailsHelper.encodeProcessingPattern(procIn, procOut);
+                encodedInputs = in;
             }
         }
 
-        return new EncodeComputation(encodedPattern, canUploadToMatrix);
+        if (encodedPattern.isEmpty()) {
+            return new EncodeComputation(encodedPattern, canUploadToMatrix, List.of());
+        }
+        return new EncodeComputation(encodedPattern, canUploadToMatrix, encodedInputs);
     }
 
     private record CraftingFallbackMatch(RecipeHolder<CraftingRecipe> recipeHolder, ItemStack[] inputs) {}
@@ -410,7 +493,7 @@ public final class EncodePatternService {
         ItemStack[] inArray = new ItemStack[9];
         Arrays.fill(inArray, ItemStack.EMPTY);
         for (int i = 0; i < Math.min(9, in.size()); i++) {
-            inArray[i] = toItemStack(in.get(i));
+            inArray[i] = EncodePatternInputChooser.toItemStack(in.get(i));
         }
         return inArray;
     }
@@ -423,89 +506,12 @@ public final class EncodePatternService {
             if (outIndex >= 9) {
                 break;
             }
-            ItemStack itemStack = toItemStack(stack);
+            ItemStack itemStack = EncodePatternInputChooser.toItemStack(stack);
             if (!itemStack.isEmpty()) {
                 inArray[outIndex++] = itemStack;
             }
         }
         return inArray;
-    }
-
-    /**
-     * 按配方自身的 3x3 原料网格构建合成样板输入，逐格选择最优物品，对齐原版 AE2
-     * {@code EncodingHelper#encodeCraftingRecipe} 的行为（与 JEI 槽位布局解耦）：
-     * <ol>
-     *     <li>优先沿用已选输入里能匹配该原料的物品（保留逐槽「可合成优先」选股结果）；</li>
-     *     <li>否则按原料候选项统一选股（可合成 &gt; 未损坏 &gt; 库存最多）；</li>
-     *     <li>再否则退回该原料的首个候选物品。</li>
-     * </ol>
-     */
-    private static ItemStack[] buildCraftingGridFromRecipe(CraftingRecipe recipe, List<GenericStack> chosenInputs,
-            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable,
-            Set<AEKey> outputKeys) {
-        ItemStack[] inArray = new ItemStack[9];
-        Arrays.fill(inArray, ItemStack.EMPTY);
-        List<Ingredient> ingredients3x3 =
-                appeng.util.CraftingRecipeUtil.ensure3by3CraftingMatrix(recipe);
-
-        List<ItemStack> chosenPool = new ArrayList<>();
-        for (GenericStack g : chosenInputs) {
-            if (g != null && g.what() != null) {
-                ItemStack s = toItemStack(g);
-                if (!s.isEmpty()) {
-                    chosenPool.add(s);
-                }
-            }
-        }
-
-        for (int slot = 0; slot < 9 && slot < ingredients3x3.size(); slot++) {
-            Ingredient ingredient = ingredients3x3.get(slot);
-            if (ingredient.isEmpty()) {
-                continue;
-            }
-            ItemStack chosen = ItemStack.EMPTY;
-            for (java.util.Iterator<ItemStack> it = chosenPool.iterator(); it.hasNext();) {
-                ItemStack candidate = it.next();
-                if (ingredient.test(candidate)) {
-                    AEItemKey candidateKey = AEItemKey.of(candidate);
-                    if (candidateKey != null && outputKeys.contains(candidateKey)) {
-                        continue;
-                    }
-                    chosen = candidate;
-                    it.remove();
-                    break;
-                }
-            }
-            if (chosen.isEmpty()) {
-                chosen = pickBestForIngredient(ingredient, inventory, craftable, outputKeys);
-            }
-            inArray[slot] = chosen;
-        }
-        return inArray;
-    }
-
-    private static ItemStack pickBestForIngredient(Ingredient ingredient,
-            @Nullable MEStorage inventory, @Nullable java.util.function.Predicate<AEKey> craftable,
-            Set<AEKey> outputKeys) {
-        ItemStack[] items = ingredient.getItems();
-        if (items.length == 0) {
-            return ItemStack.EMPTY;
-        }
-        List<GenericStack> candidates = new ArrayList<>(items.length);
-        for (ItemStack s : items) {
-            AEItemKey key = AEItemKey.of(s);
-            if (key != null) {
-                candidates.add(new GenericStack(key, 1));
-            }
-        }
-        if (!candidates.isEmpty()) {
-            GenericStack best = EncodePatternInputChooser.pickEncodedInput(
-                    candidates, inventory, craftable, false, outputKeys::contains);
-            if (best != null && best.what() instanceof AEItemKey k) {
-                return k.toStack();
-            }
-        }
-        return ItemStack.EMPTY;
     }
 
     private static boolean eaepMatrixDuplicateAbortSingle(ServerPlayer serverPlayer, EncodePatternPacket payload,
@@ -1088,19 +1094,6 @@ public final class EncodePatternService {
             }
         }
         return count;
-    }
-
-    private static ItemStack toItemStack(GenericStack stack) {
-        if (stack == null) {
-            return ItemStack.EMPTY;
-        }
-        if (stack.what() instanceof AEItemKey itemKey) {
-            int count = (int) Math.max(1, Math.min(Integer.MAX_VALUE, stack.amount()));
-            return itemKey.toStack(count);
-        }
-
-        ItemStack inputStack = GenericStack.wrapInItemStack(stack);
-        return inputStack == null ? ItemStack.EMPTY : inputStack;
     }
 
     public static void disarmEaepShiftBlankRefund(ServerPlayer player) {

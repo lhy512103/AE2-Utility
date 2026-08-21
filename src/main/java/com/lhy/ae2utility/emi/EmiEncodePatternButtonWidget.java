@@ -2,9 +2,19 @@ package com.lhy.ae2utility.emi;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jetbrains.annotations.Nullable;
+
+import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.client.EncodePreviewClientDispatch;
+import com.lhy.ae2utility.client.PatternEncodingPreviewTooltip;
 import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.EncodePatternButtonController;
+import com.lhy.ae2utility.network.EncodePreviewResultPacket;
+import com.lhy.ae2utility.network.QueryEncodePreviewPacket;
+import com.lhy.ae2utility.util.PatternEncodingPreview;
 
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
@@ -41,17 +51,29 @@ public class EmiEncodePatternButtonWidget extends Widget {
     private static final int AE_ORANGE_BUTTON_HIGHLIGHT_COLOR = 0x80FFA500;
     private static final int AE_BLUE_SLOT_HIGHLIGHT_COLOR = 0x400000FF;
     private static final int AE_RED_SLOT_HIGHLIGHT_COLOR = 0x66FF0000;
+    private static final AtomicInteger NEXT_PREVIEW_REQUEST_ID = new AtomicInteger(1);
+    private static final WeakHashMap<EmiEncodePatternButtonWidget, Boolean> PREVIEW_WIDGETS = new WeakHashMap<>();
+
+    static {
+        EncodePreviewClientDispatch.addListener(EmiEncodePatternButtonWidget::handlePreviewResult);
+    }
 
     private final int x;
     private final int y;
     private final EmiRecipe recipe;
     private final WidgetGroup group;
+    private final int previewRequestId = NEXT_PREVIEW_REQUEST_ID.getAndIncrement();
+    private boolean previewRequestInFlight;
+    private boolean previewRequestFailed;
+    private @Nullable PatternEncodingPreview cachedTerminalPreview;
+    private @Nullable PatternEncodingPreview cachedLocalTerminalPreview;
 
     public EmiEncodePatternButtonWidget(int x, int y, EmiRecipe recipe, WidgetGroup group) {
         this.x = x;
         this.y = y;
         this.recipe = recipe;
         this.group = group;
+        PREVIEW_WIDGETS.put(this, Boolean.TRUE);
     }
 
     @Override
@@ -73,6 +95,9 @@ public class EmiEncodePatternButtonWidget extends Widget {
 
         if (hovered && available()) {
             drawSlotHighlights(graphics);
+            if (Ae2UtilityClientConfig.previewEncodeTerminalOnArrowHover()) {
+                ensureServerEncodedPreview();
+            }
         }
     }
 
@@ -87,6 +112,13 @@ public class EmiEncodePatternButtonWidget extends Widget {
         if (available()) {
             tooltip.add(text(Component.translatable("emi.tooltip.ae2utility.encode_pattern_blue_slots")
                     .withStyle(ChatFormatting.BLUE)));
+            if (Ae2UtilityClientConfig.previewEncodeTerminalOnArrowHover()) {
+                ensureServerEncodedPreview();
+                PatternEncodingPreview preview = terminalPreviewForTooltip();
+                if (preview != null) {
+                    tooltip.add(new PatternEncodingPreviewTooltip(preview));
+                }
+            }
         }
         return tooltip;
     }
@@ -158,5 +190,51 @@ public class EmiEncodePatternButtonWidget extends Widget {
             }
         }
         return 0;
+    }
+
+    private void ensureServerEncodedPreview() {
+        if (cachedTerminalPreview != null || previewRequestInFlight || previewRequestFailed) {
+            return;
+        }
+        EmiEncodePacketFactory.tryCreate(recipe, false).ifPresentOrElse(packet -> {
+            previewRequestInFlight = true;
+            PacketDistributor.sendToServer(new QueryEncodePreviewPacket(previewRequestId, packet));
+        }, () -> previewRequestFailed = true);
+    }
+
+    private @Nullable PatternEncodingPreview terminalPreviewForTooltip() {
+        if (cachedTerminalPreview != null) {
+            return cachedTerminalPreview;
+        }
+        if (cachedLocalTerminalPreview != null) {
+            return cachedLocalTerminalPreview;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return null;
+        }
+        cachedLocalTerminalPreview = EmiEncodePacketFactory.tryCreate(recipe, false)
+                .map(packet -> PatternEncodingPreview.guess(packet, mc.level,
+                        CraftableStateCache::isCraftable,
+                        mc.player == null ? null : mc.player.getInventory().items))
+                .orElse(null);
+        return cachedLocalTerminalPreview;
+    }
+
+    static void handlePreviewResult(EncodePreviewResultPacket payload) {
+        if (payload == null) {
+            return;
+        }
+        for (EmiEncodePatternButtonWidget widget : PREVIEW_WIDGETS.keySet()) {
+            if (widget.previewRequestId == payload.requestId()) {
+                widget.previewRequestInFlight = false;
+                widget.cachedTerminalPreview = payload.hasPanel() ? payload.panelPreview() : null;
+                widget.cachedLocalTerminalPreview = widget.cachedTerminalPreview;
+                if (widget.cachedTerminalPreview == null) {
+                    widget.previewRequestFailed = true;
+                }
+                return;
+            }
+        }
     }
 }

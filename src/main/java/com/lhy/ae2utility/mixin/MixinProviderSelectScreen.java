@@ -22,8 +22,9 @@ import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.network.EaepSequentialProviderDismissPacket;
 
+import com.extendedae_plus.client.widget.ResizableAETextField;
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -33,7 +34,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class MixinProviderSelectScreen {
 
     @Shadow
-    private EditBox searchBox;
+    private ResizableAETextField searchBox;
 
     @Shadow
     private List<Long> fIds;

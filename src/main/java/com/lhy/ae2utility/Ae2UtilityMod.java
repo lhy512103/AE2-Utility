@@ -50,6 +50,8 @@ public class Ae2UtilityMod {
         if (FMLEnvironment.dist == Dist.CLIENT) {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Ae2UtilityClientConfig.SPEC);
             modBus.addListener(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent.class, ModClientSetup::registerScreens);
+            modBus.addListener(net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent.class,
+                    ModClientSetup::registerTooltipComponents);
             NeoForge.EVENT_BUS.addListener(ClientPlayerNetworkEvent.LoggingOut.class, Ae2UtilityMod::onClientLoggingOut);
             modBus.addListener(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent.class, Ae2UtilityMod::onClientSetup);
         }

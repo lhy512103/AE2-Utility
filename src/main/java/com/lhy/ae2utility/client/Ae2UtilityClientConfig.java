@@ -36,6 +36,19 @@ public final class Ae2UtilityClientConfig {
      */
     public static final ModConfigSpec.BooleanValue REUSE_PROVIDER_WITHIN_BATCH;
 
+    /**
+     * 为 {@code true}（默认）时：鼠标悬停 JEI 编码箭头时，多候选输入槽固定显示后续编码/上传实际会用到的材料。
+     * 选材只在悬停时计算并缓存；显示替换走已有轻量 Mixin，不每帧重算。<br>
+     * 为 {@code false} 时：输入槽保持 JEI 原有候选轮换。
+     */
+    public static final ModConfigSpec.BooleanValue PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER;
+
+    /**
+     * 为 {@code true}（默认）时：鼠标悬停 JEI/EMI 编码箭头时，在 tooltip 里显示只读的样板编码终端布局。
+     * 服务端预览与槽位钉住共用同一请求，本地先画一帧占位，回包后替换。
+     */
+    public static final ModConfigSpec.BooleanValue PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER;
+
     static {
         PREFER_FAVORITES_FOR_PATTERN_ENCODING = BUILDER
                 .comment(
@@ -64,6 +77,20 @@ public final class Ae2UtilityClientConfig {
                         "When false: every pattern must be chosen manually unless the filter is unique.")
                 .translation("ae2utility.config.reuseProviderWithinBatch")
                 .define("reuseProviderWithinBatch", true);
+        PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER = BUILDER
+                .comment(
+                        "When hovering the JEI encode arrow, pin cycling input slots to the ingredients",
+                        "that will actually be encoded. Selection is cached and only computed while hovered.",
+                        "If false, leave JEI's alternative cycling unchanged.")
+                .translation("ae2utility.config.previewEncodeIngredientsOnArrowHover")
+                .define("previewEncodeIngredientsOnArrowHover", true);
+        PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER = BUILDER
+                .comment(
+                        "When hovering the JEI/EMI encode arrow, show a read-only AE2 pattern-encoding",
+                        "terminal preview in the tooltip. Uses the same cached server preview request",
+                        "as ingredient pinning. If false, keep the text-only tooltip.")
+                .translation("ae2utility.config.previewEncodeTerminalOnArrowHover")
+                .define("previewEncodeTerminalOnArrowHover", true);
         SPEC = BUILDER.build();
     }
 
@@ -84,5 +111,13 @@ public final class Ae2UtilityClientConfig {
 
     public static boolean reuseProviderWithinBatch() {
         return REUSE_PROVIDER_WITHIN_BATCH.get();
+    }
+
+    public static boolean previewEncodeIngredientsOnArrowHover() {
+        return PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER.get();
+    }
+
+    public static boolean previewEncodeTerminalOnArrowHover() {
+        return PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER.get();
     }
 }

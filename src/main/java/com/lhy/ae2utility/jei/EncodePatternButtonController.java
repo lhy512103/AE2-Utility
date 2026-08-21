@@ -5,6 +5,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -21,6 +22,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
 import appeng.menu.me.common.MEStorageMenu;
@@ -29,13 +31,19 @@ import appeng.integration.modules.curios.CuriosIntegration;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.service.WirelessEncodeTerminalItems;
+import com.lhy.ae2utility.client.PatternEncodingPreviewTooltip;
+import com.lhy.ae2utility.network.EncodePreviewResultPacket;
+import com.lhy.ae2utility.network.QueryEncodePreviewPacket;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
+import com.lhy.ae2utility.util.GenericIngredientUtil;
+import com.lhy.ae2utility.util.PatternEncodingPreview;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.buttons.IButtonState;
 import mezz.jei.api.gui.buttons.IIconButtonController;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.gui.inputs.IJeiUserInput;
+import mezz.jei.api.ingredients.ITypedIngredient;
 
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 
@@ -49,6 +57,7 @@ import mezz.jei.gui.recipes.RecipesGui;
 
 public class EncodePatternButtonController implements IIconButtonController {
     public static final Map<IRecipeLayoutDrawable<?>, EncodePatternButtonController> CONTROLLERS = new WeakHashMap<>();
+    private static final AtomicInteger NEXT_PREVIEW_REQUEST_ID = new AtomicInteger(1);
 
     private final IRecipeLayoutDrawable<?> recipeLayout;
     private boolean isAvailable = false;
@@ -77,6 +86,16 @@ public class EncodePatternButtonController implements IIconButtonController {
     private long cachedInputCraftableSignature = Long.MIN_VALUE;
     private long cachedInputCraftableCacheVersion = Long.MIN_VALUE;
     private Map<IRecipeSlotView, Boolean> cachedInputCraftableStates = Map.of();
+    /** 仅悬停编码箭头且配置开启时填充：服务端真正编码回传的材料。 */
+    private Map<IRecipeSlotView, ITypedIngredient<?>> cachedChosenTypedIngredients = Map.of();
+    private long cachedChosenBookmarkSignature = Long.MIN_VALUE;
+    private final int previewRequestId = NEXT_PREVIEW_REQUEST_ID.getAndIncrement();
+    private boolean previewRequestInFlight;
+    private boolean previewRequestFailed;
+    private List<GenericStack> cachedServerEncodedInputs = List.of();
+    private @Nullable PatternEncodingPreview cachedTerminalPreview;
+    private @Nullable PatternEncodingPreview cachedLocalTerminalPreview;
+    private long preparedPinTick = Long.MIN_VALUE;
 
     private final IDrawable ARROW_ICON = new IDrawable() {
         @Override
@@ -107,6 +126,39 @@ public class EncodePatternButtonController implements IIconButtonController {
             return false;
         }
         return encodeButtonScreenBounds.contains(mouseX, mouseY);
+    }
+
+    /**
+     * Mixin 热路径：未悬停或服务端尚未回传时立即返回 {@code null}。
+     */
+    public static @Nullable ITypedIngredient<?> peekPinnedDisplayedIngredient(
+            @Nullable IRecipeLayoutDrawable<?> layout, IRecipeSlotView slot) {
+        if (layout == null || slot == null || !Ae2UtilityClientConfig.previewEncodeIngredientsOnArrowHover()) {
+            return null;
+        }
+        EncodePatternButtonController controller = CONTROLLERS.get(layout);
+        return controller == null ? null : controller.pinnedDisplayedIngredient(slot);
+    }
+
+    private @Nullable ITypedIngredient<?> pinnedDisplayedIngredient(IRecipeSlotView slot) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.getWindow() == null || !isMouseOverEncodeButtonNow(mc)) {
+            return null;
+        }
+        long tick = JeiClientCacheContext.getTickGeneration();
+        if (preparedPinTick != tick) {
+            refreshHoveredCraftableState();
+            ensureServerEncodedPreview();
+            preparedPinTick = tick;
+        }
+        return cachedChosenTypedIngredients.get(slot);
+    }
+
+    private boolean isMouseOverEncodeButtonNow(Minecraft mc) {
+        var win = mc.getWindow();
+        double mouseX = mc.mouseHandler.xpos() * win.getGuiScaledWidth() / Math.max(1, win.getScreenWidth());
+        double mouseY = mc.mouseHandler.ypos() * win.getGuiScaledHeight() / Math.max(1, win.getScreenHeight());
+        return isMouseOverEncodeButton(mouseX, mouseY);
     }
 
     @Override
@@ -244,6 +296,10 @@ public class EncodePatternButtonController implements IIconButtonController {
         if (mouseX >= buttonArea.getX() && mouseX < buttonArea.getX() + buttonArea.getWidth()
                 && mouseY >= buttonArea.getY() && mouseY < buttonArea.getY() + buttonArea.getHeight()) {
             refreshHoveredCraftableState();
+            if (Ae2UtilityClientConfig.previewEncodeIngredientsOnArrowHover()
+                    || Ae2UtilityClientConfig.previewEncodeTerminalOnArrowHover()) {
+                ensureServerEncodedPreview();
+            }
             Rect2i recipeRect = this.recipeLayout.getRect();
             var poseStack = guiGraphics.pose();
             poseStack.pushPose();
@@ -271,6 +327,117 @@ public class EncodePatternButtonController implements IIconButtonController {
         }
     }
 
+    private void ensureServerEncodedPreview() {
+        long bookmarkSig = cachedRepresentativeBookmarkSignature;
+        if (cachedChosenBookmarkSignature != Long.MIN_VALUE && cachedChosenBookmarkSignature != bookmarkSig) {
+            cachedServerEncodedInputs = List.of();
+            cachedChosenTypedIngredients = Map.of();
+            cachedTerminalPreview = null;
+            cachedLocalTerminalPreview = null;
+            previewRequestInFlight = false;
+            previewRequestFailed = false;
+        }
+        if (hasAnyEncodedInput(cachedServerEncodedInputs)) {
+            if (cachedChosenTypedIngredients.isEmpty() || cachedChosenBookmarkSignature != bookmarkSig) {
+                cachedChosenTypedIngredients = mapServerInputsToSlots(cachedServerEncodedInputs);
+                cachedChosenBookmarkSignature = bookmarkSig;
+            }
+            return;
+        }
+        if (previewRequestInFlight || previewRequestFailed) {
+            return;
+        }
+        JeiEncodePacketFactory.tryCreate(recipeLayout, false, false, 0).ifPresentOrElse(packet -> {
+            previewRequestInFlight = true;
+            PacketDistributor.sendToServer(new QueryEncodePreviewPacket(previewRequestId, packet));
+        }, () -> previewRequestFailed = true);
+    }
+
+    public static void handlePreviewResult(EncodePreviewResultPacket payload) {
+        if (payload == null) {
+            return;
+        }
+        for (EncodePatternButtonController controller : CONTROLLERS.values()) {
+            if (controller.previewRequestId == payload.requestId()) {
+                controller.applyServerEncodedInputs(payload);
+                return;
+            }
+        }
+    }
+
+    private void applyServerEncodedInputs(EncodePreviewResultPacket payload) {
+        previewRequestInFlight = false;
+        cachedServerEncodedInputs = payload.inputs();
+        cachedTerminalPreview = payload.hasPanel() ? payload.panelPreview() : null;
+        cachedLocalTerminalPreview = cachedTerminalPreview;
+        if (!hasAnyEncodedInput(cachedServerEncodedInputs)) {
+            previewRequestFailed = true;
+            cachedChosenTypedIngredients = Map.of();
+            return;
+        }
+        cachedChosenTypedIngredients = mapServerInputsToSlots(cachedServerEncodedInputs);
+        cachedChosenBookmarkSignature = cachedRepresentativeBookmarkSignature;
+    }
+
+    private Map<IRecipeSlotView, ITypedIngredient<?>> mapServerInputsToSlots(List<GenericStack> encodedInputs) {
+        Map<IRecipeSlotView, ITypedIngredient<?>> chosen = new IdentityHashMap<>();
+        int n = Math.min(cachedInputSlots.size(), encodedInputs.size());
+        for (int i = 0; i < n; i++) {
+            GenericStack encoded = encodedInputs.get(i);
+            if (encoded == null || encoded.what() == null) {
+                continue;
+            }
+            IRecipeSlotView slotView = cachedInputSlots.get(i);
+            ITypedIngredient<?> typed = findCachedTypedIngredient(cachedInputIngredients.get(slotView), encoded);
+            if (typed == null) {
+                typed = findTypedIngredientAcrossSlots(encoded);
+            }
+            if (typed != null) {
+                chosen.put(slotView, typed);
+            }
+        }
+        return chosen;
+    }
+
+    private static boolean hasAnyEncodedInput(List<GenericStack> inputs) {
+        if (inputs == null || inputs.isEmpty()) {
+            return false;
+        }
+        for (GenericStack input : inputs) {
+            if (input != null && input.what() != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private @Nullable ITypedIngredient<?> findTypedIngredientAcrossSlots(@Nullable GenericStack chosen) {
+        if (chosen == null || chosen.what() == null) {
+            return null;
+        }
+        for (IRecipeSlotView slotView : cachedInputSlots) {
+            ITypedIngredient<?> typed = findCachedTypedIngredient(cachedInputIngredients.get(slotView), chosen);
+            if (typed != null) {
+                return typed;
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable ITypedIngredient<?> findCachedTypedIngredient(
+            List<ITypedIngredient<?>> allIngredients, @Nullable GenericStack chosen) {
+        if (chosen == null || chosen.what() == null || allIngredients == null) {
+            return null;
+        }
+        for (ITypedIngredient<?> typed : allIngredients) {
+            AEKey ingKey = GenericIngredientUtil.toAEKey(typed.getIngredient());
+            if (ingKey != null && ingKey.equals(chosen.what())) {
+                return typed;
+            }
+        }
+        return null;
+    }
+
     private void analyzeRecipeSlotsIfNeeded(IRecipeSlotsView slotsView) {
         if (cachedRecipeStructureReady) {
             return;
@@ -296,6 +463,14 @@ public class EncodePatternButtonController implements IIconButtonController {
         cachedInputAlternatives = Map.of();
         cachedInputCraftableStates = Map.of();
         cachedInputCraftableCacheVersion = Long.MIN_VALUE;
+        cachedChosenTypedIngredients = Map.of();
+        cachedChosenBookmarkSignature = Long.MIN_VALUE;
+        cachedServerEncodedInputs = List.of();
+        cachedTerminalPreview = null;
+        cachedLocalTerminalPreview = null;
+        previewRequestInFlight = false;
+        previewRequestFailed = false;
+        preparedPinTick = Long.MIN_VALUE;
     }
 
     /** 按书签签名重建每个输入槽的「全部候选」列表（书签命中则仅该项）。 */
@@ -404,6 +579,17 @@ public class EncodePatternButtonController implements IIconButtonController {
         tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_button"));
         if (isAvailable) {
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_blue_slots").withStyle(ChatFormatting.BLUE));
+            if (Ae2UtilityClientConfig.previewEncodeIngredientsOnArrowHover()) {
+                tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_hover_preview")
+                        .withStyle(ChatFormatting.GRAY));
+            }
+            if (Ae2UtilityClientConfig.previewEncodeTerminalOnArrowHover()) {
+                ensureServerEncodedPreview();
+                PatternEncodingPreview preview = terminalPreviewForTooltip();
+                if (preview != null) {
+                    tooltip.add(new PatternEncodingPreviewTooltip(preview));
+                }
+            }
             if (JeictCompat.isLoaded()) {
                 tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_alt_tree").withStyle(ChatFormatting.WHITE));
             }
@@ -425,6 +611,25 @@ public class EncodePatternButtonController implements IIconButtonController {
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_shift").withStyle(ChatFormatting.WHITE));
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint").withStyle(ChatFormatting.WHITE));
         }
+    }
+
+    private @Nullable PatternEncodingPreview terminalPreviewForTooltip() {
+        if (cachedTerminalPreview != null) {
+            return cachedTerminalPreview;
+        }
+        if (cachedLocalTerminalPreview != null) {
+            return cachedLocalTerminalPreview;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            return null;
+        }
+        cachedLocalTerminalPreview = JeiEncodePacketFactory.tryCreate(recipeLayout, false, false, 0)
+                .map(packet -> PatternEncodingPreview.guess(packet, mc.level,
+                        CraftableStateCache::isCraftable,
+                        mc.player == null ? null : mc.player.getInventory().items))
+                .orElse(null);
+        return cachedLocalTerminalPreview;
     }
 
     private static boolean ae2utility$isDetailTooltipExpanded() {

@@ -45,6 +45,10 @@ public final class ModNetworking {
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.ClearPatternsService.handle(payload, context)))
                 .playToServer(QueryCraftableStatePacket.TYPE, QueryCraftableStatePacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.CraftableStateService.handle(context.player(), payload)))
+                .playToServer(QueryEncodePreviewPacket.TYPE, QueryEncodePreviewPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.service.EncodePatternService.handlePreview(context.player(), payload)))
+                .playToClient(EncodePreviewResultPacket.TYPE, EncodePreviewResultPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> EncodePreviewResultPacket.handle(payload)))
                 .playToClient(SyncAe2UtilityEncodeRulesPacket.TYPE, SyncAe2UtilityEncodeRulesPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> SyncAe2UtilityEncodeRulesPacket.handle(payload)))
                 .playToClient(CraftableStatePacket.TYPE, CraftableStatePacket.STREAM_CODEC,

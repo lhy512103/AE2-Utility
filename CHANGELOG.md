@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.7.8
+
+### English
+
+#### Added
+
+1. Hovering the JEI encode arrow pins cycling input slots to the ingredients that will actually be encoded. This is a client option and is on by default.
+2. Hovering the JEI/EMI encode arrow shows a read-only AE2 pattern-encoding terminal in the tooltip. This is a client option and is on by default.
+
+#### Changed
+
+1. Updated ExtendedAE Plus compatibility to 1.6.0-f1.
+
+#### Fixed
+
+1. Fixed a startup crash with ExtendedAE Plus 1.6.0-f1 caused by the provider selection search box changing from `EditBox` to `ResizableAETextField`.
+
+### 中文
+
+#### 新增
+
+1. 鼠标悬停 JEI 编码箭头时，多候选输入槽会固定显示实际编码将使用的材料。此为客户端选项，默认开启。
+2. 鼠标悬停 JEI/EMI 编码箭头时，tooltip 会显示只读的 AE2 样板编码终端布局。此为客户端选项，默认开启。
+
+#### 修改
+
+1. 将 ExtendedAE Plus 兼容版本更新至 1.6.0-f1。
+
+#### 修复
+
+1. 修复 ExtendedAE Plus 1.6.0-f1 将供应器选择界面搜索框从 `EditBox` 改为 `ResizableAETextField` 后导致的启动崩溃。
+
 ## 1.7.7
 
 ### English
