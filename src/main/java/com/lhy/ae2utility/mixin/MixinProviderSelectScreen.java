@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.mixin;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,9 +23,8 @@ import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.network.EaepSequentialProviderDismissPacket;
 
-import com.extendedae_plus.client.widget.ResizableAETextField;
-
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -32,9 +32,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 @Mixin(targets = "com.extendedae_plus.client.screen.ProviderSelectScreen", remap = false)
 public class MixinProviderSelectScreen {
-
-    @Shadow
-    private ResizableAETextField searchBox;
 
     @Shadow
     private List<Long> fIds;
@@ -53,6 +50,25 @@ public class MixinProviderSelectScreen {
     private boolean ae2utility$sequentialUniqueProviderAutoFired;
     @Unique
     private boolean ae2utility$closeTriggeredByProviderChoice;
+    @Unique
+    private static Field ae2utility$searchBoxField;
+
+    @Unique
+    private EditBox ae2utility$searchBox() {
+        try {
+            Field field = ae2utility$searchBoxField;
+            if (field == null) {
+                field = Class.forName("com.extendedae_plus.client.screen.ProviderSelectScreen")
+                        .getDeclaredField("searchBox");
+                field.setAccessible(true);
+                ae2utility$searchBoxField = field;
+            }
+            Object box = field.get(this);
+            return box instanceof EditBox editBox ? editBox : null;
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
 
     @Unique
     private String ae2utility$screenSummary() {
@@ -66,6 +82,7 @@ public class MixinProviderSelectScreen {
 
     @Unique
     private String ae2utility$stateSummary() {
+        EditBox searchBox = ae2utility$searchBox();
         return ae2utility$screenSummary()
                 + " awaitingAny=" + RecipeTreeUploadQueue.awaitingAnyProviderUpload()
                 + " awaitingSequential=" + RecipeTreeUploadQueue.awaitingSequentialProviderUpload()
@@ -79,6 +96,7 @@ public class MixinProviderSelectScreen {
 
     @Inject(method = "init", at = @At("TAIL"))
     private void ae2utility$addCurrentPatternLabel(CallbackInfo ci) {
+        EditBox searchBox = ae2utility$searchBox();
         if (searchBox == null) {
             return;
         }
@@ -124,6 +142,7 @@ public class MixinProviderSelectScreen {
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void ae2utility$observeManualSearchEdit(CallbackInfo ci) {
+        EditBox searchBox = ae2utility$searchBox();
         if (searchBox != null) {
             EaepPendingProviderSearch.observeCurrentSearchBoxValue(searchBox.getValue());
         }
@@ -159,6 +178,7 @@ public class MixinProviderSelectScreen {
                 && !InventoryPatternUploadQueue.isSelectingProvider()) {
             return;
         }
+        EditBox searchBox = ae2utility$searchBox();
         String currentQuery = searchBox != null ? searchBox.getValue() : null;
         if (currentQuery == null || currentQuery.isBlank()) {
             return;
@@ -208,6 +228,7 @@ public class MixinProviderSelectScreen {
         if (!autoUploadUniqueMatchEnabled) {
             return false;
         }
+        EditBox searchBox = ae2utility$searchBox();
         String currentQuery = searchBox != null ? searchBox.getValue() : null;
         boolean hasSearchFilter = currentQuery != null && !currentQuery.isBlank();
         if (!hasSearchFilter) {
@@ -262,6 +283,7 @@ public class MixinProviderSelectScreen {
                 && !InventoryPatternUploadQueue.isSelectingProvider()) {
             return;
         }
+        EditBox searchBox = ae2utility$searchBox();
         if (searchBox == null || fNames == null || idx < 0 || idx >= fNames.size()) {
             return;
         }

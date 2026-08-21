@@ -11,11 +11,12 @@
 
 #### Changed
 
-1. Updated ExtendedAE Plus compatibility to 1.6.0-f1.
+1. Updated ExtendedAE Plus compatibility to 1.6.0-f1 while remaining compatible with 1.5.x.
 
 #### Fixed
 
 1. Fixed a startup crash with ExtendedAE Plus 1.6.0-f1 caused by the provider selection search box changing from `EditBox` to `ResizableAETextField`.
+2. Restored compatibility with ExtendedAE Plus 1.5.x. Provider-select mixins no longer crash when `ResizableAETextField` is absent.
 
 ### 中文
 
@@ -26,11 +27,12 @@
 
 #### 修改
 
-1. 将 ExtendedAE Plus 兼容版本更新至 1.6.0-f1。
+1. 将 ExtendedAE Plus 兼容版本更新至 1.6.0-f1，同时保持对 1.5.x 的兼容。
 
 #### 修复
 
 1. 修复 ExtendedAE Plus 1.6.0-f1 将供应器选择界面搜索框从 `EditBox` 改为 `ResizableAETextField` 后导致的启动崩溃。
+2. 恢复对 ExtendedAE Plus 1.5.x 的兼容；供应器选择界面 mixin 在缺少 `ResizableAETextField` 时不再崩溃。
 
 ## 1.7.7
 
