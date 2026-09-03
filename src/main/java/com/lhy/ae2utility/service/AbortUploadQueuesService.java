@@ -17,7 +17,7 @@ public final class AbortUploadQueuesService {
         if (player == null) {
             return;
         }
-        RecipeTreeUploadResultBridge.abortServerUploadOrchestration(player);
+        SequentialUploadResultBridge.abortServerUploadOrchestration(player);
         PacketDistributor.sendToPlayer(player,
                 new CancelClientUploadQueuesPacket(operatorStoppedEveryone));
     }

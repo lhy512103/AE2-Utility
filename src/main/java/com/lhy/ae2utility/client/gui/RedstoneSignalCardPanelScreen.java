@@ -19,7 +19,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.client.gui.Icon;
 import appeng.client.gui.style.Blitter;
-import appeng.client.gui.widgets.TabButton;
 
 import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 import com.lhy.ae2utility.init.ModDataComponents;
@@ -42,7 +41,6 @@ public class RedstoneSignalCardPanelScreen extends Screen {
 
     private int editedTicks;
     private RedstoneSignalCardMode editedMode;
-    private int focusedSliderRow = -1;
     private boolean draggingSlider;
     private @Nullable Integer dragSliderRow;
     private @Nullable Integer pinnedSliderRow;
@@ -404,7 +402,6 @@ public class RedstoneSignalCardPanelScreen extends Screen {
             draggingSlider = true;
             dragSliderRow = knobRow;
             pinnedSliderRow = knobRow;
-            focusedSliderRow = knobRow;
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -453,14 +450,6 @@ public class RedstoneSignalCardPanelScreen extends Screen {
         editedTicks = RedstoneSignalCardBrassTicks.encode(row, nc);
         pinnedSliderRow = row;
         return true;
-    }
-
-    @Override
-    public void mouseMoved(double mouseX, double mouseY) {
-        if (!draggingSlider) {
-            focusedSliderRow = rowAtMouse(mouseX, mouseY);
-        }
-        super.mouseMoved(mouseX, mouseY);
     }
 
     private void applyColumnFromMouse(int mouseX, int row, boolean shift) {

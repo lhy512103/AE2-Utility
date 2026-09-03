@@ -20,6 +20,7 @@ class MultiblockStructurePatternCompatTest {
     }
 
     private static final class EmiMultiblockWrapper {
+        @SuppressWarnings("unused")
         private final TitledStructure structure = new TitledStructure(
                 ResourceLocation.fromNamespaceAndPath("ae2lt", "missing_translation"),
                 Component.literal("天枢物质扭曲矩阵"));

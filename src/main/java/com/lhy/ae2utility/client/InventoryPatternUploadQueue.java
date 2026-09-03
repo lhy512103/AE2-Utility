@@ -326,7 +326,7 @@ public final class InventoryPatternUploadQueue {
             return;
         }
         currentPatternName = resolvePatternName(player, nextSlot.intValue());
-        RecipeTreeUploadProgressState.setCurrent(currentPatternName, providerName.isBlank() ? currentSearchKey : providerName);
+        SequentialUploadProgressState.setCurrent(currentPatternName, providerName.isBlank() ? currentSearchKey : providerName);
         InventoryPatternUploadDebug.info("send_next", "sending playerSlotIndex={} queueSizeIncludingHead={}", nextSlot,
                 PENDING_SLOTS.size());
         EaepUploadDebugLog.info("sendNext playerSlot={} providerId={} remainingQueueSize={}", nextSlot, providerId,
@@ -419,7 +419,7 @@ public final class InventoryPatternUploadQueue {
         currentSearchKey = UNKNOWN_GROUP_KEY.equals(group.searchKey()) ? "" : group.searchKey();
         prepareSelection(group.slots());
         currentPatternName = resolvePatternName(player, group.slots().get(0));
-        RecipeTreeUploadProgressState.setCurrent(currentPatternName, currentSearchKey);
+        SequentialUploadProgressState.setCurrent(currentPatternName, currentSearchKey);
         if (!presetProviderSearchKey(currentSearchKey)) {
             InventoryPatternUploadDebug.warn("start_next_selection", "failed to preset search key={}", currentSearchKey);
         }
@@ -531,7 +531,7 @@ public final class InventoryPatternUploadQueue {
     private static void clearProviderSelectionSession() {
         PENDING_GROUPS.clear();
         currentSearchKey = "";
-        RecipeTreeUploadProgressState.clear();
+        SequentialUploadProgressState.clear();
         EaepPendingProviderSearch.forgetResolvedFilterReuse();
     }
 }

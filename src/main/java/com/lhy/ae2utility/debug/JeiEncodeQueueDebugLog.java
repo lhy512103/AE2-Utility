@@ -1,7 +1,7 @@
 package com.lhy.ae2utility.debug;
 
 /**
- * JEI / RecipeTree 编码队列调试：已移除，保留空 stub 以降低调用处改动。
+ * JEI / 顺序批量编码队列调试：已移除，保留空 stub 以降低调用处改动。
  */
 public final class JeiEncodeQueueDebugLog {
     public static final String TAG = "[ae2utility-jei-queue] ";

@@ -14,13 +14,13 @@ import appeng.api.stacks.AEKey;
 
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.network.InvalidateCraftableCachePacket;
-import com.lhy.ae2utility.network.RecipeTreeUploadResultPacket;
+import com.lhy.ae2utility.network.SequentialUploadResultPacket;
 
-public final class RecipeTreeUploadResultBridge {
-    private static final String PENDING_NAME_KEY = "ae2utility_recipe_tree_pending_name";
+public final class SequentialUploadResultBridge {
+    private static final String PENDING_NAME_KEY = "ae2utility_sequential_upload_pending_name";
     private static final Map<UUID, List<AEKey>> PENDING_CRAFTABLE_REFRESH_KEYS = new ConcurrentHashMap<>();
 
-    private RecipeTreeUploadResultBridge() {
+    private SequentialUploadResultBridge() {
     }
 
     public static void rememberPendingName(ServerPlayer player, String patternName) {
@@ -49,7 +49,7 @@ public final class RecipeTreeUploadResultBridge {
     public static void clearPendingName(ServerPlayer player) {
         if (player != null) {
             player.getPersistentData().remove(PENDING_NAME_KEY);
-            RecipeTreeUploadContextBridge.clear(player);
+            SequentialUploadContextBridge.clear(player);
             PENDING_CRAFTABLE_REFRESH_KEYS.remove(player.getUUID());
         }
     }
@@ -63,11 +63,11 @@ public final class RecipeTreeUploadResultBridge {
             PENDING_CRAFTABLE_REFRESH_KEYS.remove(player.getUUID());
             EncodePatternService.disarmEaepShiftBlankRefund(player);
         }
-        RecipeTreeUploadContextBridge.wipeUploadOrchestrationState(player);
+        SequentialUploadContextBridge.wipeUploadOrchestrationState(player);
     }
 
     /** 是否存在「等待玩家在 EAEP 界面完成 CtrlQ / 样板归还」的顺序上传会话标记。 */
-    public static boolean hasPendingSequentialRecipeTreeResult(ServerPlayer player) {
+    public static boolean hasPendingSequentialUploadResult(ServerPlayer player) {
         return player != null && player.getPersistentData().contains(PENDING_NAME_KEY, Tag.TAG_STRING);
     }
 
@@ -92,7 +92,7 @@ public final class RecipeTreeUploadResultBridge {
         if (player == null) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, new RecipeTreeUploadResultPacket(
+        PacketDistributor.sendToPlayer(player, new SequentialUploadResultPacket(
                 patternName != null ? patternName : "", uploaded, false, abortRemainingBatch, purgeQueuedSameEaepMachine,
                 missingBlankPatternFailure));
     }
@@ -105,7 +105,7 @@ public final class RecipeTreeUploadResultBridge {
             return;
         }
         String name = patternName != null ? patternName : "";
-        PacketDistributor.sendToPlayer(player, new RecipeTreeUploadResultPacket(name, false, true, false, false, false));
+        PacketDistributor.sendToPlayer(player, new SequentialUploadResultPacket(name, false, true, false, false, false));
     }
 
     /**
@@ -125,7 +125,7 @@ public final class RecipeTreeUploadResultBridge {
         EncodePatternService.disarmEaepShiftBlankRefund(player);
         clearPendingName(player);
         PacketDistributor.sendToPlayer(player,
-                new RecipeTreeUploadResultPacket(patternName, false, false, false, purgeQueuedSameEaepMachine, false));
+                new SequentialUploadResultPacket(patternName, false, false, false, purgeQueuedSameEaepMachine, false));
     }
 
     public static void flushPendingResult(ServerPlayer player, boolean uploaded) {
@@ -154,6 +154,6 @@ public final class RecipeTreeUploadResultBridge {
             PacketDistributor.sendToPlayer(player, new InvalidateCraftableCachePacket(craftableRefresh));
         }
         PacketDistributor.sendToPlayer(player,
-                new RecipeTreeUploadResultPacket(patternName, uploaded, false, false, purgeQueuedSameEaepMachine, false));
+                new SequentialUploadResultPacket(patternName, uploaded, false, false, purgeQueuedSameEaepMachine, false));
     }
 }

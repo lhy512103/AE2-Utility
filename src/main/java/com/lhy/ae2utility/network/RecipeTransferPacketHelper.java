@@ -28,7 +28,6 @@ import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.RecipeIngredientRole;
-import net.minecraft.network.chat.Component;
 
 public final class RecipeTransferPacketHelper {
     private static final ConcurrentMap<StochasticOutputCacheKey, Boolean> STOCHASTIC_OUTPUT_CACHE = new ConcurrentHashMap<>();
@@ -391,10 +390,11 @@ public final class RecipeTransferPacketHelper {
                 onRichTooltip.invoke(callback, slotView, tooltipBuilder);
             }
 
-            @SuppressWarnings("deprecation")
-            List<Component> lines = tooltipBuilder.toLegacyToComponents();
-            for (Component line : lines) {
-                String text = line.getString();
+            for (var line : tooltipBuilder.getLines()) {
+                String text = line.left().map(formatted -> formatted.getString()).orElse("");
+                if (text.isEmpty()) {
+                    continue;
+                }
                 String lower = text.toLowerCase(Locale.ROOT);
                 if (text.contains("%") || lower.contains("chance") || lower.contains("probab")
                         || text.contains("概率") || text.contains("几率")) {

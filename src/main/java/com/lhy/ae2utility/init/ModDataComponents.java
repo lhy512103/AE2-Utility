@@ -2,6 +2,7 @@ package com.lhy.ae2utility.init;
 
 import com.mojang.serialization.Codec;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -11,7 +12,8 @@ import com.lhy.ae2utility.card.NbtTearFilter;
 import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 
 public final class ModDataComponents {
-    public static final DeferredRegister.DataComponents REG = DeferredRegister.createDataComponents(Ae2UtilityMod.MOD_ID);
+    public static final DeferredRegister.DataComponents REG =
+            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Ae2UtilityMod.MOD_ID);
 
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<NbtTearFilter>> NBT_TEAR_FILTER = REG.registerComponentType(
             "nbt_tear_filter",

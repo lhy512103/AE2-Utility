@@ -17,8 +17,8 @@ import com.lhy.ae2utility.client.EaepPendingProviderSearch;
 import com.lhy.ae2utility.client.EaepRememberedProviderChoice;
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
-import com.lhy.ae2utility.client.RecipeTreeUploadProgressState;
-import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
+import com.lhy.ae2utility.client.SequentialUploadProgressState;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.network.EaepSequentialProviderDismissPacket;
@@ -84,8 +84,8 @@ public class MixinProviderSelectScreen {
     private String ae2utility$stateSummary() {
         EditBox searchBox = ae2utility$searchBox();
         return ae2utility$screenSummary()
-                + " awaitingAny=" + RecipeTreeUploadQueue.awaitingAnyProviderUpload()
-                + " awaitingSequential=" + RecipeTreeUploadQueue.awaitingSequentialProviderUpload()
+                + " awaitingAny=" + SequentialUploadQueue.awaitingAnyProviderUpload()
+                + " awaitingSequential=" + SequentialUploadQueue.awaitingSequentialProviderUpload()
                 + " selectingProvider=" + InventoryPatternUploadQueue.isSelectingProvider()
                 + " manualChoice=" + InventoryPatternUploadQueue.requiresManualProviderChoice()
                 + " closeByChoice=" + ae2utility$closeTriggeredByProviderChoice
@@ -121,9 +121,9 @@ public class MixinProviderSelectScreen {
         if (font == null) {
             return;
         }
-        String patternName = RecipeTreeUploadProgressState.currentPatternName();
+        String patternName = SequentialUploadProgressState.currentPatternName();
         if (patternName == null || patternName.isBlank() || "-".equals(patternName)) {
-            var rid = RecipeTreeUploadProgressState.currentRecipeId();
+            var rid = SequentialUploadProgressState.currentRecipeId();
             if (rid != null) {
                 patternName = rid.toString();
             }
@@ -131,7 +131,7 @@ public class MixinProviderSelectScreen {
         if (patternName == null || patternName.isBlank()) {
             return;
         }
-        String machineName = RecipeTreeUploadProgressState.currentMachineName();
+        String machineName = SequentialUploadProgressState.currentMachineName();
         String text = "正在处理样板: " + patternName + " (机器: " + (machineName == null || machineName.isBlank() ? "-" : machineName) + ")";
         String trimmed = font.plainSubstrByWidth(text, Math.max(40, searchBox.getWidth() - 4));
         var widget = new StringWidget(searchBox.getX() + 2, searchBox.getY() - 12, searchBox.getWidth() - 4, 9,
@@ -149,7 +149,7 @@ public class MixinProviderSelectScreen {
     }
 
     /**
-     * JEI/配方树顺序批量：EAEP 原版的 {@code tryAutoUploadIfUniqueMatch} 只在 init 里跑一次，
+     * JEI/顺序批量：EAEP 原版的 {@code tryAutoUploadIfUniqueMatch} 只在 init 里跑一次，
      * 而 ae2utility 的搜索关键字常常是「界面打开后」才同步过来的，原版那次判定会错过，
      * 因此这里在搜索框填好后补一次自动点选。判定条件与 EAEP 对齐：
      * <ul>
@@ -174,7 +174,7 @@ public class MixinProviderSelectScreen {
         if (!Ae2UtilityClientConfig.reuseProviderWithinBatch()) {
             return;
         }
-        if (!RecipeTreeUploadQueue.awaitingSequentialProviderUpload()
+        if (!SequentialUploadQueue.awaitingSequentialProviderUpload()
                 && !InventoryPatternUploadQueue.isSelectingProvider()) {
             return;
         }
@@ -218,7 +218,7 @@ public class MixinProviderSelectScreen {
                 || InventoryPatternUploadQueue.requiresManualProviderChoice()) {
             return false;
         }
-        if (!RecipeTreeUploadQueue.awaitingSequentialProviderUpload()
+        if (!SequentialUploadQueue.awaitingSequentialProviderUpload()
                 && !InventoryPatternUploadQueue.isSelectingProvider()) {
             return false;
         }
@@ -264,7 +264,7 @@ public class MixinProviderSelectScreen {
         ae2utility$closeTriggeredByProviderChoice = true;
         JeiEncodeQueueDebugLog.info(
                 "ProviderSelectScreen auto onChoose idx={} id={} reusedRemembered={} sequential={} inventoryBatch={} query={}",
-                chosenIdx, fIds.get(chosenIdx), reused, RecipeTreeUploadQueue.awaitingSequentialProviderUpload(),
+                chosenIdx, fIds.get(chosenIdx), reused, SequentialUploadQueue.awaitingSequentialProviderUpload(),
                 InventoryPatternUploadQueue.isSelectingProvider(), currentQuery);
         ((ProviderSelectScreenInvoker) (Object) this).ae2utility$onChoose(chosenIdx, false);
         return true;
@@ -279,7 +279,7 @@ public class MixinProviderSelectScreen {
         if (!Ae2UtilityClientConfig.reuseProviderWithinBatch()) {
             return;
         }
-        if (!RecipeTreeUploadQueue.awaitingAnyProviderUpload()
+        if (!SequentialUploadQueue.awaitingAnyProviderUpload()
                 && !InventoryPatternUploadQueue.isSelectingProvider()) {
             return;
         }
@@ -317,7 +317,7 @@ public class MixinProviderSelectScreen {
 
     @Inject(method = "keyPressed", at = @At("HEAD"))
     private void ae2utility$logKeyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (RecipeTreeUploadQueue.awaitingAnyProviderUpload() || InventoryPatternUploadQueue.isSelectingProvider()) {
+        if (SequentialUploadQueue.awaitingAnyProviderUpload() || InventoryPatternUploadQueue.isSelectingProvider()) {
             EaepUploadDebugLog.info("ProviderSelectScreen.keyPressed key={} scan={} modifiers={} escape={} {}",
                     keyCode, scanCode, modifiers, keyCode == 256, ae2utility$stateSummary());
         }
@@ -328,7 +328,7 @@ public class MixinProviderSelectScreen {
         InventoryPatternUploadDebug.info("provider_on_close", "selectingProvider={}", InventoryPatternUploadQueue.isSelectingProvider());
         EaepUploadDebugLog.info("ProviderSelectScreen.onClose HEAD {}", ae2utility$stateSummary());
         InventoryPatternUploadQueue.cancelSelection();
-        if (!ae2utility$closeTriggeredByProviderChoice && RecipeTreeUploadQueue.awaitingAnyProviderUpload()
+        if (!ae2utility$closeTriggeredByProviderChoice && SequentialUploadQueue.awaitingAnyProviderUpload()
                 && !InventoryPatternUploadQueue.isSelectingProvider()) {
             JeiEncodeQueueDebugLog.info("ProviderSelectScreen sequential dismiss packet (onClose immediate)");
             EaepUploadDebugLog.info("ProviderSelectScreen sending dismiss packet from onClose {}", ae2utility$stateSummary());
@@ -345,7 +345,7 @@ public class MixinProviderSelectScreen {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void ae2utility$logForeignTopScreenWhileAlive(CallbackInfo ci) {
-        if (!RecipeTreeUploadQueue.awaitingAnyProviderUpload() && !InventoryPatternUploadQueue.isSelectingProvider()) {
+        if (!SequentialUploadQueue.awaitingAnyProviderUpload() && !InventoryPatternUploadQueue.isSelectingProvider()) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();

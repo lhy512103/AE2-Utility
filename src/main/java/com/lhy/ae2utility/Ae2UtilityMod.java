@@ -57,11 +57,11 @@ public class Ae2UtilityMod {
         }
     }
 
-    private static void onClientLoggingOut(@SuppressWarnings("unused") ClientPlayerNetworkEvent.LoggingOut event) {
+    private static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         RemoteEncodeRules.clearOnDisconnected();
     }
 
-    private static void onClientSetup(@SuppressWarnings("unused") net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
+    private static void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         // Guarded reference: EmiBatchScreenButtons touches EMI classes, so only load it when EMI is present.
         if (ModCapabilities.hasEmi()) {
             com.lhy.ae2utility.emi.EmiBatchScreenButtons.register(NeoForge.EVENT_BUS);

@@ -1,9 +1,5 @@
 package com.lhy.ae2utility.mixin;
 
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,12 +9,8 @@ import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.network.UploadInventoryPatternsToMatrixPacket;
 
-import appeng.api.crafting.IPatternDetails;
 import appeng.client.gui.me.items.PatternEncodingTermScreen;
 import appeng.client.gui.style.WidgetStyle;
-import appeng.crafting.pattern.AECraftingPattern;
-import appeng.crafting.pattern.AESmithingTablePattern;
-import appeng.crafting.pattern.AEStonecuttingPattern;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;

@@ -55,8 +55,8 @@ public final class ModNetworking {
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.jei.CraftableStateCache.handle(payload)))
                 .playToClient(InvalidateCraftableCachePacket.TYPE, InvalidateCraftableCachePacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> com.lhy.ae2utility.jei.CraftableStateCache.invalidateKeys(payload.keys())))
-                .playToClient(RecipeTreeUploadResultPacket.TYPE, RecipeTreeUploadResultPacket.STREAM_CODEC,
-                        (payload, context) -> context.enqueueWork(() -> RecipeTreeUploadResultPacket.handle(payload)))
+                .playToClient(SequentialUploadResultPacket.TYPE, SequentialUploadResultPacket.STREAM_CODEC,
+                        (payload, context) -> context.enqueueWork(() -> SequentialUploadResultPacket.handle(payload)))
                 .playToClient(CancelClientUploadQueuesPacket.TYPE, CancelClientUploadQueuesPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> CancelClientUploadQueuesPacket.handle(payload)))
                 .playToClient(InventoryProviderSelectionPreparedPacket.TYPE, InventoryProviderSelectionPreparedPacket.STREAM_CODEC,

@@ -13,7 +13,6 @@ import appeng.helpers.WirelessTerminalMenuHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.IActionHost;
 
-import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 import com.lhy.ae2utility.network.UniversalPullPacket;
 
@@ -39,20 +38,17 @@ public final class UniversalPullService {
         IActionSource actionSource = resolveActionSource(serverPlayer, terminal);
 
         List<RequestedIngredient> requestedIngredients = payload.requestedIngredients();
-        boolean maxTransfer = payload.maxTransfer();
 
-        // Calculate missing items in player's inventory
         for (RequestedIngredient requested : requestedIngredients) {
             if (requested.count() <= 0 || requested.alternatives().isEmpty()) {
                 continue;
             }
 
-            int missingAmount = requested.count();
-            // Optional: we could check player inventory to see what's already there to avoid over-pulling
-            // But JEI already does this and only requests what's missing if we send it directly? 
-            // No, JEI's RecipeSlotsView contains the FULL recipe. 
-            // We MUST check the player inventory.
-            missingAmount -= countItemsInPlayerInventory(serverPlayer, requested.alternatives());
+            int targetAmount = requested.count();
+            if (payload.maxTransfer()) {
+                targetAmount = Math.max(targetAmount, requested.alternatives().getFirst().getMaxStackSize());
+            }
+            int missingAmount = targetAmount - countItemsInPlayerInventory(serverPlayer, requested.alternatives());
 
             if (missingAmount > 0) {
                 // Try to extract missing items from ME network

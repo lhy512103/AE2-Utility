@@ -10,7 +10,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import appeng.api.stacks.AEItemKey;
 
-import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket.IngredientAvailability;

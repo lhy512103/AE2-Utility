@@ -25,7 +25,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import com.lhy.ae2utility.api.Ae2UtilityApi;
 import com.lhy.ae2utility.menu.RecipeFinderMenu;
 import com.lhy.ae2utility.jei.BulkEncodeSessions;
-import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.RecipeFinderEncodePacket;
@@ -820,11 +819,6 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
         String tk = "gui.ae2utility.recipe_finder.feature." + key;
         String resolved = Component.translatable(tk).getString();
         return tk.equals(resolved) ? RecipeFinderFeatureClassifier.featureLabel(key) : resolved;
-    }
-
-    private String featureSummary(Set<String> features) {
-        return RecipeFinderTextFormatter.featureSummary(features, this::featureLabel,
-                Component.translatable("gui.ae2utility.recipe_finder.kind.all").getString());
     }
 
     private String sampleSummary(ItemStack sample) {

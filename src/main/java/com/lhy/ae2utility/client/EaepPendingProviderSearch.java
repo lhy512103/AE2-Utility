@@ -32,7 +32,7 @@ public final class EaepPendingProviderSearch {
     private EaepPendingProviderSearch() {
     }
 
-    /** 在开始新的配方树上传会话或 EAEP「背包分组」批量前调用，避免复用过期的检索镜像。 */
+    /** 在开始新的顺序批量上传会话或 EAEP「背包分组」批量前调用，避免复用过期的检索镜像。 */
     public static void forgetResolvedFilterReuse() {
         lastSyncedResolvedFilterMirror = "";
         hasPending = false;

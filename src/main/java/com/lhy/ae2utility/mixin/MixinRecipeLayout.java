@@ -15,7 +15,6 @@ import net.minecraft.client.renderer.Rect2i;
 @Mixin(targets = "mezz.jei.library.gui.recipes.RecipeLayout", remap = false, priority = 500)
 public class MixinRecipeLayout {
 
-    @SuppressWarnings("unchecked")
     private static IRecipeLayoutDrawable<?> ae2utility$selfLayout(Object self) {
         return (IRecipeLayoutDrawable<?>) self;
     }

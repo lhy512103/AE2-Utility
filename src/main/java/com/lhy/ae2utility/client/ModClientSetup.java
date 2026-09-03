@@ -6,8 +6,6 @@ import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactori
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 import com.lhy.ae2utility.init.ModMenus;
-import com.lhy.ae2utility.menu.NbtTearCardMenu;
-import com.lhy.ae2utility.menu.RecipeFinderMenu;
 
 public final class ModClientSetup {
     private ModClientSetup() {

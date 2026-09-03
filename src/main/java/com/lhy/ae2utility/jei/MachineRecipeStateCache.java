@@ -1,6 +1,5 @@
 package com.lhy.ae2utility.jei;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,7 +8,6 @@ import org.jetbrains.annotations.Nullable;
 
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 import com.lhy.ae2utility.network.QueryMachineRecipeStatePacket;

@@ -34,7 +34,7 @@ public final class Ae2UtilityServerConfig {
 
     /**
      * 单次「共享 bulk 会话」内最多实际编码的样板条数（超出部分不会编码）；{@code -1} 表示关闭该上限（不截断、不按会话计数）。
-     * JEI 全类/当前页、配方树、配方查找器等共用。
+     * JEI 全类/当前页、顺序批量上传、配方查找器等共用。
      */
     public static final ModConfigSpec.IntValue JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION;
 
@@ -89,6 +89,7 @@ public final class Ae2UtilityServerConfig {
                 .translation("ae2utility.serverConfig.nbtTearCardItemBlacklist")
                 .defineList("nbtTearCardItemBlacklist",
                         List.of(),
+                        () -> "",
                         value -> value instanceof String id && ResourceLocation.tryParse(id) != null);
         SPEC = BUILDER.build();
     }

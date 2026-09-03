@@ -234,7 +234,7 @@ public final class RedstoneSignalCardGuiSpecs {
         if (s.length() == 6) {
             try {
                 return 0xFF000000 | Integer.parseUnsignedInt(s, 16);
-            } catch (@SuppressWarnings("unused") NumberFormatException ignored) {
+            } catch (NumberFormatException ignored) {
                 return 0xFFFFFFFF;
             }
         }

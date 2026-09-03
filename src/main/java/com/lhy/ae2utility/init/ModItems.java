@@ -1,6 +1,5 @@
 package com.lhy.ae2utility.init;
 
-import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 

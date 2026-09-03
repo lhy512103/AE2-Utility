@@ -2,7 +2,7 @@ package com.lhy.ae2utility.network;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
-import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -31,7 +31,7 @@ public record CancelClientUploadQueuesPacket(boolean stoppedByOperatorForEveryon
     }
 
     public static void handle(CancelClientUploadQueuesPacket payload) {
-        RecipeTreeUploadQueue.cancelAllQuiet();
+        SequentialUploadQueue.cancelAllQuiet();
         InventoryPatternUploadQueue.cancelAllQuiet();
         var player = Minecraft.getInstance().player;
         if (payload.stoppedByOperatorForEveryone() && player != null) {

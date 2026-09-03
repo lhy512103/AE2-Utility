@@ -18,13 +18,13 @@ public final class EaepSequentialProviderDismissHandler {
         }
         EaepUploadDebugLog.info("dismiss handler enter player={} pendingSequential={}",
                 player.getScoreboardName(),
-                RecipeTreeUploadResultBridge.hasPendingSequentialRecipeTreeResult(player));
-        if (!RecipeTreeUploadResultBridge.hasPendingSequentialRecipeTreeResult(player)) {
+                SequentialUploadResultBridge.hasPendingSequentialUploadResult(player));
+        if (!SequentialUploadResultBridge.hasPendingSequentialUploadResult(player)) {
             return;
         }
         if (!ModList.get().isLoaded("extendedae_plus")) {
             EaepUploadDebugLog.info("dismiss handler no EAEP loaded -> flushPendingResult false/purge");
-            RecipeTreeUploadResultBridge.flushPendingResult(player, false, true);
+            SequentialUploadResultBridge.flushPendingResult(player, false, true);
             return;
         }
         EaepUploadDebugLog.info("dismiss handler invoking returnPendingCtrlQPatternToInventory player={}",
@@ -33,7 +33,7 @@ public final class EaepSequentialProviderDismissHandler {
             EaepUploadDebugLog.warn("dismiss handler invoke returnPending failed player={}",
                     player.getScoreboardName());
             Ae2UtilityMod.LOGGER.warn("EAEP sequential provider dismiss: invoke returnPending failed");
-            RecipeTreeUploadResultBridge.flushPendingResult(player, false, true);
+            SequentialUploadResultBridge.flushPendingResult(player, false, true);
         }
     }
 }

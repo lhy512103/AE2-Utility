@@ -50,7 +50,7 @@ public final class EncodeBulkSessionLimiter {
                 player.sendSystemMessage(Component.translatable("message.ae2utility.encode_rejected_full_category_blocked_server")
                         .withStyle(ChatFormatting.RED));
             }
-            sendRecipeTreeFailureEcho(player, payload);
+            sendSequentialUploadFailureEcho(player, payload);
             return true;
         }
 
@@ -64,18 +64,18 @@ public final class EncodeBulkSessionLimiter {
                     player.sendSystemMessage(Component.translatable("message.ae2utility.bulk_encode_exceeds_server_limit", max)
                             .withStyle(ChatFormatting.GOLD));
                 }
-                sendRecipeTreeFailureEcho(player, payload);
+                sendSequentialUploadFailureEcho(player, payload);
                 return true;
             }
         }
         return false;
     }
 
-    private static void sendRecipeTreeFailureEcho(ServerPlayer player, EncodePatternPacket payload) {
+    private static void sendSequentialUploadFailureEcho(ServerPlayer player, EncodePatternPacket payload) {
         if (payload.jeiSequentialQueue()) {
-            RecipeTreeUploadResultBridge.sendImmediateResult(player, sequentialLabel(payload), false);
+            SequentialUploadResultBridge.sendImmediateResult(player, sequentialLabel(payload), false);
         } else {
-            RecipeTreeUploadResultBridge.sendImmediateResult(player,
+            SequentialUploadResultBridge.sendImmediateResult(player,
                     payload.patternName().isBlank() ? sequentialLabel(payload) : payload.patternName(), false);
         }
     }

@@ -12,8 +12,8 @@ import appeng.api.networking.IGrid;
 
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.lhy.ae2utility.integration.eaep.EaepDirectCompat;
-import com.lhy.ae2utility.service.RecipeTreeUploadContextBridge;
-import com.lhy.ae2utility.service.RecipeTreeUploadResultBridge;
+import com.lhy.ae2utility.service.SequentialUploadContextBridge;
+import com.lhy.ae2utility.service.SequentialUploadResultBridge;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -35,10 +35,10 @@ public class MixinCtrlQPendingUploadUtil {
                     "EAEP uploadPendingCtrlQPattern RETURN player={} providerId={} ok={}",
                     player != null ? player.getScoreboardName() : "null", providerId, ok);
             if (ok) {
-                RecipeTreeUploadContextBridge.rememberSuccessfulProvider(player, providerId);
-                RecipeTreeUploadResultBridge.flushPendingResult(player, true);
+                SequentialUploadContextBridge.rememberSuccessfulProvider(player, providerId);
+                SequentialUploadResultBridge.flushPendingResult(player, true);
             } else {
-                RecipeTreeUploadResultBridge.flushPendingResult(player, false, true);
+                SequentialUploadResultBridge.flushPendingResult(player, false, true);
             }
             return ok;
         } finally {
@@ -53,9 +53,9 @@ public class MixinCtrlQPendingUploadUtil {
                 "EAEP returnPendingCtrlQPatternToInventory RETURN player={} returnedOk={}",
                 player != null ? player.getScoreboardName() : "null", returned);
         if (returned) {
-            RecipeTreeUploadResultBridge.flushPendingProviderUiDismissed(player, true);
+            SequentialUploadResultBridge.flushPendingProviderUiDismissed(player, true);
         } else {
-            RecipeTreeUploadResultBridge.flushPendingResult(player, false, true);
+            SequentialUploadResultBridge.flushPendingResult(player, false, true);
         }
     }
 
@@ -69,7 +69,7 @@ public class MixinCtrlQPendingUploadUtil {
         if (cir.getReturnValue() != null) {
             return;
         }
-        IGrid rememberedGrid = RecipeTreeUploadContextBridge.getRememberedGrid(player);
+        IGrid rememberedGrid = SequentialUploadContextBridge.getRememberedGrid(player);
         if (rememberedGrid != null) {
             cir.setReturnValue(rememberedGrid);
         }
