@@ -79,7 +79,6 @@ public class EncodePatternButtonController implements IIconButtonController {
     private List<GenericStack> cachedOutputs = List.of();
     private List<IRecipeSlotView> cachedInputSlots = List.of();
     private Map<IRecipeSlotView, List<mezz.jei.api.ingredients.ITypedIngredient<?>>> cachedInputIngredients = Map.of();
-    private Map<IRecipeSlotView, Long> cachedInputCounts = Map.of();
     /** 每个输入槽的全部候选（书签命中时为该书签项），用于「任一候选已有样板即高亮」判定，随书签签名刷新。 */
     private Map<IRecipeSlotView, List<GenericStack>> cachedInputAlternatives = Map.of();
     private long cachedRepresentativeBookmarkSignature = Long.MIN_VALUE;
@@ -450,16 +449,13 @@ public class EncodePatternButtonController implements IIconButtonController {
 
         List<IRecipeSlotView> inputSlots = slotsView.getSlotViews(mezz.jei.api.recipe.RecipeIngredientRole.INPUT);
         Map<IRecipeSlotView, List<mezz.jei.api.ingredients.ITypedIngredient<?>>> ingredientMap = new IdentityHashMap<>(inputSlots.size());
-        Map<IRecipeSlotView, Long> countMap = new IdentityHashMap<>(inputSlots.size());
         for (IRecipeSlotView slotView : inputSlots) {
             List<mezz.jei.api.ingredients.ITypedIngredient<?>> allIngredients = slotView.getAllIngredients().toList();
             ingredientMap.put(slotView, List.copyOf(allIngredients));
-            countMap.put(slotView, RecipeTransferPacketHelper.resolveEncodeSlotDisplayedCount(slotView, allIngredients));
         }
 
         cachedInputSlots = List.copyOf(inputSlots);
         cachedInputIngredients = ingredientMap;
-        cachedInputCounts = countMap;
         cachedInputAlternatives = Map.of();
         cachedInputCraftableStates = Map.of();
         cachedInputCraftableCacheVersion = Long.MIN_VALUE;
@@ -528,19 +524,19 @@ public class EncodePatternButtonController implements IIconButtonController {
 
         IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
 
-        boolean altRecipeTree = JeictCompat.isLoaded()
+        boolean altJeict = JeictCompat.isLoaded()
                 && Screen.hasAltDown() && !Screen.hasControlDown() && !Screen.hasShiftDown();
         boolean ctrlShiftUpload = JeiBookmarkUtil.isCtrlShiftLeftClickAnchor(input);
         boolean ctrlLeftBookmarkEncode = JeiBookmarkUtil.isCtrlLeftClickAnchor(input);
-        if ((altRecipeTree || ctrlShiftUpload || ctrlLeftBookmarkEncode) && input.isSimulate()) {
+        if ((altJeict || ctrlShiftUpload || ctrlLeftBookmarkEncode) && input.isSimulate()) {
             return true;
         }
 
-        if (!altRecipeTree && !ctrlShiftUpload && !ctrlLeftBookmarkEncode && input.isSimulate()) {
+        if (!altJeict && !ctrlShiftUpload && !ctrlLeftBookmarkEncode && input.isSimulate()) {
             return false;
         }
 
-        if (altRecipeTree) {
+        if (altJeict) {
             JeictCompat.openFromLayout(recipeLayout, Minecraft.getInstance().screen);
             return true;
         }
@@ -591,7 +587,7 @@ public class EncodePatternButtonController implements IIconButtonController {
                 }
             }
             if (JeictCompat.isLoaded()) {
-                tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_alt_tree").withStyle(ChatFormatting.WHITE));
+                tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_alt_jeict").withStyle(ChatFormatting.WHITE));
             }
             if (!detailExpanded) {
                 tooltip.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_prefix")

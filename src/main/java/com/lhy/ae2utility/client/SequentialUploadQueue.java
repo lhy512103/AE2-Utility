@@ -11,7 +11,7 @@ import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.integration.eaep.EaepProviderListRequest;
 import com.lhy.ae2utility.jei.JeiBookmarkUtil;
 import com.lhy.ae2utility.network.EncodePatternPacket;
-import com.lhy.ae2utility.network.RecipeTreeUploadResultPacket;
+import com.lhy.ae2utility.network.SequentialUploadResultPacket;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -20,7 +20,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.client.gui.screens.Screen;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-public final class RecipeTreeUploadQueue {
+public final class SequentialUploadQueue {
     /** 每条在服务端已成功落矩阵后，客户端发下一条前的间隔（Tick）。供应器界面路径由玩家操作耗时，此处只影响纯快速路径。 */
     private static final int NEXT_PACKET_DELAY_TICKS = 3;
     /** 超过此数量时汇总消息只显示个数，不再逐条列出样板名称（避免刷屏）。 */
@@ -35,12 +35,12 @@ public final class RecipeTreeUploadQueue {
     private static int receivedResults;
     private static int waitTicks;
     private static boolean waitingForProviderScreen;
-    /** 已发送编码请求，等待服务端任意 RecipeTreeUploadResultPacket（含 awaiting）。 */
+    /** 已发送编码请求，等待服务端任意 SequentialUploadResultPacket（含 awaiting）。 */
     private static boolean frozenUntilServerEncodeResponse;
     /** 服务端正在等待玩家在 EAEP 供应器界面完成上传；解冻需 flushPendingResult 的最终结果包。 */
     private static boolean awaitingProviderUploadCompletion;
 
-    private RecipeTreeUploadQueue() {
+    private SequentialUploadQueue() {
     }
 
     /**
@@ -51,14 +51,14 @@ public final class RecipeTreeUploadQueue {
     }
 
     /**
-     * 配方树总览「上传」等入口：用户显式开新的一批时，先丢弃客户端卡住的旧会话（例如 EAEP 界面关掉后永远等不到 FINAL）。
+     * JEICT / 顺序批量「上传」等入口：用户显式开新的一批时，先丢弃客户端卡住的旧会话（例如 EAEP 界面关掉后永远等不到 FINAL）。
      */
     public static boolean startReplacing(List<EncodePatternPacket> packets) {
         return startInternal(packets, true);
     }
 
     /**
-     * 顺序批量（JEI / 配方树）正在等 EAEP 供应器界面；供客户端在「唯一供应器」时自动确认。
+     * 顺序批量（JEI / EMI / JEICT）正在等 EAEP 供应器界面；供客户端在「唯一供应器」时自动确认。
      */
     public static boolean awaitingSequentialProviderUpload() {
         return awaitingProviderUploadCompletion
@@ -92,7 +92,7 @@ public final class RecipeTreeUploadQueue {
         waitingForProviderScreen = false;
         frozenUntilServerEncodeResponse = false;
         awaitingProviderUploadCompletion = false;
-        RecipeTreeUploadProgressState.clear();
+        SequentialUploadProgressState.clear();
         EaepPendingProviderSearch.forgetResolvedFilterReuse();
     }
 
@@ -190,9 +190,9 @@ public final class RecipeTreeUploadQueue {
         }
     }
 
-    public static void handleResult(RecipeTreeUploadResultPacket packet) {
+    public static void handleResult(SequentialUploadResultPacket packet) {
         EaepUploadDebugLog.info(
-                "RecipeTreeUploadQueue.handleResult uploaded={} awaiting={} abort={} purge={} missingBlank={} inFlight={} pending={} frozen={} awaitingProvider={}",
+                "SequentialUploadQueue.handleResult uploaded={} awaiting={} abort={} purge={} missingBlank={} inFlight={} pending={} frozen={} awaitingProvider={}",
                 packet.uploaded(),
                 packet.awaitingProviderCompletion(),
                 packet.abortRemainingBatch(),
@@ -213,7 +213,7 @@ public final class RecipeTreeUploadQueue {
                 if (packet.missingBlankPatternFailure()) {
                     if (succeededBeforeAbort > 0) {
                         playerAbort.displayClientMessage(
-                                Component.translatable("message.ae2utility.recipe_tree_upload_ok_compact", succeededBeforeAbort)
+                                Component.translatable("message.ae2utility.sequential_upload_ok_compact", succeededBeforeAbort)
                                         .withStyle(ChatFormatting.GREEN),
                                 false);
                     }
@@ -237,7 +237,7 @@ public final class RecipeTreeUploadQueue {
         if (packet.awaitingProviderCompletion()) {
             awaitingProviderUploadCompletion = true;
             frozenUntilServerEncodeResponse = true;
-            EaepUploadDebugLog.info("RecipeTreeUploadQueue entering awaiting-provider state inFlight={} pending={}",
+            EaepUploadDebugLog.info("SequentialUploadQueue entering awaiting-provider state inFlight={} pending={}",
                     IN_FLIGHT.size(), PENDING.size());
             JeiEncodeQueueDebugLog.info(
                     "handleResult AWAITING_PROVIDER uploaded={} patternName={} inFlightHeadRecipeId={} pendingLeft={} inFlightSize={}",
@@ -250,7 +250,7 @@ public final class RecipeTreeUploadQueue {
 
         frozenUntilServerEncodeResponse = false;
         awaitingProviderUploadCompletion = false;
-        EaepUploadDebugLog.info("RecipeTreeUploadQueue leaving awaiting-provider state uploaded={} inFlightBeforePoll={} pending={}",
+        EaepUploadDebugLog.info("SequentialUploadQueue leaving awaiting-provider state uploaded={} inFlightBeforePoll={} pending={}",
                 packet.uploaded(), IN_FLIGHT.size(), PENDING.size());
 
         EncodePatternPacket sentPacket = IN_FLIGHT.pollFirst();
@@ -305,12 +305,12 @@ public final class RecipeTreeUploadQueue {
         }
         /*
          * JEI「当前页/整类」Ctrl+Shift 顺序批量：preserveInputOrder=false，失败时不再自动收藏配方（避免刷满 JEI 书签）。
-         * 配方树批量上传：preserveInputOrder=true，仍保留收藏以便补做。
+         * 顺序批量上传：preserveInputOrder=true，仍保留收藏以便补做。
          */
         return !(p.jeiSequentialQueue() && p.shiftDown() && !p.preserveInputOrder());
     }
 
-    private static String resultLabel(RecipeTreeUploadResultPacket packet, EncodePatternPacket sentPacket) {
+    private static String resultLabel(SequentialUploadResultPacket packet, EncodePatternPacket sentPacket) {
         String raw = packet.patternName();
         if (raw != null && !raw.isBlank() && !"-".equals(raw)) {
             return raw;
@@ -331,7 +331,7 @@ public final class RecipeTreeUploadQueue {
             showSummaryIfComplete();
             return;
         }
-        RecipeTreeUploadProgressState.setCurrent(next);
+        SequentialUploadProgressState.setCurrent(next);
         IN_FLIGHT.addLast(next);
         PacketDistributor.sendToServer(next);
         frozenUntilServerEncodeResponse = true;
@@ -413,11 +413,11 @@ public final class RecipeTreeUploadQueue {
 
     private static MutableComponent summarySuccessPart(int okCount, int total) {
         if (total <= SUMMARY_DETAIL_NAME_THRESHOLD) {
-            return Component.translatable("message.ae2utility.recipe_tree_upload_ok_detailed_intro")
+            return Component.translatable("message.ae2utility.sequential_upload_ok_detailed_intro")
                     .withStyle(ChatFormatting.GREEN)
                     .append(Component.literal(joinNames(SUCCEEDED)).withStyle(ChatFormatting.GREEN));
         }
-        return Component.translatable("message.ae2utility.recipe_tree_upload_ok_compact", okCount)
+        return Component.translatable("message.ae2utility.sequential_upload_ok_compact", okCount)
                 .withStyle(ChatFormatting.GREEN);
     }
 
@@ -430,14 +430,14 @@ public final class RecipeTreeUploadQueue {
             if (allFailsMissingBlank) {
                 suffix = blankFailSummand(failCount);
             } else {
-                suffix = Component.translatable("message.ae2utility.recipe_tree_upload_fail_detailed_intro")
+                suffix = Component.translatable("message.ae2utility.sequential_upload_fail_detailed_intro")
                         .withStyle(ChatFormatting.YELLOW)
                         .append(Component.literal(joinNames(FAILED)).withStyle(ChatFormatting.YELLOW));
             }
         } else if (allFailsMissingBlank) {
             suffix = blankFailSummand(failCount);
         } else {
-            suffix = Component.translatable("message.ae2utility.recipe_tree_upload_not_uploaded_compact", failCount)
+            suffix = Component.translatable("message.ae2utility.sequential_upload_not_uploaded_compact", failCount)
                     .withStyle(ChatFormatting.YELLOW);
         }
         return suffix;

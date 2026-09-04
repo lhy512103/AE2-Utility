@@ -6,8 +6,7 @@ import java.util.Optional;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
-import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
-import com.lhy.ae2utility.jei.CraftableStateCache;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 
 import net.minecraft.ChatFormatting;
@@ -100,7 +99,7 @@ public final class JeiRecipesBatchEncode {
                         p.providerDisplayName(), p.shiftDown(), p.substitute(), p.substituteFluids(), p.preserveInputOrder(), true,
                         p.jeiFullCategoryBatch(), p.bulkEncodeSessionId()));
             }
-            if (!RecipeTreeUploadQueue.start(queued)) {
+            if (!SequentialUploadQueue.start(queued)) {
                 player.displayClientMessage(
                         Component.translatable("message.ae2utility.batch_encode_session_busy").withStyle(ChatFormatting.GOLD),
                         false);

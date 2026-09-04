@@ -11,7 +11,6 @@ import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
@@ -19,8 +18,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
 import appeng.api.inventories.InternalInventory;
-import appeng.api.config.Actionable;
-import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;

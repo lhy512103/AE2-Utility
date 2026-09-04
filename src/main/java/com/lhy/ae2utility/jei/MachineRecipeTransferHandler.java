@@ -27,7 +27,6 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
-import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.util.PullIngredientOrdering;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;

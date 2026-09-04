@@ -14,7 +14,6 @@ import appeng.menu.me.common.MEStorageMenu;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.inputs.IJeiUserInput;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -28,7 +27,7 @@ public abstract class MixinRecipeTransferButtonController {
     private mezz.jei.gui.recipes.RecipesGui recipesGui;
 
     @Inject(method = "onPress", at = @At("HEAD"), cancellable = true)
-    private void ae2utility$openRecipeTreeBeforeTransfer(IJeiUserInput input, CallbackInfoReturnable<Boolean> cir) {
+    private void ae2utility$batchEncodeCurrentPageBeforeTransfer(IJeiUserInput input, CallbackInfoReturnable<Boolean> cir) {
         if (input.isSimulate() || !Screen.hasShiftDown()) {
             return;
         }
@@ -46,7 +45,7 @@ public abstract class MixinRecipeTransferButtonController {
     }
 
     @Inject(method = "getTooltips", at = @At("TAIL"))
-    private void ae2utility$appendRecipeTreeTooltip(ITooltipBuilder tooltip, CallbackInfo ci) {
+    private void ae2utility$appendBatchEncodeTooltip(ITooltipBuilder tooltip, CallbackInfo ci) {
         AbstractContainerMenu parentContainer = recipesGui.getParentContainerMenu();
         if (parentContainer instanceof MEStorageMenu && !WcwtCompat.isWcwtMenu(parentContainer)) {
             tooltip.add(Component.translatable("jei.tooltip.ae2utility.batch_encode_page"));

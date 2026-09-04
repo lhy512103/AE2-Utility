@@ -9,7 +9,6 @@ import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -144,24 +143,12 @@ public final class JeiBookmarkUtil {
         }
     }
 
-    private static AEKey keyFromTyped(ITypedIngredient<?> typed) {
-        Object ing = typed.getIngredient();
-        if (ing instanceof net.minecraft.world.item.ItemStack is && !is.isEmpty()) {
-            return AEItemKey.of(is);
-        }
-        if (ing instanceof net.neoforged.neoforge.fluids.FluidStack fs && !fs.isEmpty()) {
-            return AEFluidKey.of(fs);
-        }
-        return null;
-    }
-
     private static Object getBookmarkList(IBookmarkOverlay overlay) throws ReflectiveOperationException {
         Field bookmarkListField = overlay.getClass().getDeclaredField("bookmarkList");
         bookmarkListField.setAccessible(true);
         return bookmarkListField.get(overlay);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     private static Object createRecipeBookmark(IJeiRuntime runtime, ResourceLocation recipeId, ITypedIngredient<?> displayIngredient)
             throws ReflectiveOperationException {
         IFocusFactory focusFactory = runtime.getJeiHelpers().getFocusFactory();
@@ -186,7 +173,7 @@ public final class JeiBookmarkUtil {
         return null;
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings("unchecked")
     private static Object findRecipeById(IJeiRuntime runtime, IRecipeCategory<?> category, RecipeType<?> recipeType,
             ResourceLocation recipeId, IFocus<?> focus) {
         try {
@@ -196,7 +183,7 @@ public final class JeiBookmarkUtil {
                     .get()
                     .toList();
             for (Object recipe : recipeList) {
-                ResourceLocation candidateId = ((IRecipeCategory) category).getRegistryName(recipe);
+                ResourceLocation candidateId = categoryRegistryName(category, recipe);
                 if (recipeId.equals(candidateId)) {
                     return recipe;
                 }
@@ -204,6 +191,11 @@ public final class JeiBookmarkUtil {
         } catch (ClassCastException ignored) {
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ResourceLocation categoryRegistryName(IRecipeCategory<?> category, Object recipe) {
+        return ((IRecipeCategory<Object>) category).getRegistryName(recipe);
     }
 
     private static ITypedIngredient<?> toTypedIngredient(IIngredientManager ingredientManager, GenericStack stack) {

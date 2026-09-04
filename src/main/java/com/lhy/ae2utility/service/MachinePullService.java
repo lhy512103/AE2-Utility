@@ -17,8 +17,6 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-import appeng.api.config.Actionable;
-import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
@@ -26,7 +24,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageHelper;
 
-import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 import com.lhy.ae2utility.network.PullMachineRecipeInputsPacket;
@@ -464,13 +461,6 @@ public final class MachinePullService {
         if (!skippedItems.isEmpty()) {
             player.sendSystemMessage(Component.translatable("message.ae2utility.full", summarizeStacks(skippedItems)));
         }
-    }
-
-    private static String describeStacks(List<ItemStack> stacks) {
-        if (stacks.isEmpty()) {
-            return "[]";
-        }
-        return "[" + summarizeStacks(stacks) + "]";
     }
 
     private static String summarizeStacks(List<ItemStack> stacks) {

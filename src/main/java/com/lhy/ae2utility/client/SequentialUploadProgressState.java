@@ -6,12 +6,12 @@ import net.minecraft.resources.ResourceLocation;
 
 import com.lhy.ae2utility.network.EncodePatternPacket;
 
-public final class RecipeTreeUploadProgressState {
+public final class SequentialUploadProgressState {
     private static @Nullable String currentPatternName;
     private static @Nullable String currentMachineName;
     private static @Nullable ResourceLocation currentRecipeId;
 
-    private RecipeTreeUploadProgressState() {
+    private SequentialUploadProgressState() {
     }
 
     public static void setCurrent(EncodePatternPacket packet) {

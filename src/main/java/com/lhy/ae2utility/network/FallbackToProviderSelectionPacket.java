@@ -1,6 +1,5 @@
 package com.lhy.ae2utility.network;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.lhy.ae2utility.Ae2UtilityMod;

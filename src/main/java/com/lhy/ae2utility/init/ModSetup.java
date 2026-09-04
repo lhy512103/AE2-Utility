@@ -12,6 +12,7 @@ public final class ModSetup {
             event.accept(ModItems.NBT_TEAR_CARD);
             event.accept(ModItems.REDSTONE_SIGNAL_CARD);
             event.accept(ModItems.RECIPE_FINDER);
+            event.accept(ModItems.ME_QUICK_TRANSFER);
         }
     }
 }

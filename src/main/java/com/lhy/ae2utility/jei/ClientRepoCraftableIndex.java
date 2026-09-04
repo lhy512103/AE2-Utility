@@ -14,7 +14,7 @@ import appeng.menu.me.common.MEStorageMenu;
  * 与 AE2 终端 JEI 拉配方预览同源：依据 {@link MEStorageMenu#getClientRepo()} 快照中 {@code entry.isCraftable()}
  * 的输出键判断是否可 autocraft。<p>
  * 在同一客户端 {@linkplain #advanceClientTick() tick} 内对同一 {@link MEStorageMenu} 实例只遍历一次 {@code getAllEntries()}，
- * 后续 {@link AEKey} 查询为集合 O(1)，避免编码箭头 / 书签 / 配方树 / 拉配方预览等在同 tick 重复全表扫描。</p>
+ * 后续 {@link AEKey} 查询为集合 O(1)，避免编码箭头 / 书签 / 顺序批量 / 拉配方预览等在同 tick 重复全表扫描。</p>
  */
 public final class ClientRepoCraftableIndex {
     /** 单调递增；每次 {@link #advanceClientTick()} 加一，用于使跨 tick 的缓存失效。 */

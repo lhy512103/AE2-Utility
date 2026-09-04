@@ -71,22 +71,6 @@ public final class EncodePatternPreviewStorage {
         return null;
     }
 
-    private static double guiScaledMouseX(@Nullable Minecraft mc) {
-        if (mc == null || mc.getWindow() == null) {
-            return 0;
-        }
-        var win = mc.getWindow();
-        return mc.mouseHandler.xpos() * win.getGuiScaledWidth() / Math.max(1, win.getScreenWidth());
-    }
-
-    private static double guiScaledMouseY(@Nullable Minecraft mc) {
-        if (mc == null || mc.getWindow() == null) {
-            return 0;
-        }
-        var win = mc.getWindow();
-        return mc.mouseHandler.ypos() * win.getGuiScaledHeight() / Math.max(1, win.getScreenHeight());
-    }
-
     /**
      * 已关闭：<strong>SHIFT 预览 / 轮换时在 INPUT 槽固定「与发包选股一致」的展示Ingredient</strong>（高替补配方下极卡）。<br>
      * {@link EncodePatternRecipeLayoutContext}、{@code MixinRecipeSlotEncodeShiftPin} 会先检查此方法再决定是否劫持。
@@ -97,44 +81,13 @@ public final class EncodePatternPreviewStorage {
 
     /** 占位：曾用于 CycleTicker「悬停箭头/槽冻结轮换」，当前与其它逻辑一并关闭时可恒为 false。 */
     public static boolean shouldFreezeIngredientCycleForLayout(@Nullable IRecipeLayoutDrawable<?> layout) {
-        return SHIFT_PIN_INGREDIENT_OVERRIDES_ENABLED && shouldFreezeIngredientCycleIfEnabled(layout);
-    }
-
-    private static boolean shouldFreezeIngredientCycleIfEnabled(@Nullable IRecipeLayoutDrawable<?> layout) {
-        if (layout == null) {
-            return false;
-        }
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.getWindow() == null) {
-            return false;
-        }
-        double mx = guiScaledMouseX(mc);
-        double my = guiScaledMouseY(mc);
-        EncodePatternButtonController ctrl = EncodePatternButtonController.CONTROLLERS.get(layout);
-        boolean buttonHit = ctrl != null && ctrl.isMouseOverEncodeButton(mx, my);
-        boolean slotHit = layout.getRecipeSlotUnderMouse(mx, my).isPresent();
-        return buttonHit || slotHit;
+        return false;
     }
 
     /**
      * INPUT 槽展示是否按 ME 选股固定（与移位发送一致）。当前 {@link #SHIFT_PIN_INGREDIENT_OVERRIDES_ENABLED} 为 false，恒不固定。
      */
     public static boolean shouldPinDisplayedIngredient(@Nullable IRecipeLayoutDrawable<?> layout, @Nullable IRecipeSlotView slot) {
-        if (!SHIFT_PIN_INGREDIENT_OVERRIDES_ENABLED) {
-            return false;
-        }
-        if (layout == null || slot == null) {
-            return false;
-        }
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.getWindow() == null) {
-            return false;
-        }
-        double mx = guiScaledMouseX(mc);
-        double my = guiScaledMouseY(mc);
-        EncodePatternButtonController ctrl = EncodePatternButtonController.CONTROLLERS.get(layout);
-        boolean buttonHit = ctrl != null && ctrl.isMouseOverEncodeButton(mx, my);
-        boolean slotHit = layout.getRecipeSlotUnderMouse(mx, my).isPresent();
-        return buttonHit || slotHit;
+        return false;
     }
 }

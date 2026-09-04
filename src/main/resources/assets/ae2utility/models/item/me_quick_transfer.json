@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "ae2utility:item/me_quick_transfer"
+  }
+}

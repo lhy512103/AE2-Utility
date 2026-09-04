@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
-import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.client.jei.BlankPatternClientPrecheck;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
@@ -103,7 +103,7 @@ public final class EmiRecipesBatchEncode {
                         p.providerDisplayName(), p.shiftDown(), p.substitute(), p.substituteFluids(), p.preserveInputOrder(), true,
                         p.jeiFullCategoryBatch(), p.bulkEncodeSessionId(), p.craftingCategoryHint()));
             }
-            if (!RecipeTreeUploadQueue.start(queued)) {
+            if (!SequentialUploadQueue.start(queued)) {
                 player.displayClientMessage(
                         Component.translatable("message.ae2utility.batch_encode_session_busy").withStyle(ChatFormatting.GOLD),
                         false);

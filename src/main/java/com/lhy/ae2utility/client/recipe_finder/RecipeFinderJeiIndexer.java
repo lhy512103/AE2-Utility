@@ -14,7 +14,6 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
@@ -171,7 +170,8 @@ public final class RecipeFinderJeiIndexer {
             return null;
         }
 
-        return new EncodePatternPacket(inputs, outputs, recipeId, displayName, "", machineLabel, false, false, false, false);
+        return new EncodePatternPacket(inputs, outputs, recipeId, displayName, "", machineLabel, false, false, false, false,
+                false, false, 0, false);
     }
 
     private static Set<String> collectFeatures(List<IRecipeSlotView> slots) {

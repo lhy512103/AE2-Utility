@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.7.9
+
+### English
+
+#### Added
+
+1. Added the ME Quick Transfer Tool. It can be linked to an ME network through a wireless access point and transfers items, fluids, and Mekanism chemicals directly from targeted containers.
+
+#### Fixed
+
+1. Fixed an EMI/JEMI recipe conversion path that could create a widget with invalid state and show a render error.
+2. Fixed newer JEI side-button coordinates being offset a second time by the custom layout mixin.
+
+#### Removed
+
+1. Removed obsolete recipe-tree upload naming and related stale UI/debug resources while retaining sequential upload behavior.
+
+### 中文
+
+#### 新增
+
+1. 新增 ME快捷转移工具，可通过无线接入点绑定 ME 网络，将目标容器中的物品、流体和 Mekanism 化学品直接转移至网络。
+
+#### 修复
+
+1. 修复 EMI/JEMI 转 JEI 配方时，构造无效 widget 并显示渲染错误的问题。
+2. 修复新版 JEI 已返回侧边按钮坐标后，自定义布局 mixin 再次偏移坐标的问题。
+
+#### 移除
+
+1. 移除过时的配方树上传命名及相关旧 UI/调试资源，同时保留顺序上传功能。
+
+
 ## 1.7.8
 
 ### English

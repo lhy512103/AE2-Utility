@@ -51,6 +51,7 @@ configurations {
     clientLocalRuntime {
         exclude group: "top.theillusivec4.curios", module: "curios-neoforge"
     }
+    emiRuntime
     localRuntime.extendsFrom coreLocalRuntime, ae2AddonLocalRuntime, compatibilityLocalRuntime
     runtimeClasspath.extendsFrom localRuntime
 }
@@ -62,6 +63,10 @@ sourceSets {
     clientRuntime {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += output + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime
+    }
+    clientRuntimeEmi {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + sourceSets.main.runtimeClasspath + configurations.clientLocalRuntime + configurations.emiRuntime
     }
     clientMinimal {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
@@ -88,6 +93,11 @@ neoForge {
             client()
             gameDirectory = file('run/client')
             sourceSet = sourceSets.clientRuntime
+        }
+        clientEMI {
+            client()
+            gameDirectory = file('run/clientEMI')
+            sourceSet = sourceSets.clientRuntimeEmi
         }
         server {
             server()
@@ -239,6 +249,10 @@ tasks.named("compileJava").configure {
 }
 
 tasks.named("prepareClientRun").configure {
+    dependsOn("sanitizeNeoEcoJar")
+}
+
+tasks.named("prepareClientEMIRun").configure {
     dependsOn("sanitizeNeoEcoJar")
 }
 

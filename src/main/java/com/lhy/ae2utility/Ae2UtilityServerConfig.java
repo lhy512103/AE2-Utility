@@ -34,7 +34,7 @@ public final class Ae2UtilityServerConfig {
 
     /**
      * 单次「共享 bulk 会话」内最多实际编码的样板条数（超出部分不会编码）；{@code -1} 表示关闭该上限（不截断、不按会话计数）。
-     * JEI 全类/当前页、配方树、配方查找器等共用。
+     * JEI 全类/当前页、顺序批量上传、配方查找器等共用。
      */
     public static final ModConfigSpec.IntValue JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION;
 
@@ -52,6 +52,12 @@ public final class Ae2UtilityServerConfig {
      * 额外自定义 NBT 撕裂黑名单。这里列出的物品不会被撕裂卡放宽匹配。
      */
     public static final ModConfigSpec.ConfigValue<List<? extends String>> NBT_TEAR_CARD_ITEM_BLACKLIST;
+
+    /** Fixed AE energy cost for one normal transfer request. */
+    public static final ModConfigSpec.DoubleValue ME_QUICK_TRANSFER_GROUP_ENERGY;
+
+    /** Fixed AE energy cost for one sneak-transfer request. */
+    public static final ModConfigSpec.DoubleValue ME_QUICK_TRANSFER_ALL_ENERGY;
 
     static {
         BUILDER.comment("Pattern encoding policy for dedicated servers / singleplayer host.");
@@ -89,7 +95,17 @@ public final class Ae2UtilityServerConfig {
                 .translation("ae2utility.serverConfig.nbtTearCardItemBlacklist")
                 .defineList("nbtTearCardItemBlacklist",
                         List.of(),
+                        () -> "",
                         value -> value instanceof String id && ResourceLocation.tryParse(id) != null);
+        BUILDER.comment("ME Quick Transfer Tool energy costs.");
+        ME_QUICK_TRANSFER_GROUP_ENERGY = BUILDER
+                .comment("Fixed AE energy cost for a normal right-click transfer.")
+                .translation("ae2utility.serverConfig.meQuickTransferGroupEnergy")
+                .defineInRange("meQuickTransferGroupEnergy", 100.0, 0.0, Double.MAX_VALUE);
+        ME_QUICK_TRANSFER_ALL_ENERGY = BUILDER
+                .comment("Fixed AE energy cost for a sneak right-click transfer of all available contents.")
+                .translation("ae2utility.serverConfig.meQuickTransferAllEnergy")
+                .defineInRange("meQuickTransferAllEnergy", 1000.0, 0.0, Double.MAX_VALUE);
         SPEC = BUILDER.build();
     }
 
@@ -106,6 +122,14 @@ public final class Ae2UtilityServerConfig {
 
     public static int jeiBulkEncodeMaxPatternsPerSession() {
         return JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION.get();
+    }
+
+    public static double meQuickTransferGroupEnergy() {
+        return ME_QUICK_TRANSFER_GROUP_ENERGY.get();
+    }
+
+    public static double meQuickTransferAllEnergy() {
+        return ME_QUICK_TRANSFER_ALL_ENERGY.get();
     }
 
     public static boolean isNbtTearCardItemBlacklisted(ResourceLocation itemId) {

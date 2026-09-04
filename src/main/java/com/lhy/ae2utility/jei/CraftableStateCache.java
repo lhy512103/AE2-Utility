@@ -34,13 +34,13 @@ public final class CraftableStateCache {
     private static final long CACHE_TTL_MS = 5000L;
 
     /**
-     * 样板可合成快照更新后置位；配方树界面在 tick 中消费并重算「所需样板数」与合并层红框缓存，避免每帧扫树。
+     * 样板可合成快照更新后置位；JEICT 等界面在 tick 中消费并刷新已有样板缓存。
      */
-    private static volatile boolean recipeTreeOverlayCachesStale;
+    private static volatile boolean existingPatternCachesStale;
 
     /**
      * 每当可合成快照发生变化（收到回包 / 主动失效）即自增。供多个只读消费者（如 JEI 编码箭头按钮）
-     * 判断自身缓存是否需要重算，而无需像 {@link #pollRecipeTreeOverlayCachesStale()} 那样「消费一次即清零」。
+     * 判断自身缓存是否需要重算，而无需像 {@link #pollExistingPatternCachesStale()} 那样「消费一次即清零」。
      */
     private static volatile long cacheVersion;
 
@@ -137,7 +137,7 @@ public final class CraftableStateCache {
         for (AEKey key : packet.uncraftableKeys()) {
             CACHE.put(key, new CacheEntry(false, now));
         }
-        recipeTreeOverlayCachesStale = true;
+        existingPatternCachesStale = true;
         cacheVersion++;
     }
 
@@ -151,7 +151,7 @@ public final class CraftableStateCache {
             CACHE.remove(key);
             PENDING_REQUESTS.remove(key);
         }
-        recipeTreeOverlayCachesStale = true;
+        existingPatternCachesStale = true;
         cacheVersion++;
     }
 
@@ -161,11 +161,11 @@ public final class CraftableStateCache {
     }
 
     /** @return true 并已清除标记（每帧至多消费一次）。 */
-    public static boolean pollRecipeTreeOverlayCachesStale() {
-        if (!recipeTreeOverlayCachesStale) {
+    public static boolean pollExistingPatternCachesStale() {
+        if (!existingPatternCachesStale) {
             return false;
         }
-        recipeTreeOverlayCachesStale = false;
+        existingPatternCachesStale = false;
         return true;
     }
 
@@ -175,7 +175,8 @@ public final class CraftableStateCache {
         }
         RegistryFriendlyByteBuf buffer = null;
         try {
-            buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), Minecraft.getInstance().level.registryAccess());
+            buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), Minecraft.getInstance().level.registryAccess(),
+                    net.neoforged.neoforge.network.connection.ConnectionType.OTHER);
             AEKey.writeKey(buffer, key);
             return true;
         } catch (RuntimeException ex) {

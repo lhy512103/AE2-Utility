@@ -70,7 +70,7 @@ public final class MachineTransferProfiles {
         return List.copyOf(list);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings("rawtypes")
     private static void addExternal(List<MachineTransferProfile> list, String id, String menuClassName, String recipeNamespace, String recipePath, String recipeClassName, int... inputSlotIndices) {
         try {
             Class<?> menuClass = Class.forName(menuClassName);

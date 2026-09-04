@@ -17,7 +17,6 @@ import com.lhy.ae2utility.item.RecipeFinderItem;
 public class RecipeFinderMenu extends AbstractContainerMenu {
     public static final int SAMPLE_SLOT_INDEX = 0;
 
-    private final Player player;
     private final InteractionHand hand;
     private final SimpleContainer sampleContainer = new SimpleContainer(1);
 
@@ -29,7 +28,6 @@ public class RecipeFinderMenu extends AbstractContainerMenu {
 
     public RecipeFinderMenu(MenuType<?> type, int windowId, Inventory inv, InteractionHand hand) {
         super(type, windowId);
-        this.player = inv.player;
         this.hand = hand;
 
         addSlot(new MarkFilterSlot(sampleContainer, SAMPLE_SLOT_INDEX, 8, 19));

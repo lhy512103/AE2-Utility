@@ -11,8 +11,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import appeng.api.crafting.PatternDetailsHelper;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
-import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
-import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
 import com.lhy.ae2utility.jei.ClientRepoCraftableIndex;
 import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.JeiClientCacheContext;
@@ -26,7 +24,7 @@ public class Ae2UtilityClient {
         ClientRepoCraftableIndex.advanceClientTick();
         CraftableStateCache.tick();
         InventoryPatternUploadQueue.tick();
-        RecipeTreeUploadQueue.tick();
+        SequentialUploadQueue.tick();
     }
 
     @SubscribeEvent

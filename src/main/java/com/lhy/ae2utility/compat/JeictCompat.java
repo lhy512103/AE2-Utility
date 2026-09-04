@@ -13,7 +13,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
 import com.mojang.logging.LogUtils;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
-import com.lhy.ae2utility.client.RecipeTreeUploadQueue;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
 import com.lhy.ae2utility.client.jei.BlankPatternClientPrecheck;
 import com.lhy.ae2utility.jei.BulkEncodeSessions;
 import com.lhy.ae2utility.jei.CraftableStateCache;
@@ -116,7 +116,7 @@ public final class JeictCompat {
                 case "isCraftable", "isOutputCraftable" -> isCraftable(args == null ? null : args[0]);
                 case "hasExactPattern" -> isRecipeOutputCraftable(args[0]);
                 case "exactPatternFingerprint" -> String.valueOf(JeictCompat.invoke(args[0], "stableIdentity"));
-                case "pollExistingPatternCachesStale" -> CraftableStateCache.pollRecipeTreeOverlayCachesStale();
+                case "pollExistingPatternCachesStale" -> CraftableStateCache.pollExistingPatternCachesStale();
                 case "isStrictEncodable" -> toEncodePacket(args[0], false, 0) != null;
                 case "encodePatterns" -> encodePatterns(castRecipeList(args[0]), false);
                 case "uploadPatterns" -> encodePatterns(castRecipeList(args[0]), true);
@@ -218,7 +218,7 @@ public final class JeictCompat {
                             .withStyle(ChatFormatting.GOLD), false);
         }
         if (stopBatchEncodeIfLocallyNoDetectableBlank()) return false;
-        if (uploadMode) RecipeTreeUploadQueue.startReplacing(packets);
+        if (uploadMode) SequentialUploadQueue.startReplacing(packets);
         else for (EncodePatternPacket packet : packets) PacketDistributor.sendToServer(packet);
         return true;
     }
@@ -419,7 +419,7 @@ public final class JeictCompat {
             lines.add(Component.translatable("gui.tooltips.ae2.SubstitutionsOff"));
             lines.add(Component.translatable("gui.tooltips.ae2.SubstitutionsDescDisabled").withStyle(ChatFormatting.GRAY));
         }
-        lines.add(Component.translatable("gui.ae2utility.recipe_tree.overview_substitution_encode_hint")
+        lines.add(Component.translatable("gui.ae2utility.bulk_encode.substitution_hint")
                 .withStyle(ChatFormatting.DARK_AQUA));
         return lines;
     }

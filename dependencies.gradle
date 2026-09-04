@@ -2,11 +2,13 @@ dependencies {
     // ── 编译期 API ─────────────────────────────────────────────
     // JEI 完整（非仅 API）：编译期需要 RecipesGui、ImmutableRect2i 等实现类
     compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    compileOnly "curse.maven:jei-238222:${jei_file}"
     compileOnly "dev.emi:emi-neoforge:${emi_version}"
     // Optional compile-time contract for direct EAEP integration; remains optional at runtime.
     compileOnly "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
+    compileOnly "curse.maven:mekanism-268560:${mekanism_file}"
+    compileOnly "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
+    compileOnly "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
 
     // ── 运行时核心模组 ─────────────────────────────────────────
     coreLocalRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
@@ -16,13 +18,13 @@ dependencies {
     coreLocalRuntime "curse.maven:curios-309927:6529130"
 
     // ── 运行时配方查看器 ───────────────────────────────────────
-    // JEI 与 EMI 二选一；当前运行配置切换为 EMI，便于测试 EMI 集成。
-    coreLocalRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    //coreLocalRuntime "dev.emi:emi-neoforge:${emi_version}"
+    // runClient 用 JEI；runClientEMI 在同一套运行时上额外加载 EMI。
+    coreLocalRuntime "curse.maven:jei-238222:${jei_file}"
+    emiRuntime "dev.emi:emi-neoforge:${emi_version}"
 
     // ── 运行时 AE2 扩展 ────────────────────────────────────────
     ae2AddonLocalRuntime "curse.maven:advancedae-1084104:${advancedae_file}"
-    ae2AddonLocalRuntime "curse.maven:ae2-crystal-science-1435174:8112039"
+    ae2AddonLocalRuntime "curse.maven:ae2-crystal-science-1435174:${ae2cs_file}"
     ae2AddonLocalRuntime "curse.maven:ae2-import-export-card-982512:8033654"
     ae2AddonLocalRuntime "curse.maven:ex-pattern-provider-892005:${extendedae_file}"
     ae2AddonLocalRuntime "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
@@ -33,15 +35,18 @@ dependencies {
     ae2AddonLocalRuntime "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
     ae2AddonLocalRuntime "curse.maven:merequester-688367:7844592"
     // AE2 Lightning Tech 2.x requires Thunderbolt Core.
-    ae2AddonLocalRuntime "curse.maven:thunderbolt-core-1631756:8616071"
-    ae2AddonLocalRuntime "curse.maven:ae2-lightning-tech-1527395:8616068"
-    ae2AddonLocalRuntime "curse.maven:data-energistics-1565514:8429524"
+    ae2AddonLocalRuntime "curse.maven:thunderbolt-core-1631756:${thunderbolt_file}"
+    ae2AddonLocalRuntime "curse.maven:ae2-lightning-tech-1527395:${ae2lt_file}"
+    ae2AddonLocalRuntime "curse.maven:ae2helpers-1450496:7634384"
+    // ae2AddonLocalRuntime "curse.maven:data-energistics-1565514:8429524"
     ae2AddonLocalRuntime "curse.maven:aeinfinitybooster-559313:8377914"
     ae2AddonLocalRuntime "curse.maven:clientsort-1049891:8172893"
     ae2AddonLocalRuntime "curse.maven:inventory-essentials-368825:8362286"
     ae2AddonLocalRuntime "curse.maven:balm-531761:8424824"
 
     // ── 运行时依赖与集成目标 ───────────────────────────────────
+    compatibilityLocalRuntime "curse.maven:inventory-profiles-next-495267:${inventory_profiles_next_file}"
+    compatibilityLocalRuntime "curse.maven:libipn-679177:${libipn_file}"
     compatibilityLocalRuntime "curse.maven:glodium-957920:${glodium_file}"
     compatibilityLocalRuntime "curse.maven:geckolib-388172:${geckolib_file}"
     compatibilityLocalRuntime "curse.maven:cloth-config-348521:${cloth_config_file}"
@@ -106,5 +111,5 @@ dependencies {
     clientLocalRuntime "curse.maven:searchables-858542:${searchables_file}"
     clientLocalRuntime "curse.maven:controlling-250398:${controlling_file}"
     clientLocalRuntime "curse.maven:imblocker-483760:${imblocker_file}"
-    clientLocalRuntime "curse.maven:just-enough-characters-250702:${jech_file}"
+    clientLocalRuntime "maven.modrinth:I7k4B65h:XPKoy65e"
 }

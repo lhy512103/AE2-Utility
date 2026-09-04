@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -125,9 +124,9 @@ public final class EncodePatternService {
         EncodeOutcome outcome = encodePatternInternal(serverPlayer, payload, sequential);
         if (sequential) {
             if (outcome == EncodeOutcome.BATCH_SKIP_DUPLICATE) {
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), true);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), true);
             } else if (outcome == EncodeOutcome.BATCH_ABORT_NO_BLANK) {
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true,
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true,
                         false, true);
             }
         }
@@ -344,6 +343,16 @@ public final class EncodePatternService {
     }
 
     @SuppressWarnings("unchecked")
+    private static RecipeHolder<CraftingRecipe> asCraftingHolder(RecipeHolder<?> recipeHolder) {
+        return (RecipeHolder<CraftingRecipe>) recipeHolder;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static RecipeHolder<StonecutterRecipe> asStonecutterHolder(RecipeHolder<?> recipeHolder) {
+        return (RecipeHolder<StonecutterRecipe>) recipeHolder;
+    }
+
+    @SuppressWarnings("unchecked")
     private static ItemStack smithingEncodedIfComplete(RecipeHolder<?> recipeHolder, boolean substitute,
             @Nullable AEItemKey template,
             @Nullable AEItemKey base,
@@ -402,7 +411,7 @@ public final class EncodePatternService {
                     if (outStack == null) {
                         outStack = ItemStack.EMPTY;
                     }
-                    encodedPattern = PatternDetailsHelper.encodeCraftingPattern((RecipeHolder) recipeHolder, inArray, outStack,
+                    encodedPattern = PatternDetailsHelper.encodeCraftingPattern(asCraftingHolder(recipeHolder), inArray, outStack,
                             payload.substitute(), payload.substituteFluids());
                     encodedInputs = EncodePatternInputChooser.alignCraftingGridToJeiSlots(in, inArray);
                     canUploadToMatrix = true;
@@ -416,7 +425,7 @@ public final class EncodePatternService {
                     AEItemKey inKey = in.isEmpty() || in.get(0) == null ? null : (in.get(0).what() instanceof AEItemKey k ? k : null);
                     AEItemKey outKey = out.isEmpty() || out.get(0) == null ? null : (out.get(0).what() instanceof AEItemKey k ? k : null);
                     if (inKey != null && outKey != null) {
-                        encodedPattern = PatternDetailsHelper.encodeStonecuttingPattern((RecipeHolder) recipeHolder, inKey, outKey,
+                        encodedPattern = PatternDetailsHelper.encodeStonecuttingPattern(asStonecutterHolder(recipeHolder), inKey, outKey,
                                 payload.substitute());
                         encodedInputs = in;
                         canUploadToMatrix = true;
@@ -435,7 +444,7 @@ public final class EncodePatternService {
                 if (outStack == null) {
                     outStack = ItemStack.EMPTY;
                 }
-                encodedPattern = PatternDetailsHelper.encodeCraftingPattern((RecipeHolder) fallback.recipeHolder(),
+                encodedPattern = PatternDetailsHelper.encodeCraftingPattern(fallback.recipeHolder(),
                         fallback.inputs(), outStack, payload.substitute(), payload.substituteFluids());
                 encodedInputs = EncodePatternInputChooser.alignCraftingGridToJeiSlots(in, fallback.inputs());
                 canUploadToMatrix = true;
@@ -532,7 +541,7 @@ public final class EncodePatternService {
         }
         if (com.lhy.ae2utility.integration.eaep.EaepReflection.matrixContainsPattern(eaepGrid, encodedPattern)) {
             serverPlayer.sendSystemMessage(Component.translatable("extendedae_plus.message.matrix.duplicate"));
-            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer,
+            SequentialUploadResultBridge.sendImmediateResult(serverPlayer,
                     payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName(), false);
             return true;
         }
@@ -554,7 +563,7 @@ public final class EncodePatternService {
         }
         serverPlayer.sendSystemMessage(
                 Component.translatable("message.ae2utility.eco_pattern_duplicate").withStyle(net.minecraft.ChatFormatting.GOLD));
-        RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer,
+        SequentialUploadResultBridge.sendImmediateResult(serverPlayer,
                 payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName(), false);
         return true;
     }
@@ -581,7 +590,7 @@ public final class EncodePatternService {
         EncodeContext ctx = resolveEncodeContext(serverPlayer);
         if (ctx == null) {
             if (payload.jeiSequentialQueue()) {
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false);
             }
             return EncodeOutcome.FAILURE;
         }
@@ -591,9 +600,9 @@ public final class EncodePatternService {
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_rejected_require_open_encoding_menu"));
             if (payload.jeiSequentialQueue()) {
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false);
             } else {
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             }
             return EncodeOutcome.FAILURE;
         }
@@ -606,8 +615,8 @@ public final class EncodePatternService {
         MEStorage inventory = ctx.inventory();
         IGrid grid = ctx.grid();
 
-        RecipeTreeUploadResultBridge.clearPendingName(serverPlayer);
-        RecipeTreeUploadContextBridge.clear(serverPlayer);
+        SequentialUploadResultBridge.clearPendingName(serverPlayer);
+        SequentialUploadContextBridge.clear(serverPlayer);
 
         AEItemKey blankPatternKey = AEItemKey.of(AEItems.BLANK_PATTERN);
 
@@ -615,7 +624,7 @@ public final class EncodePatternService {
         List<GenericStack> out = payload.outputs();
         if (!isValidPatternPayload(inLists, out)) {
             serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.jeict_pattern_draft_invalid"));
-            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             return EncodeOutcome.FAILURE;
         }
 
@@ -635,7 +644,7 @@ public final class EncodePatternService {
                         payload.preserveInputOrder(), outputKeys::contains);
                 if (chosen == null) {
                     serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.jeict_pattern_draft_invalid"));
-                    RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
                     return EncodeOutcome.FAILURE;
                 }
                 in.add(chosen);
@@ -643,7 +652,7 @@ public final class EncodePatternService {
         }
 
         if (in.isEmpty() || out.isEmpty()) {
-            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             return EncodeOutcome.FAILURE;
         }
 
@@ -652,7 +661,7 @@ public final class EncodePatternService {
         boolean canUploadToMatrix = computation.canUploadToMatrix();
 
         if (encodedPattern.isEmpty()) {
-            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             return EncodeOutcome.FAILURE;
         }
 
@@ -678,7 +687,7 @@ public final class EncodePatternService {
             if (!batchMode) {
                 serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.encode_failed_no_blank_named",
                         payload.patternName().isBlank() ? "-" : payload.patternName()));
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             }
             return batchMode ? EncodeOutcome.BATCH_ABORT_NO_BLANK : EncodeOutcome.FAILURE;
         }
@@ -692,7 +701,7 @@ public final class EncodePatternService {
                     && com.lhy.ae2utility.integration.eco.EcoReflection.isLoaded()
                     && com.lhy.ae2utility.integration.eco.EcoReflection.tryInsertPattern(grid, encodedPattern)) {
                 String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
                 sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
                 return EncodeOutcome.SUCCESS;
             }
@@ -715,7 +724,7 @@ public final class EncodePatternService {
                                 serverPlayer.sendSystemMessage(
                                         Component.translatable("message.ae2utility.recipe_shift_batch_aborted_no_network")
                                                 .withStyle(net.minecraft.ChatFormatting.RED));
-                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false,
+                                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false,
                                         true);
                                 return EncodeOutcome.FAILURE;
                             }
@@ -734,13 +743,13 @@ public final class EncodePatternService {
                             if (uploadedMatrix) {
                                 disarmEaepShiftBlankRefund(serverPlayer);
                                 String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
                                 sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
                                 return EncodeOutcome.SUCCESS;
                             }
 
                             /*
-                             * JEI Ctrl+Shift 顺序批量：preserveInputOrder=false（配方树批量为 true）。
+                             * JEI Ctrl+Shift 顺序批量：preserveInputOrder=false（JEICT 批量为 true）。
                              * 矩阵与 EAEP upload 均未接受时视作「矩阵满/无法再塞」一类，中止整批，避免逐项弹供应器又把失败配方收藏满 JEI。
                              * 仅对「可进矩阵」的样板适用；处理样板不会到达此分支。
                              */
@@ -753,22 +762,22 @@ public final class EncodePatternService {
                                 serverPlayer.sendSystemMessage(
                                         Component.translatable("message.ae2utility.shift_batch_aborted_matrix_reject").withStyle(
                                                 net.minecraft.ChatFormatting.GOLD));
-                                RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true);
+                                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true);
                                 sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
                                 return EncodeOutcome.FAILURE;
                             }
                         }
 
                         sendEaepProviderSearchSync(serverPlayer, payload);
-                        RecipeTreeUploadContextBridge.rememberGrid(serverPlayer, eaepGrid);
-                        RecipeTreeUploadContextBridge.rememberPendingSearchKey(serverPlayer,
+                        SequentialUploadContextBridge.rememberGrid(serverPlayer, eaepGrid);
+                        SequentialUploadContextBridge.rememberPendingSearchKey(serverPlayer,
                                 deriveRawEaepSearchKeyForSync(serverPlayer, payload));
-                        RecipeTreeUploadContextBridge.rememberPendingProviderDisplayName(serverPlayer, payload.providerDisplayName());
+                        SequentialUploadContextBridge.rememberPendingProviderDisplayName(serverPlayer, payload.providerDisplayName());
                         com.lhy.ae2utility.integration.eaep.EaepReflection.clearPendingCtrlQUpload(serverPlayer);
-                        RecipeTreeUploadResultBridge.rememberPendingName(serverPlayer, sequentialResultLabel(payload));
+                        SequentialUploadResultBridge.rememberPendingName(serverPlayer, sequentialResultLabel(payload));
                         List<AEKey> pendingCraftableRefresh = collectCraftableKeysForRefresh(payload);
                         if (!pendingCraftableRefresh.isEmpty()) {
-                            RecipeTreeUploadResultBridge.rememberPendingCraftableRefresh(serverPlayer, pendingCraftableRefresh);
+                            SequentialUploadResultBridge.rememberPendingCraftableRefresh(serverPlayer, pendingCraftableRefresh);
                         }
                         com.lhy.ae2utility.integration.eaep.EaepReflection
                                 .beginPendingCtrlQUpload(serverPlayer, encodedPattern.copyWithCount(1));
@@ -784,7 +793,7 @@ public final class EncodePatternService {
                          */
                         if (!batchMode || payload.jeiSequentialQueue()) {
                             armEaepShiftBlankForPendingProvider(serverPlayer, ctx, blankSource, blankPatternKey);
-                            RecipeTreeUploadResultBridge.sendAwaitingProviderUpload(serverPlayer, sequentialResultLabel(payload));
+                            SequentialUploadResultBridge.sendAwaitingProviderUpload(serverPlayer, sequentialResultLabel(payload));
                         }
                         EaepUploadDebugLog.info(
                                 "EncodePattern EAEP beginPendingCtrlQUpload sequential={} recipeId={} patternItem={} rememberedGrid=true",
@@ -792,11 +801,11 @@ public final class EncodePatternService {
                         return EncodeOutcome.EAEP_PROVIDER_UI_OPENED;
                     }
                 } catch (Throwable e) {
-                    RecipeTreeUploadResultBridge.clearPendingName(serverPlayer);
+                    SequentialUploadResultBridge.clearPendingName(serverPlayer);
                     boolean refundedShiftBlank = refundEaepShiftBlankIfPending(serverPlayer);
                     EaepUploadDebugLog.error("EncodePattern EAEP branch threw patternName=" + payload.patternName(), e);
                     String failName = payload.jeiSequentialQueue() ? sequentialResultLabel(payload) : payload.patternName();
-                    RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, failName, false);
+                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, failName, false);
                     if (!refundedShiftBlank) {
                         refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
                     }
@@ -805,13 +814,13 @@ public final class EncodePatternService {
             }
             giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
             disarmEaepShiftBlankRefund(serverPlayer);
-            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
             return EncodeOutcome.SUCCESS;
         } catch (Throwable e) {
-            RecipeTreeUploadResultBridge.clearPendingName(serverPlayer);
+            SequentialUploadResultBridge.clearPendingName(serverPlayer);
             Ae2UtilityMod.LOGGER.error("Error encoding pattern: ", e);
-            RecipeTreeUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
             if (!refundEaepShiftBlankIfPending(serverPlayer)) {
                 refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
             }
@@ -1103,7 +1112,7 @@ public final class EncodePatternService {
     }
 
     /**
-     * 已进入 EAEP「等供应器」路径后记录空白样板来源，{@link RecipeTreeUploadResultBridge#flushPendingResult} 成功时卸下、失败则退还。
+     * 已进入 EAEP「等供应器」路径后记录空白样板来源，{@link SequentialUploadResultBridge#flushPendingResult} 成功时卸下、失败则退还。
      */
     private static void armEaepShiftBlankForPendingProvider(ServerPlayer player, EncodeContext ctx, BlankPatternSource source,
             AEItemKey blankKey) {

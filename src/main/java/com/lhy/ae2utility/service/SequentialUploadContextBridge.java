@@ -9,14 +9,14 @@ import appeng.api.networking.IGrid;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
-public final class RecipeTreeUploadContextBridge {
+public final class SequentialUploadContextBridge {
     private static final Map<UUID, IGrid> PENDING_GRIDS = new ConcurrentHashMap<>();
     private static final Map<UUID, String> PENDING_SEARCH_KEYS = new ConcurrentHashMap<>();
-    /** 与当前待定上传对应的 JEI/配方树「机器显示名」（subtitle），用于在检索键不一致时仍能匹配已记住的供应器 */
+    /** 与当前待定上传对应的 JEI「机器显示名」（subtitle），用于在检索键不一致时仍能匹配已记住的供应器 */
     private static final Map<UUID, String> PENDING_PROVIDER_DISPLAY_NAMES = new ConcurrentHashMap<>();
     private static final Map<UUID, Map<String, Long>> REMEMBERED_PROVIDER_IDS = new ConcurrentHashMap<>();
 
-    private RecipeTreeUploadContextBridge() {
+    private SequentialUploadContextBridge() {
     }
 
     public static void rememberGrid(ServerPlayer player, @Nullable IGrid grid) {
@@ -94,7 +94,7 @@ public final class RecipeTreeUploadContextBridge {
     }
 
     /**
-     * 先按检索键查找；若无则按机器显示名（配方树 subtitle / providerDisplayName）查找，缓解不同配方推导键不一致导致的重复选手。
+     * 先按检索键查找；若无则按机器显示名（providerDisplayName）查找，缓解不同配方推导键不一致导致的重复选手。
      */
     public static @Nullable Long getRememberedProviderId(ServerPlayer player, @Nullable String searchKey,
             @Nullable String machineDisplayNameFallback) {
