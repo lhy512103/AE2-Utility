@@ -1,6 +1,10 @@
 package com.lhy.ae2utility.compat;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -32,6 +36,7 @@ public final class MekanismTransferCompat {
 
     private static final class ChemicalSource implements TransferSource {
         private final IChemicalHandler handler;
+        private final Map<AEKey, List<Integer>> tanksByKey = new HashMap<>();
 
         private ChemicalSource(IChemicalHandler handler) {
             this.handler = handler;
@@ -40,11 +45,13 @@ public final class MekanismTransferCompat {
         @Override
         public LinkedHashMap<AEKey, Long> available() {
             LinkedHashMap<AEKey, Long> result = new LinkedHashMap<>();
+            tanksByKey.clear();
             for (int tank = 0; tank < handler.getChemicalTanks(); tank++) {
                 ChemicalStack stack = handler.getChemicalInTank(tank);
                 MekanismKey key = MekanismKey.of(stack);
                 if (key != null) {
                     result.merge(key, stack.getAmount(), Long::sum);
+                    tanksByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(tank);
                 }
             }
             return result;
@@ -55,29 +62,33 @@ public final class MekanismTransferCompat {
             if (!(key instanceof MekanismKey chemicalKey)) {
                 return 0;
             }
-            if (simulate) {
-                ChemicalStack result = handler.extractChemical(chemicalKey.withAmount(amount), Action.SIMULATE);
-                return result.isEmpty() ? 0 : Math.min(amount, result.getAmount());
+            List<Integer> tanks = tanksByKey.get(key);
+            if (tanks == null) {
+                return 0;
             }
 
             long remaining = amount;
             long extracted = 0;
-            for (int tank = 0; tank < handler.getChemicalTanks() && remaining > 0; tank++) {
+            Action action = simulate ? Action.SIMULATE : Action.EXECUTE;
+            for (int tank : tanks) {
+                if (remaining <= 0) {
+                    break;
+                }
                 ChemicalStack present = handler.getChemicalInTank(tank);
                 MekanismKey presentKey = MekanismKey.of(present);
                 if (!chemicalKey.equals(presentKey)) {
                     continue;
                 }
-                ChemicalStack result = handler.extractChemical(tank, remaining, Action.EXECUTE);
+                ChemicalStack result = handler.extractChemical(tank, remaining, action);
                 MekanismKey resultKey = MekanismKey.of(result);
                 if (!result.isEmpty() && chemicalKey.equals(resultKey)) {
                     long acceptedAmount = Math.min(remaining, result.getAmount());
                     extracted += acceptedAmount;
                     remaining -= acceptedAmount;
-                    if (result.getAmount() > acceptedAmount) {
+                    if (!simulate && result.getAmount() > acceptedAmount) {
                         handler.insertChemical(result.copyWithAmount(result.getAmount() - acceptedAmount), Action.EXECUTE);
                     }
-                } else if (!result.isEmpty()) {
+                } else if (!simulate && !result.isEmpty()) {
                     handler.insertChemical(result, Action.EXECUTE);
                     break;
                 }

@@ -1,6 +1,10 @@
 package com.lhy.ae2utility.compat;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -44,6 +48,8 @@ public final class SophisticatedTransferCompat {
     private static final class SophisticatedItemSource implements TransferSource {
         private final InventoryHandler inventory;
         private final IItemHandler exposedHandler;
+        private final Map<AEKey, List<Integer>> slotsByKey = new HashMap<>();
+        private final Map<AEKey, Integer> slotCursors = new HashMap<>();
 
         private SophisticatedItemSource(InventoryHandler inventory, IItemHandler exposedHandler) {
             this.inventory = inventory;
@@ -53,11 +59,14 @@ public final class SophisticatedTransferCompat {
         @Override
         public LinkedHashMap<AEKey, Long> available() {
             LinkedHashMap<AEKey, Long> result = new LinkedHashMap<>();
+            slotsByKey.clear();
+            slotCursors.clear();
             for (int slot = 0; slot < inventory.getSlots(); slot++) {
                 ItemStack stack = inventory.getStackInSlot(slot);
                 AEItemKey key = AEItemKey.of(stack);
                 if (key != null && canExtract(slot, key)) {
                     result.merge(key, (long) stack.getCount(), Long::sum);
+                    slotsByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(slot);
                 }
             }
             return result;
@@ -72,9 +81,19 @@ public final class SophisticatedTransferCompat {
             long remaining = amount;
             long extracted = 0;
             int writes = 0;
-            for (int slot = 0; slot < inventory.getSlots() && remaining > 0; slot++) {
+            List<Integer> slots = slotsByKey.get(key);
+            if (slots == null) {
+                return 0;
+            }
+            int nextCursor = slotCursors.getOrDefault(key, 0);
+            for (int index = nextCursor; index < slots.size(); index++) {
+                if (remaining <= 0) {
+                    break;
+                }
+                int slot = slots.get(index);
                 ItemStack existing = inventory.getStackInSlot(slot);
-                if (!itemKey.matches(existing) || !canExtract(slot, itemKey)) {
+                if (!itemKey.matches(existing) || (!simulate && !canExtract(slot, itemKey))) {
+                    nextCursor = index + 1;
                     continue;
                 }
                 if (writes++ >= MAX_SLOT_WRITES_PER_OPERATION) {
@@ -87,6 +106,12 @@ public final class SophisticatedTransferCompat {
                 }
                 extracted += taken;
                 remaining -= taken;
+                if (!simulate) {
+                    nextCursor = itemKey.matches(inventory.getStackInSlot(slot)) ? index : index + 1;
+                }
+            }
+            if (!simulate) {
+                slotCursors.put(key, nextCursor);
             }
             return extracted;
         }

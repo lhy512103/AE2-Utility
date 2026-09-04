@@ -45,9 +45,9 @@ import com.lhy.ae2utility.init.ModItems;
 
 /** Server-side transfer engine for the ME Quick Transfer Tool. */
 public final class MeQuickTransferService {
-    private static final int MAX_OPERATIONS_PER_TICK = 8;
+    private static final int MAX_OPERATIONS_PER_TICK = 256;
     private static final int MAX_HANDLER_CALLS_PER_OPERATION = 64;
-    private static final long JOB_TIME_BUDGET_NANOS = 2_000_000L;
+    private static final long JOB_TIME_BUDGET_NANOS = 4_000_000L;
     private static final Map<UUID, TransferJob> JOBS = new HashMap<>();
 
     private MeQuickTransferService() {
@@ -163,8 +163,9 @@ public final class MeQuickTransferService {
         }
 
         int processed = 0;
-        while (!job.isFinished() && processed++ < MAX_OPERATIONS_PER_TICK
+        while (!job.isFinished() && processed < MAX_OPERATIONS_PER_TICK
                 && System.nanoTime() < deadlineNanos) {
+            processed++;
             TransferEntry entry = job.entries.get(job.index);
             long moved = move(entry.source, job.storage, entry.key, entry.remaining, job.actionSource);
             entry.remaining -= moved;
@@ -352,6 +353,8 @@ public final class MeQuickTransferService {
 
     private static final class ItemSource implements TransferSource {
         private final IItemHandler handler;
+        private final Map<AEKey, List<Integer>> slotsByKey = new HashMap<>();
+        private final Map<AEKey, Integer> slotCursors = new HashMap<>();
 
         private ItemSource(IItemHandler handler) {
             this.handler = handler;
@@ -360,11 +363,14 @@ public final class MeQuickTransferService {
         @Override
         public LinkedHashMap<AEKey, Long> available() {
             LinkedHashMap<AEKey, Long> result = new LinkedHashMap<>();
+            slotsByKey.clear();
+            slotCursors.clear();
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
                 AEItemKey key = AEItemKey.of(stack);
                 if (key != null) {
                     result.merge(key, (long) stack.getCount(), Long::sum);
+                    slotsByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(slot);
                 }
             }
             return result;
@@ -378,9 +384,19 @@ public final class MeQuickTransferService {
             long remaining = amount;
             long extracted = 0;
             int calls = 0;
-            for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
+            List<Integer> slots = slotsByKey.get(key);
+            if (slots == null) {
+                return 0;
+            }
+            int nextCursor = slotCursors.getOrDefault(key, 0);
+            for (int index = nextCursor; index < slots.size(); index++) {
+                if (remaining <= 0) {
+                    break;
+                }
+                int slot = slots.get(index);
                 ItemStack existing = handler.getStackInSlot(slot);
                 if (!itemKey.matches(existing)) {
+                    nextCursor = index + 1;
                     continue;
                 }
                 if (calls++ >= MAX_HANDLER_CALLS_PER_OPERATION) {
@@ -396,6 +412,12 @@ public final class MeQuickTransferService {
                     extracted += count;
                     remaining -= count;
                 }
+                if (!simulate) {
+                    nextCursor = itemKey.matches(handler.getStackInSlot(slot)) ? index : index + 1;
+                }
+            }
+            if (!simulate) {
+                slotCursors.put(key, nextCursor);
             }
             return extracted;
         }
