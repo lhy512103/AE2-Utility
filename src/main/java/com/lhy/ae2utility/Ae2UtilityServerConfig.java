@@ -53,6 +53,12 @@ public final class Ae2UtilityServerConfig {
      */
     public static final ModConfigSpec.ConfigValue<List<? extends String>> NBT_TEAR_CARD_ITEM_BLACKLIST;
 
+    /** Fixed AE energy cost for one normal transfer request. */
+    public static final ModConfigSpec.DoubleValue ME_QUICK_TRANSFER_GROUP_ENERGY;
+
+    /** Fixed AE energy cost for one sneak-transfer request. */
+    public static final ModConfigSpec.DoubleValue ME_QUICK_TRANSFER_ALL_ENERGY;
+
     static {
         BUILDER.comment("Pattern encoding policy for dedicated servers / singleplayer host.");
         REQUIRE_OPEN_PATTERN_ENCODING_MENU_FOR_JEI = BUILDER
@@ -91,6 +97,15 @@ public final class Ae2UtilityServerConfig {
                         List.of(),
                         () -> "",
                         value -> value instanceof String id && ResourceLocation.tryParse(id) != null);
+        BUILDER.comment("ME Quick Transfer Tool energy costs.");
+        ME_QUICK_TRANSFER_GROUP_ENERGY = BUILDER
+                .comment("Fixed AE energy cost for a normal right-click transfer.")
+                .translation("ae2utility.serverConfig.meQuickTransferGroupEnergy")
+                .defineInRange("meQuickTransferGroupEnergy", 100.0, 0.0, Double.MAX_VALUE);
+        ME_QUICK_TRANSFER_ALL_ENERGY = BUILDER
+                .comment("Fixed AE energy cost for a sneak right-click transfer of all available contents.")
+                .translation("ae2utility.serverConfig.meQuickTransferAllEnergy")
+                .defineInRange("meQuickTransferAllEnergy", 1000.0, 0.0, Double.MAX_VALUE);
         SPEC = BUILDER.build();
     }
 
@@ -107,6 +122,14 @@ public final class Ae2UtilityServerConfig {
 
     public static int jeiBulkEncodeMaxPatternsPerSession() {
         return JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION.get();
+    }
+
+    public static double meQuickTransferGroupEnergy() {
+        return ME_QUICK_TRANSFER_GROUP_ENERGY.get();
+    }
+
+    public static double meQuickTransferAllEnergy() {
+        return ME_QUICK_TRANSFER_ALL_ENERGY.get();
     }
 
     public static boolean isNbtTearCardItemBlacklisted(ResourceLocation itemId) {

@@ -6,6 +6,9 @@ dependencies {
     compileOnly "dev.emi:emi-neoforge:${emi_version}"
     // Optional compile-time contract for direct EAEP integration; remains optional at runtime.
     compileOnly "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
+    compileOnly "curse.maven:mekanism-268560:${mekanism_file}"
+    compileOnly "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
+    compileOnly "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
 
     // ── 运行时核心模组 ─────────────────────────────────────────
     coreLocalRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
@@ -34,6 +37,7 @@ dependencies {
     // AE2 Lightning Tech 2.x requires Thunderbolt Core.
     ae2AddonLocalRuntime "curse.maven:thunderbolt-core-1631756:${thunderbolt_file}"
     ae2AddonLocalRuntime "curse.maven:ae2-lightning-tech-1527395:${ae2lt_file}"
+    ae2AddonLocalRuntime "curse.maven:ae2helpers-1450496:7634384"
     // ae2AddonLocalRuntime "curse.maven:data-energistics-1565514:8429524"
     ae2AddonLocalRuntime "curse.maven:aeinfinitybooster-559313:8377914"
     ae2AddonLocalRuntime "curse.maven:clientsort-1049891:8172893"
@@ -41,6 +45,8 @@ dependencies {
     ae2AddonLocalRuntime "curse.maven:balm-531761:8424824"
 
     // ── 运行时依赖与集成目标 ───────────────────────────────────
+    compatibilityLocalRuntime "curse.maven:inventory-profiles-next-495267:${inventory_profiles_next_file}"
+    compatibilityLocalRuntime "curse.maven:libipn-679177:${libipn_file}"
     compatibilityLocalRuntime "curse.maven:glodium-957920:${glodium_file}"
     compatibilityLocalRuntime "curse.maven:geckolib-388172:${geckolib_file}"
     compatibilityLocalRuntime "curse.maven:cloth-config-348521:${cloth_config_file}"
@@ -105,5 +111,5 @@ dependencies {
     clientLocalRuntime "curse.maven:searchables-858542:${searchables_file}"
     clientLocalRuntime "curse.maven:controlling-250398:${controlling_file}"
     clientLocalRuntime "curse.maven:imblocker-483760:${imblocker_file}"
-    clientLocalRuntime "curse.maven:just-enough-characters-250702:${jech_file}"
+    clientLocalRuntime "maven.modrinth:I7k4B65h:XPKoy65e"
 }

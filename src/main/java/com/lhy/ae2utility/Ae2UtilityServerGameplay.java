@@ -12,6 +12,7 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import com.lhy.ae2utility.network.SyncAe2UtilityEncodeRulesPacket;
 import com.lhy.ae2utility.service.EncodeBulkSessionLimiter;
+import com.lhy.ae2utility.service.MeQuickTransferService;
 
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
@@ -32,11 +33,13 @@ public final class Ae2UtilityServerGameplay {
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer sp) {
             sendEncodeRules(sp);
+            MeQuickTransferService.cancel(sp.getUUID());
         }
     }
 
     private static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         EncodeBulkSessionLimiter.clearFor(event.getEntity().getUUID());
+        MeQuickTransferService.cancel(event.getEntity().getUUID());
     }
 
     private static void onModConfigReload(ModConfigEvent.Reloading ev) {

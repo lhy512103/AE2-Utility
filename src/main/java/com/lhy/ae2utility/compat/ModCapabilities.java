@@ -14,6 +14,9 @@ public final class ModCapabilities {
     public static final String AE2_CRYSTAL_SCIENCE = "ae2cs";
     public static final String ADVANCED_AE = "advanced_ae";
     public static final String AE2_LIGHTNING_TECH = "ae2lt";
+    public static final String MEKANISM = "mekanism";
+    public static final String APPLIED_MEKANISTICS = "appmek";
+    public static final String SOPHISTICATED_CORE = "sophisticatedcore";
 
     private ModCapabilities() {
     }
@@ -48,5 +51,17 @@ public final class ModCapabilities {
 
     public static boolean hasAe2LightningTech() {
         return isLoaded(AE2_LIGHTNING_TECH);
+    }
+
+    public static boolean hasMekanism() {
+        return isLoaded(MEKANISM);
+    }
+
+    public static boolean hasAppliedMekanistics() {
+        return isLoaded(APPLIED_MEKANISTICS);
+    }
+
+    public static boolean hasSophisticatedCore() {
+        return isLoaded(SOPHISTICATED_CORE);
     }
 }
