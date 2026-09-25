@@ -13,6 +13,7 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.lhy.ae2utility.compat.JeictCompat;
 import com.lhy.ae2utility.compat.WcwtCompat;
+import com.lhy.ae2utility.compat.SomeUselessThingsCompat;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -555,6 +556,10 @@ public class EncodePatternButtonController implements IIconButtonController {
                             true);
                 }
             }
+        }
+
+        if (SomeUselessThingsCompat.transfer(recipeLayout, true)) {
+            return true;
         }
 
         boolean shiftDown = Screen.hasShiftDown();

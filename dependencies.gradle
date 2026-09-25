@@ -9,6 +9,7 @@ dependencies {
     compileOnly "curse.maven:mekanism-268560:${mekanism_file}"
     compileOnly "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
     compileOnly "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
+    compileOnly "curse.maven:some-useless-things-1401600:8962878"
 
     // ── 运行时核心模组 ─────────────────────────────────────────
     coreLocalRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
