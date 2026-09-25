@@ -7,7 +7,6 @@ import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.buttons.IIconButtonController;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.advanced.IRecipeButtonControllerFactory;
-import net.minecraft.resources.ResourceLocation;
 
 import com.lhy.ae2utility.util.GenericIngredientUtil;
 
@@ -28,7 +27,7 @@ public class EncodePatternButtonFactory implements IRecipeButtonControllerFactor
      * terminal/craftable checks during button updates for no useful action.
      */
     private static boolean isEncodableRecipeLayout(IRecipeLayoutDrawable<?> layout) {
-        if (layout == null || layout.getRecipeCategory() == null || isTagRecipeLayout(layout)) {
+        if (layout == null || layout.getRecipeCategory() == null || JeiRecipePageKinds.isTagRecipeLayout(layout)) {
             return false;
         }
 
@@ -46,17 +45,5 @@ public class EncodePatternButtonFactory implements IRecipeButtonControllerFactor
             }
         }
         return false;
-    }
-
-    private static boolean isTagRecipeLayout(IRecipeLayoutDrawable<?> recipeLayoutDrawable) {
-        if (recipeLayoutDrawable == null || recipeLayoutDrawable.getRecipeCategory() == null) {
-            return false;
-        }
-        var recipeType = recipeLayoutDrawable.getRecipeCategory().getRecipeType();
-        if (recipeType == null) {
-            return false;
-        }
-        ResourceLocation uid = recipeType.getUid();
-        return uid != null && "jei".equals(uid.getNamespace()) && uid.getPath().startsWith("tag_recipes/");
     }
 }
