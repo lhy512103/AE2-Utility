@@ -240,7 +240,6 @@ configurations.named("compileClasspath") {
 
 dependencies {
     compileOnly files(neoEcoSanitizedJar)
-    compatibilityLocalRuntime files(neoEcoSanitizedJar)
     compatibilityLocalRuntime "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
 }
 

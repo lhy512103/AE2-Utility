@@ -9,6 +9,7 @@
 1. Improved JEI recipe-page compatibility and added runtime coverage for Some Useless Things.
 2. Only show the pattern-encoding button on recipe layouts with usable inputs and outputs.
 3. Added direct JEI compatibility for Some Useless Things omniversal patterns.
+4. Added the Neo ECO AE Extension runtime required by Some Useless Things.
 
 ### 中文
 
@@ -17,6 +18,7 @@
 1. 改进 JEI 配方页面兼容性，并加入对无用之物模组的运行时测试依赖。
 2. 仅在配方页面存在可用输入和输出时显示样板编码按钮。
 3. 增加对无用之物万象样板的 JEI 编码兼容。
+4. 加入无用之物运行所需的 Neo ECO AE Extension 运行时依赖。
 
 ## 1.7.9
 

@@ -63,6 +63,9 @@ dependencies {
     }
     compatibilityLocalRuntime "curse.maven:mekanism-268560:${mekanism_file}"
     compatibilityLocalRuntime "curse.maven:some-useless-things-1401600:8962878"
+    // Some Useless Things links Neo ECO AE's fast-path API at load time.
+    // Use the complete Neo ECO AE Extension runtime instead of the compile-only API jar.
+    compatibilityLocalRuntime "curse.maven:neo-eco-ae-extension-1460639:7884362"
     compatibilityLocalRuntime "me.desht.pneumaticcraft:pneumaticcraft-repressurized:${pneumaticcraft_version}"
     compatibilityLocalRuntime "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
 
