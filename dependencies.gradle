@@ -61,6 +61,7 @@ dependencies {
         exclude group: "info.journeymap", module: "journeymap-api-neoforge"
     }
     compatibilityLocalRuntime "curse.maven:mekanism-268560:${mekanism_file}"
+    compatibilityLocalRuntime "curse.maven:some-useless-things-1401600:8962878"
     compatibilityLocalRuntime "me.desht.pneumaticcraft:pneumaticcraft-repressurized:${pneumaticcraft_version}"
     compatibilityLocalRuntime "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.0
+
+### English
+
+#### Changed
+
+1. Improved JEI recipe-page compatibility and added runtime coverage for Some Useless Things.
+
+### 中文
+
+#### 修改
+
+1. 改进 JEI 配方页面兼容性，并加入对无用之物模组的运行时测试依赖。
+
 ## 1.7.9
 
 ### English
