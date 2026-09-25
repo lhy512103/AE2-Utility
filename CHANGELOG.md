@@ -6,23 +6,17 @@
 
 #### Changed
 
-1. Improved JEI recipe-page compatibility and added runtime coverage for Some Useless Things.
-2. Only show the pattern-encoding button on recipe layouts with usable inputs and outputs.
-3. Added direct JEI compatibility for Some Useless Things omniversal patterns.
-4. Added the Neo ECO AE Extension runtime required by Some Useless Things.
-5. Hide the JEI item-transfer button on tag and information pages that have nothing to pull.
-6. Encode Some Useless Things omniversal recipes from the JEI arrow into omniversal patterns.
+1. Only show the pattern-encoding button on recipe layouts with usable inputs and outputs.
+2. Hide the JEI item-transfer button on tag and information pages that have nothing to pull.
+3. Encode Some Useless Things omniversal recipes from the JEI arrow into omniversal patterns.
 
 ### 中文
 
 #### 修改
 
-1. 改进 JEI 配方页面兼容性，并加入对无用之物模组的运行时测试依赖。
-2. 仅在配方页面存在可用输入和输出时显示样板编码按钮。
-3. 增加对无用之物万象样板的 JEI 编码兼容。
-4. 加入无用之物运行所需的 Neo ECO AE Extension 运行时依赖。
-5. 在标签页和信息页等没有可拉取物品的页面隐藏 JEI 转移按钮。
-6. JEI 编码箭头可将无用之物万象合金炉配方直接编码为万象样板。
+1. 仅在配方页面存在可用输入和输出时显示样板编码按钮。
+2. 在标签页和信息页等没有可拉取物品的页面隐藏 JEI 转移按钮。
+3. JEI 编码箭头可将无用之物万象合金炉配方直接编码为万象样板。
 
 ## 1.7.9
 
