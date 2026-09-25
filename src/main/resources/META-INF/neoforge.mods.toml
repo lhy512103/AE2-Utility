@@ -82,7 +82,7 @@ side="BOTH"
 [[dependencies.${mod_id}]]
 modId="useless_mod"
 type="optional"
-versionRange="[2,)"
+versionRange="[1.21.1-2,)"
 ordering="AFTER"
 side="CLIENT"
 
