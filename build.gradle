@@ -214,13 +214,16 @@ apply from: "$rootDir/dependencies.gradle"
 
 configurations {
     neoEcoApi
+    createMod
 }
 
 dependencies {
     neoEcoApi "maven.modrinth:neoecoae:${neoecoae_version}"
+    createMod "com.simibubi.create:create-1.21.1:${create_version}"
 }
 
 def neoEcoSanitizedJar = layout.buildDirectory.file("neoeco/neoecoae-${neoecoae_version}-dev.jar")
+def createSanitizedJar = layout.buildDirectory.file("create/create-1.21.1-${create_version}-dev.jar")
 
 tasks.register("sanitizeNeoEcoJar", Jar) {
     archiveFileName = "neoecoae-${neoecoae_version}-dev.jar"
@@ -234,13 +237,31 @@ tasks.register("sanitizeNeoEcoJar", Jar) {
     }
 }
 
+tasks.register("sanitizeCreateJar", Jar) {
+    archiveFileName = "create-1.21.1-${create_version}-dev.jar"
+    destinationDirectory = layout.buildDirectory.dir("create")
+    dependsOn configurations.createMod
+    from {
+        def createJar = configurations.createMod.files.find {
+            it.name.endsWith(".jar") && !it.name.endsWith("-sources.jar") && !it.name.endsWith("-javadoc.jar")
+        }
+        if (createJar == null) {
+            throw new GradleException("Could not find the main Create jar in createMod")
+        }
+        zipTree(createJar).matching {
+            exclude "META-INF/jarjar/Registrate-*.jar"
+            exclude "META-INF/jarjar/metadata.json"
+        }
+    }
+}
+
 configurations.named("compileClasspath") {
     extendsFrom(configurations.neoEcoApi)
 }
 
 dependencies {
     compileOnly files(neoEcoSanitizedJar)
-    compatibilityLocalRuntime files(neoEcoSanitizedJar)
+    compatibilityLocalRuntime files(createSanitizedJar)
     compatibilityLocalRuntime "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
 }
 
@@ -250,10 +271,12 @@ tasks.named("compileJava").configure {
 
 tasks.named("prepareClientRun").configure {
     dependsOn("sanitizeNeoEcoJar")
+    dependsOn("sanitizeCreateJar")
 }
 
 tasks.named("prepareClientEMIRun").configure {
     dependsOn("sanitizeNeoEcoJar")
+    dependsOn("sanitizeCreateJar")
 }
 
 // Create declares Flywheel with a dynamic version range. Pin the cached, compatible

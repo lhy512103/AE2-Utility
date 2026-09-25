@@ -18,6 +18,7 @@ import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.NbtTearCardScreen;
 import com.lhy.ae2utility.client.RecipeFinderScreen;
 import com.lhy.ae2utility.compat.JeictCompat;
+import com.lhy.ae2utility.compat.SomeUselessThingsCompat;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 
@@ -56,6 +57,8 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
         var helper = registration.getTransferHelper();
+
+        SomeUselessThingsCompat.prepare(helper);
 
         registerHandler(registration, new Ae2TerminalRecipeTransferHandler<>(MEStorageMenu.class, MEStorageMenu.TYPE, helper));
         registerHandler(registration,

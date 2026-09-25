@@ -79,6 +79,13 @@ versionRange="[1,)"
 ordering="AFTER"
 side="BOTH"
 
+[[dependencies.${mod_id}]]
+modId="useless_mod"
+type="optional"
+versionRange="[1.21.1-2,)"
+ordering="AFTER"
+side="CLIENT"
+
 [[mixins]]
 config="ae2utility.mixins.json"
 

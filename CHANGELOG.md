@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.8.0
+
+### English
+
+#### Changed
+
+1. Only show the pattern-encoding button on recipe layouts with usable inputs and outputs.
+2. Hide the JEI item-transfer button on tag and information pages that have nothing to pull.
+3. Encode Some Useless Things omniversal recipes from the JEI arrow into omniversal patterns.
+
+### 中文
+
+#### 修改
+
+1. 仅在配方页面存在可用输入和输出时显示样板编码按钮。
+2. 在标签页和信息页等没有可拉取物品的页面隐藏 JEI 转移按钮。
+3. JEI 编码箭头可将无用之物万象合金炉配方直接编码为万象样板。
+
 ## 1.7.9
 
 ### English

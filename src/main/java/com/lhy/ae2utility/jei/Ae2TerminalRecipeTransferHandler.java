@@ -77,6 +77,13 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     @Override
     public IRecipeTransferError transferRecipe(C container, Object recipe, IRecipeSlotsView recipeSlots, Player player,
             boolean maxTransfer, boolean doTransfer) {
+        // Universal handlers also match JEI tag catalogs and information pages.
+        // INTERNAL hides the transfer button; USER_FACING would still show a
+        // disabled "+" with an error tooltip on pages that cannot be pulled.
+        if (JeiRecipePageKinds.isTagOrInformationRecipe(recipe) || !hasAnyItemInput(recipeSlots)) {
+            return transferHelper.createInternalError();
+        }
+
         if (WCWT_MENU_CLASS_NAME.equals(container.getClass().getName())) {
             return delegateWcwtRecipeTransfer(container, recipe, recipeSlots, player, maxTransfer, doTransfer);
         }
@@ -100,11 +107,7 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
 
         if (!doTransfer) {
             // 预览每 tick 触发：避开 collectRequestedIngredients（含 O(N²) 候选去重 + 全网络优先级排序），
-            // 它只在真正拉取(doTransfer=true)时才需要；预览只需判断有无物品输入。
-            if (!hasAnyItemInput(recipeSlots)) {
-                return transferHelper.createUserErrorWithTooltip(
-                        Component.translatable("message.ae2utility.no_item_inputs"));
-            }
+            // 它只在真正拉取(doTransfer=true)时才需要。
             var preview = TerminalJeRecipeTransferPreview.compute(container, recipeSlots);
             if (preview.anyMissingOrCraftable()) {
                 return new TerminalTransferError(preview, craftMissing);
@@ -114,8 +117,7 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
 
         List<RequestedIngredient> requestedIngredients = collectRequestedIngredients(container, recipeSlots);
         if (requestedIngredients.isEmpty()) {
-            return transferHelper.createUserErrorWithTooltip(
-                    Component.translatable("message.ae2utility.no_item_inputs"));
+            return transferHelper.createInternalError();
         }
 
         PacketDistributor.sendToServer(new PullRecipeInputsPacket(maxTransfer, craftMissing, requestedIngredients));

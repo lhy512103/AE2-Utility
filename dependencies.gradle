@@ -9,6 +9,7 @@ dependencies {
     compileOnly "curse.maven:mekanism-268560:${mekanism_file}"
     compileOnly "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
     compileOnly "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
+    compileOnly "curse.maven:some-useless-things-1401600:8962878"
 
     // ── 运行时核心模组 ─────────────────────────────────────────
     coreLocalRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
@@ -55,12 +56,15 @@ dependencies {
     compatibilityLocalRuntime "dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}"
     compatibilityLocalRuntime "dev.ftb.mods:ftb-ultimine-neoforge:${ftb_ultimine_version}"
     compatibilityLocalRuntime "maven.modrinth:jade:${jade_version}"
-    compatibilityLocalRuntime("com.simibubi.create:create-1.21.1:${create_version}") {
-        // 避免 Create 可选集成拉入 journeymap 导致 game-test 崩溃
-        exclude group: "maven.modrinth", module: "journeymap"
-        exclude group: "info.journeymap", module: "journeymap-api-neoforge"
-    }
+    // Create is sanitized to remove its conflicting embedded Registrate jar;
+    // provide its mandatory nested mods explicitly.
+    compatibilityLocalRuntime "net.createmod.ponder:Ponder-NeoForge-1.21.1:1.0.64"
+    compatibilityLocalRuntime "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
     compatibilityLocalRuntime "curse.maven:mekanism-268560:${mekanism_file}"
+    compatibilityLocalRuntime "curse.maven:some-useless-things-1401600:8962878"
+    // Some Useless Things links Neo ECO AE's fast-path API at load time.
+    // Use the complete Neo ECO AE Extension runtime instead of the compile-only API jar.
+    compatibilityLocalRuntime "curse.maven:neo-eco-ae-extension-1460639:8918723"
     compatibilityLocalRuntime "me.desht.pneumaticcraft:pneumaticcraft-repressurized:${pneumaticcraft_version}"
     compatibilityLocalRuntime "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
 

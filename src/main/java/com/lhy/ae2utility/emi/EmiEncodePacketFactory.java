@@ -88,7 +88,7 @@ public final class EmiEncodePacketFactory {
         String providerSearchKey = computeEaepProviderSearchKey(recipe, backingRecipe, upload);
         boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipe, backingRecipe, inputs);
 
-        return Optional.of(new EncodePatternPacket(
+        EncodePatternPacket packet = new EncodePatternPacket(
                 inputs,
                 outputs,
                 recipeId,
@@ -102,7 +102,9 @@ public final class EmiEncodePacketFactory {
                 false,
                 false,
                 0,
-                craftingCategoryHint));
+                craftingCategoryHint);
+        Object omniversalRecipe = backingRecipe != null ? backingRecipe : structureRecipe;
+        return Optional.of(com.lhy.ae2utility.compat.SomeUselessThingsCompat.attachIdentity(packet, omniversalRecipe));
     }
 
     private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {

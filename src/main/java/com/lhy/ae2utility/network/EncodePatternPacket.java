@@ -17,7 +17,8 @@ import com.lhy.ae2utility.Ae2UtilityMod;
 public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
         String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute, boolean substituteFluids,
         boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch, int bulkEncodeSessionId,
-        boolean craftingCategoryHint)
+        boolean craftingCategoryHint, @Nullable ResourceLocation omniversalRecipeId, String omniversalFingerprint,
+        String omniversalSourceId)
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<EncodePatternPacket> TYPE =
@@ -29,7 +30,8 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
     public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
             String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute,
             boolean substituteFluids, boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch,
-            int bulkEncodeSessionId, boolean craftingCategoryHint) {
+            int bulkEncodeSessionId, boolean craftingCategoryHint, @Nullable ResourceLocation omniversalRecipeId,
+            String omniversalFingerprint, String omniversalSourceId) {
         this.inputs = Collections.unmodifiableList(new ArrayList<>(inputs));
         this.outputs = Collections.unmodifiableList(new ArrayList<>(outputs));
         this.recipeId = recipeId;
@@ -44,6 +46,19 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         this.jeiFullCategoryBatch = jeiFullCategoryBatch;
         this.bulkEncodeSessionId = bulkEncodeSessionId;
         this.craftingCategoryHint = craftingCategoryHint;
+        this.omniversalRecipeId = omniversalRecipeId;
+        this.omniversalFingerprint = omniversalFingerprint == null ? "" : omniversalFingerprint;
+        this.omniversalSourceId = omniversalSourceId == null ? "" : omniversalSourceId;
+    }
+
+    /** 便捷重载：不带万象样板身份。 */
+    public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
+            String patternName, String providerSearchKey, String providerDisplayName, boolean shiftDown, boolean substitute,
+            boolean substituteFluids, boolean preserveInputOrder, boolean jeiSequentialQueue, boolean jeiFullCategoryBatch,
+            int bulkEncodeSessionId, boolean craftingCategoryHint) {
+        this(inputs, outputs, recipeId, patternName, providerSearchKey, providerDisplayName, shiftDown, substitute, substituteFluids,
+                preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId, craftingCategoryHint,
+                null, "", "");
     }
 
     /** 便捷重载：不带 craftingCategoryHint（默认 false）。 */
@@ -65,8 +80,31 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
 
     /** 若「同一批批量编码」会话 id 与原包不同（例如补上 BulkEncodeSessions.next()），拷贝生成新数据包。 */
     public EncodePatternPacket withBulkEncodeSessionId(int newBulkEncodeSessionId) {
-        return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerSearchKey, providerDisplayName, shiftDown, substitute,
-                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, newBulkEncodeSessionId, craftingCategoryHint);
+        return copyWith(shiftDown, jeiSequentialQueue, jeiFullCategoryBatch, newBulkEncodeSessionId);
+    }
+
+    public EncodePatternPacket withSequentialUpload(boolean sequential) {
+        return copyWith(shiftDown, sequential, jeiFullCategoryBatch, bulkEncodeSessionId);
+    }
+
+    public EncodePatternPacket withEncodeFlags(boolean shift, boolean sequential, boolean fullCategory, int bulkSid) {
+        return copyWith(shift, sequential, fullCategory, bulkSid);
+    }
+
+    public EncodePatternPacket withOmniversalIdentity(@Nullable ResourceLocation omniversalId, String fingerprint, String sourceId) {
+        return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerSearchKey, providerDisplayName, shiftDown,
+                substitute, substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId,
+                craftingCategoryHint, omniversalId, fingerprint, sourceId);
+    }
+
+    public boolean hasOmniversalIdentity() {
+        return omniversalRecipeId != null && !omniversalFingerprint.isBlank();
+    }
+
+    private EncodePatternPacket copyWith(boolean shift, boolean sequential, boolean fullCategory, int bulkSid) {
+        return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerSearchKey, providerDisplayName, shift,
+                substitute, substituteFluids, preserveInputOrder, sequential, fullCategory, bulkSid, craftingCategoryHint,
+                omniversalRecipeId, omniversalFingerprint, omniversalSourceId);
     }
 
     private static EncodePatternPacket decode(RegistryFriendlyByteBuf buffer) {
@@ -95,8 +133,19 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         boolean jeiFullCategoryBatch = buffer.readableBytes() > 0 && buffer.readBoolean();
         int bulkEncodeSessionId = buffer.readableBytes() > 0 ? buffer.readVarInt() : 0;
         boolean craftingCategoryHint = buffer.readableBytes() > 0 && buffer.readBoolean();
+        ResourceLocation omniversalRecipeId = null;
+        String omniversalFingerprint = "";
+        String omniversalSourceId = "";
+        if (buffer.readableBytes() > 0) {
+            if (buffer.readBoolean()) {
+                omniversalRecipeId = buffer.readResourceLocation();
+            }
+            omniversalFingerprint = buffer.readUtf(1024);
+            omniversalSourceId = buffer.readUtf(256);
+        }
         return new EncodePatternPacket(inputs, outputs, id, patternName, providerSearchKey, providerDisplayName, shiftDown, substitute,
-                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId, craftingCategoryHint);
+                substituteFluids, preserveInputOrder, jeiSequentialQueue, jeiFullCategoryBatch, bulkEncodeSessionId, craftingCategoryHint,
+                omniversalRecipeId, omniversalFingerprint, omniversalSourceId);
     }
 
     private void write(RegistryFriendlyByteBuf buffer) {
@@ -132,6 +181,12 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         buffer.writeBoolean(jeiFullCategoryBatch);
         buffer.writeVarInt(bulkEncodeSessionId);
         buffer.writeBoolean(craftingCategoryHint);
+        buffer.writeBoolean(omniversalRecipeId != null);
+        if (omniversalRecipeId != null) {
+            buffer.writeResourceLocation(omniversalRecipeId);
+        }
+        buffer.writeUtf(omniversalFingerprint, 1024);
+        buffer.writeUtf(omniversalSourceId, 256);
     }
 
     private static List<GenericStack> readGenericStacks(RegistryFriendlyByteBuf buffer, String field) {
