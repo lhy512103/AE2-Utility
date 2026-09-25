@@ -391,6 +391,13 @@ public final class EncodePatternService {
         boolean recognizedStructured = false;
 
         int meaningfulInputCount = countMeaningfulInputs(in);
+        if (payload.hasOmniversalIdentity()) {
+            ItemStack omniversal = com.lhy.ae2utility.compat.SomeUselessThingsCompat.encodePattern(
+                    ItemStack.EMPTY, payload, serverPlayer.level());
+            if (!omniversal.isEmpty()) {
+                return new EncodeComputation(omniversal, false, in);
+            }
+        }
         Set<AEKey> outputKeys = out.stream()
                 .filter(java.util.Objects::nonNull)
                 .map(GenericStack::what)
@@ -459,6 +466,11 @@ public final class EncodePatternService {
             if (!procIn.isEmpty() && !procOut.isEmpty()) {
                 encodedPattern = PatternDetailsHelper.encodeProcessingPattern(procIn, procOut);
                 encodedInputs = in;
+                ItemStack omniversal = com.lhy.ae2utility.compat.SomeUselessThingsCompat.encodePattern(
+                        encodedPattern, payload, serverPlayer.level());
+                if (!omniversal.isEmpty()) {
+                    encodedPattern = omniversal;
+                }
             }
         }
 

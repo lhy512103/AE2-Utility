@@ -99,9 +99,7 @@ public final class EmiRecipesBatchEncode {
         if (shiftUpload) {
             List<EncodePatternPacket> queued = new ArrayList<>(packets.size());
             for (EncodePatternPacket p : packets) {
-                queued.add(new EncodePatternPacket(p.inputs(), p.outputs(), p.recipeId(), p.patternName(), p.providerSearchKey(),
-                        p.providerDisplayName(), p.shiftDown(), p.substitute(), p.substituteFluids(), p.preserveInputOrder(), true,
-                        p.jeiFullCategoryBatch(), p.bulkEncodeSessionId(), p.craftingCategoryHint()));
+                queued.add(p.withSequentialUpload(true));
             }
             if (!SequentialUploadQueue.start(queued)) {
                 player.displayClientMessage(
@@ -120,9 +118,7 @@ public final class EmiRecipesBatchEncode {
     }
 
     private static EncodePatternPacket rebuild(EncodePatternPacket base, boolean shiftUpload, boolean fullCategory, int bulkSid) {
-        return new EncodePatternPacket(base.inputs(), base.outputs(), base.recipeId(), base.patternName(), base.providerSearchKey(),
-                base.providerDisplayName(), shiftUpload, base.substitute(), base.substituteFluids(), base.preserveInputOrder(),
-                false, fullCategory, bulkSid, base.craftingCategoryHint());
+        return base.withEncodeFlags(shiftUpload, false, fullCategory, bulkSid);
     }
 
     private static List<EncodePatternPacket> filterExistingPatterns(List<EncodePatternPacket> packets) {

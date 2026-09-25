@@ -95,9 +95,7 @@ public final class JeiRecipesBatchEncode {
         if (shiftUpload) {
             List<EncodePatternPacket> queued = new ArrayList<>(packets.size());
             for (EncodePatternPacket p : packets) {
-                queued.add(new EncodePatternPacket(p.inputs(), p.outputs(), p.recipeId(), p.patternName(), p.providerSearchKey(),
-                        p.providerDisplayName(), p.shiftDown(), p.substitute(), p.substituteFluids(), p.preserveInputOrder(), true,
-                        p.jeiFullCategoryBatch(), p.bulkEncodeSessionId()));
+                queued.add(p.withSequentialUpload(true));
             }
             if (!SequentialUploadQueue.start(queued)) {
                 player.displayClientMessage(

@@ -83,7 +83,7 @@ public final class JeiEncodePacketFactory {
 
         boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipeLayout, recipe, inputs);
 
-        return Optional.of(new EncodePatternPacket(
+        EncodePatternPacket packet = new EncodePatternPacket(
                 inputs,
                 outputs,
                 recipeId,
@@ -97,7 +97,8 @@ public final class JeiEncodePacketFactory {
                 false,
                 jeiFullCategoryBatch,
                 bulkEncodeSessionId,
-                craftingCategoryHint));
+                craftingCategoryHint);
+        return Optional.of(com.lhy.ae2utility.compat.SomeUselessThingsCompat.attachIdentity(packet, recipe));
     }
 
     private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
