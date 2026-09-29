@@ -1,7 +1,9 @@
 package com.lhy.ae2utility.jei;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
@@ -63,7 +65,8 @@ public final class JeiRecipesBatchEncode {
     private static void encode(LocalPlayer player, List<IRecipeLayoutDrawable<?>> layouts, boolean fullCategory,
             boolean shiftUpload) {
         int sessionId = BulkEncodeSessions.next();
-        List<EncodePatternPacket> packets = filterExistingPatterns(collect(layouts, shiftUpload));
+        Map<EncodePatternPacket, String> machines = new IdentityHashMap<>();
+        List<EncodePatternPacket> packets = filterExistingPatterns(collect(layouts, shiftUpload, machines));
 
         int collected = packets.size();
         packets = RemoteEncodeRules.capToSessionLimit(packets);
@@ -84,13 +87,16 @@ public final class JeiRecipesBatchEncode {
         }
 
         List<EncodePatternPacket> tagged = new ArrayList<>(packets.size());
+        List<JeiBatchEncodeQueue.Entry> entries = new ArrayList<>(packets.size());
         for (EncodePatternPacket packet : packets) {
-            tagged.add(packet.withBatch(fullCategory, sessionId));
+            EncodePatternPacket batchPacket = packet.withBatch(fullCategory, sessionId);
+            tagged.add(batchPacket);
+            entries.add(new JeiBatchEncodeQueue.Entry(batchPacket, batchPacket.patternName(),
+                    machines.getOrDefault(packet, ""), null));
         }
 
         if (shiftUpload) {
-            String machine = commonCategoryTitle(layouts);
-            if (!JeiBatchEncodeQueue.start(tagged, machine)) {
+            if (!JeiBatchEncodeQueue.startEntries(entries)) {
                 message(player, "message.ae2utility.batch_encode_session_busy", ChatFormatting.GOLD);
                 return;
             }
@@ -106,23 +112,12 @@ public final class JeiRecipesBatchEncode {
                 .withStyle(ChatFormatting.GREEN), false);
     }
 
-    private static String commonCategoryTitle(List<IRecipeLayoutDrawable<?>> layouts) {
-        String machine = null;
-        for (IRecipeLayoutDrawable<?> layout : layouts) {
-            String title = EncodePatternButtonController.categoryTitle(layout);
-            if (machine != null && !machine.equals(title)) {
-                return "";
-            }
-            machine = title;
-        }
-        return machine == null ? "" : machine;
-    }
-
     private static void message(LocalPlayer player, String key, ChatFormatting color) {
         player.displayClientMessage(Component.translatable(key).withStyle(color), false);
     }
 
-    private static List<EncodePatternPacket> collect(List<IRecipeLayoutDrawable<?>> layouts, boolean shiftUpload) {
+    private static List<EncodePatternPacket> collect(List<IRecipeLayoutDrawable<?>> layouts, boolean shiftUpload,
+            Map<EncodePatternPacket, String> machines) {
         List<EncodePatternPacket> out = new ArrayList<>();
         for (IRecipeLayoutDrawable<?> layout : layouts) {
             if (!JeiRecipePageKinds.isEncodableRecipeLayout(layout)) {
@@ -130,7 +125,10 @@ public final class JeiRecipesBatchEncode {
             }
             JeiEncodePacketFactory.tryCreate(layout, shiftUpload)
                     .filter(EncodePatternPacket::fitsNetworkLimits)
-                    .ifPresent(out::add);
+                    .ifPresent(packet -> {
+                        out.add(packet);
+                        machines.put(packet, EncodePatternButtonController.categoryTitle(layout));
+                    });
         }
         return out;
     }
