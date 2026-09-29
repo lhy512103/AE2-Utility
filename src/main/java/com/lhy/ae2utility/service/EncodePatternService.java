@@ -44,6 +44,7 @@ import appeng.menu.me.items.PatternEncodingTermMenu;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.Ae2UtilityServerConfig;
+import com.lhy.ae2utility.compat.EcoCompat;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.BatchUploadStepPacket;
 import com.lhy.ae2utility.network.CancelJeiBatchEncodeQueuePacket;
@@ -220,6 +221,22 @@ public final class EncodePatternService {
         }
 
         try {
+            if (payload.shiftDown() && computation.canUploadToMatrix() && EcoCompat.isLoaded()) {
+                EcoCompat.InsertResult ecoResult = EcoCompat.tryInsertPattern(grid, encodedPattern);
+                if (ecoResult == EcoCompat.InsertResult.INSERTED) {
+                    sendCraftableCacheRefresh(serverPlayer, payload);
+                    return false;
+                }
+                if (ecoResult == EcoCompat.InsertResult.ALREADY_PRESENT) {
+                    refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
+                    if (!payload.isBatch()) {
+                        serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.eco_pattern_duplicate")
+                                .withStyle(ChatFormatting.GOLD));
+                    }
+                    return false;
+                }
+            }
+
             // Shift + EAEP 上传
             if (payload.shiftDown() && ModList.get().isLoaded("extendedae_plus")) {
                 UploadOutcome outcome = tryEaepUpload(serverPlayer, payload, encodedPattern,
