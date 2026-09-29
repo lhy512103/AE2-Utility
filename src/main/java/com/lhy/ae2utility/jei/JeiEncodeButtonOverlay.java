@@ -41,7 +41,7 @@ public final class JeiEncodeButtonOverlay {
 
     private static void drawForRecipeLayout(IRecipeLayoutDrawable<?> recipeLayout, GuiGraphics guiGraphics,
             int mouseX, int mouseY) {
-        if (EncodePatternButtonController.isTagRecipe(recipeLayout.getRecipeCategory())) {
+        if (!JeiRecipePageKinds.isEncodableRecipeLayout(recipeLayout)) {
             return;
         }
 

@@ -37,7 +37,6 @@ import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.RecipeIngredientRole;
-import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.common.Internal;
 import mezz.jei.common.gui.elements.DrawableNineSliceTexture;
 
@@ -152,14 +151,6 @@ public final class EncodePatternButtonController {
             }
         }
         return lines;
-    }
-
-    public static boolean isTagRecipe(IRecipeCategory<?> recipeCategory) {
-        if (recipeCategory == null || recipeCategory.getRecipeType() == null) {
-            return false;
-        }
-        var uid = recipeCategory.getRecipeType().getUid();
-        return uid != null && "jei".equals(uid.getNamespace()) && uid.getPath().startsWith("tag_recipes/");
     }
 
     public static boolean press(IRecipeLayoutDrawable<?> recipeLayout) {

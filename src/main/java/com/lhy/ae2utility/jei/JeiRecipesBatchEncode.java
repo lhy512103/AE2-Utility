@@ -81,7 +81,7 @@ public final class JeiRecipesBatchEncode {
             boolean shiftUpload) {
         List<EncodePatternPacket> out = new ArrayList<>();
         for (IRecipeLayoutDrawable<?> layout : layouts) {
-            if (layout == null || EncodePatternButtonController.isTagRecipe(layout.getRecipeCategory())) {
+            if (!JeiRecipePageKinds.isEncodableRecipeLayout(layout)) {
                 continue;
             }
             JeiEncodePacketFactory.tryCreate(layout, shiftUpload).ifPresent(out::add);
