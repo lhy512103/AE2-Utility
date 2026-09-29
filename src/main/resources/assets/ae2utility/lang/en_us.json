@@ -57,5 +57,11 @@
   "ae2utility.config.reuseProviderWithinBatch": "Reuse the same provider within a batch upload",
   "ae2utility.config.reuseProviderWithinBatch.tooltip": "On (default): within one JEI batch upload, when a search key matches several providers, pick the provider (by name) chosen earlier in the batch.\nRequires ExtendedAE Plus's unique-match auto upload toggle.\nOff: choose manually every time.",
   "message.ae2utility.eco_pattern_duplicate": "AE2 Utility: this pattern already exists in the ECO crafting system; upload cancelled.",
-  "message.ae2utility.batch_encode_precheck_no_blank": "No blank patterns found; batch encoding cancelled."
+  "message.ae2utility.batch_encode_precheck_no_blank": "No blank patterns found; batch encoding cancelled.",
+  "jei.tooltip.ae2utility.encode_pattern_hover_preview": "While hovered, cycling inputs pin to the ingredients that will be encoded.",
+  "jei.tooltip.ae2utility.encode_pattern_terminal_more": "+%s more slots beyond this page",
+  "ae2utility.config.previewEncodeIngredientsOnArrowHover": "Pin encoded ingredients while hovering the encode arrow",
+  "ae2utility.config.previewEncodeIngredientsOnArrowHover.tooltip": "On (default): while hovering the JEI encode arrow, input slots with alternatives show the ingredient that will actually be encoded.\nOff: keep JEI's alternative cycling.",
+  "ae2utility.config.previewEncodeTerminalOnArrowHover": "Show an encoding terminal preview on the encode arrow",
+  "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "On (default): the JEI encode arrow tooltip shows a read-only AE2 pattern-encoding terminal layout.\nOff: text-only tooltip."
 }

@@ -15,6 +15,8 @@ public final class Ae2UtilityClientConfig {
     public static final ForgeConfigSpec.BooleanValue PREFER_FAVORITES_FOR_PATTERN_ENCODING;
     public static final ForgeConfigSpec.BooleanValue SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON;
     public static final ForgeConfigSpec.BooleanValue REUSE_PROVIDER_WITHIN_BATCH;
+    public static final ForgeConfigSpec.BooleanValue PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER;
+    public static final ForgeConfigSpec.BooleanValue PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER;
 
     private static final List<Option> OPTIONS;
 
@@ -44,6 +46,18 @@ public final class Ae2UtilityClientConfig {
                         "Still requires ExtendedAE Plus's 'auto upload unique match' toggle to be on.")
                 .translation("ae2utility.config.reuseProviderWithinBatch")
                 .define("reuseProviderWithinBatch", true);
+        PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER = BUILDER
+                .comment(
+                        "When hovering the JEI encode arrow, pin cycling input slots to the ingredients",
+                        "that will actually be encoded. If false, leave JEI's alternative cycling unchanged.")
+                .translation("ae2utility.config.previewEncodeIngredientsOnArrowHover")
+                .define("previewEncodeIngredientsOnArrowHover", true);
+        PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER = BUILDER
+                .comment(
+                        "When hovering the JEI encode arrow, show a read-only AE2 pattern-encoding",
+                        "terminal preview in the tooltip. If false, keep the text-only tooltip.")
+                .translation("ae2utility.config.previewEncodeTerminalOnArrowHover")
+                .define("previewEncodeTerminalOnArrowHover", true);
         SPEC = BUILDER.build();
 
         OPTIONS = List.of(
@@ -54,7 +68,11 @@ public final class Ae2UtilityClientConfig {
                 new Option("ae2utility.config.showJeiBatchEncodeFullCategoryButton",
                         SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON),
                 new Option("ae2utility.config.reuseProviderWithinBatch",
-                        REUSE_PROVIDER_WITHIN_BATCH));
+                        REUSE_PROVIDER_WITHIN_BATCH),
+                new Option("ae2utility.config.previewEncodeIngredientsOnArrowHover",
+                        PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER),
+                new Option("ae2utility.config.previewEncodeTerminalOnArrowHover",
+                        PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER));
     }
 
     private Ae2UtilityClientConfig() {
@@ -78,6 +96,14 @@ public final class Ae2UtilityClientConfig {
 
     public static boolean reuseProviderWithinBatch() {
         return REUSE_PROVIDER_WITHIN_BATCH.get();
+    }
+
+    public static boolean previewEncodeIngredientsOnArrowHover() {
+        return PREVIEW_ENCODE_INGREDIENTS_ON_ARROW_HOVER.get();
+    }
+
+    public static boolean previewEncodeTerminalOnArrowHover() {
+        return PREVIEW_ENCODE_TERMINAL_ON_ARROW_HOVER.get();
     }
 
     public record Option(String key, ForgeConfigSpec.BooleanValue value) {

@@ -67,6 +67,26 @@ public final class ModNetworking {
                 },
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
+        CHANNEL.registerMessage(nextId++, QueryEncodePreviewPacket.class,
+                QueryEncodePreviewPacket::encode, QueryEncodePreviewPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> {
+                        if (ctx.get().getSender() != null) {
+                            EncodePatternService.handlePreview(ctx.get().getSender(), msg);
+                        }
+                    });
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(nextId++, EncodePreviewResultPacket.class,
+                EncodePreviewResultPacket::encode, EncodePreviewResultPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> EncodePreviewResultPacket.handle(msg));
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
         CHANNEL.registerMessage(nextId++, BatchUploadStepPacket.class,
                 BatchUploadStepPacket::encode, BatchUploadStepPacket::decode,
                 (msg, ctx) -> {

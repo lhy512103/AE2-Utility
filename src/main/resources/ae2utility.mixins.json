@@ -12,6 +12,7 @@
   "client": [
     "eaep.ProviderSelectScreenAccessor",
     "eaep.ProviderSelectScreenMixin",
-    "jei.RecipeOptionButtonsMixin"
+    "jei.RecipeOptionButtonsMixin",
+    "jei.RecipeSlotPinMixin"
   ]
 }

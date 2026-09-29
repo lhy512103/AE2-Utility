@@ -143,6 +143,10 @@ public final class EncodePatternButtonController {
         }
         lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_blue_slots")
                 .withStyle(ChatFormatting.BLUE));
+        if (Ae2UtilityClientConfig.previewEncodeIngredientsOnArrowHover()) {
+            lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_hover_preview")
+                    .withStyle(ChatFormatting.GRAY));
+        }
         if (!isDetailTooltipExpanded()) {
             lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_prefix")
                     .withStyle(ChatFormatting.WHITE)

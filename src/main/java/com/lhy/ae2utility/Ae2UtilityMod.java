@@ -50,7 +50,7 @@ public class Ae2UtilityMod {
         context.registerConfig(ModConfig.Type.SERVER, Ae2UtilityServerConfig.SPEC);
         DistExecutor.unsafeRunWhenOn(
                 Dist.CLIENT,
-                () -> () -> Ae2UtilityClientSetup.registerConfigScreen(context.getContainer()));
+                () -> () -> Ae2UtilityClientSetup.init(context.getContainer(), context.getModEventBus()));
         context.getModEventBus().addListener(this::commonSetup);
         MinecraftForge.EVENT_BUS.register(ModNetworking.class);
     }

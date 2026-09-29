@@ -1,12 +1,17 @@
 package com.lhy.ae2utility.jei;
 
 import java.util.List;
+import java.util.Optional;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.tooltip.TooltipComponent;
+
+import com.lhy.ae2utility.client.PatternEncodingPreviewTooltip;
+import com.lhy.ae2utility.util.PatternEncodingPreview;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 
@@ -66,14 +71,20 @@ public final class JeiEncodeButtonOverlay {
             EncodePatternButtonController.drawSlotHighlights(
                     guiGraphics, recipeLayout.getRecipe(), recipeLayout.getRecipeSlotsView());
             poseStack.popPose();
-            drawTooltip(guiGraphics, mouseX, mouseY);
+            EncodePreviewCache.onButtonHovered(recipeLayout);
+            drawTooltip(recipeLayout, guiGraphics, mouseX, mouseY);
         }
     }
 
-    private static void drawTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    private static void drawTooltip(IRecipeLayoutDrawable<?> recipeLayout, GuiGraphics guiGraphics,
+            int mouseX, int mouseY) {
         List<Component> lines = EncodePatternButtonController.getTooltipLines();
-        if (!lines.isEmpty()) {
-            guiGraphics.renderComponentTooltip(Minecraft.getInstance().font, lines, mouseX, mouseY);
-        }
+        PatternEncodingPreview preview = EncodePatternButtonController.isAvailable()
+                ? EncodePreviewCache.tooltipPreview(recipeLayout)
+                : null;
+        Optional<TooltipComponent> image = preview == null
+                ? Optional.empty()
+                : Optional.of(new PatternEncodingPreviewTooltip(preview));
+        guiGraphics.renderTooltip(Minecraft.getInstance().font, lines, image, mouseX, mouseY);
     }
 }

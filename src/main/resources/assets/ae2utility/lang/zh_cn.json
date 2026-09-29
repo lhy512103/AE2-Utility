@@ -57,5 +57,11 @@
   "ae2utility.config.reuseProviderWithinBatch": "批量上传时复用同名供应器",
   "ae2utility.config.reuseProviderWithinBatch.tooltip": "开（默认）：同一批 JEI 上传中，同一搜索关键字匹配到多个供应器时，自动选择本批次上次选过的同名供应器。\n仍需开启 EAEP 的「唯一匹配自动上传」。\n关：多个匹配时每次都手动选择。",
   "message.ae2utility.eco_pattern_duplicate": "AE2实用：ECO 合成系统中已存在该样板，已取消上传。",
-  "message.ae2utility.batch_encode_precheck_no_blank": "未发现可用空白样板，已取消本次批量编码。"
+  "message.ae2utility.batch_encode_precheck_no_blank": "未发现可用空白样板，已取消本次批量编码。",
+  "jei.tooltip.ae2utility.encode_pattern_hover_preview": "悬停时，多候选槽会固定显示实际编码所用的材料。",
+  "jei.tooltip.ae2utility.encode_pattern_terminal_more": "本页之后还有 %s 格",
+  "ae2utility.config.previewEncodeIngredientsOnArrowHover": "悬停编码箭头时固定显示实际编码材料",
+  "ae2utility.config.previewEncodeIngredientsOnArrowHover.tooltip": "开（默认）：悬停 JEI 编码箭头时，多候选输入槽固定显示实际会写入样板的材料。\n关：保持 JEI 原有的候选轮换。",
+  "ae2utility.config.previewEncodeTerminalOnArrowHover": "悬停编码箭头时显示编码终端预览",
+  "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "开（默认）：悬停 JEI 编码箭头时，tooltip 中显示只读的 AE2 样板编码终端布局。\n关：只显示文字提示。"
 }

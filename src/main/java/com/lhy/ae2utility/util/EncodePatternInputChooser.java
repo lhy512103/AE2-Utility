@@ -13,6 +13,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * 与 {@link com.lhy.ae2utility.service.EncodePatternService} 中「从每条输入的多选一 GenericStack 里选定一项」一致，
@@ -81,6 +82,40 @@ public final class EncodePatternInputChooser {
         List<GenericStack> sortedAlts = new ArrayList<>(alts);
         sortedAlts.sort(Comparator.comparingInt(PullIngredientOrdering::genericStackItemSpecificityRank).reversed());
         return sortedAlts.get(0);
+    }
+
+    /**
+     * 把 3x3 编码网格对齐回 JEI 输入槽顺序，供悬停预览按槽钉住实际写入的物品。
+     */
+    public static List<GenericStack> alignCraftingGridToJeiSlots(List<GenericStack> jeiSlots, ItemStack[] grid) {
+        List<GenericStack> aligned = new ArrayList<>(jeiSlots.size());
+        boolean[] used = new boolean[grid.length];
+        for (GenericStack jei : jeiSlots) {
+            if (jei == null || jei.what() == null) {
+                aligned.add(null);
+                continue;
+            }
+            int match = -1;
+            for (int pass = 0; pass < 2 && match < 0; pass++) {
+                for (int i = 0; i < grid.length; i++) {
+                    if (used[i] || grid[i] == null || grid[i].isEmpty()) {
+                        continue;
+                    }
+                    AEItemKey key = AEItemKey.of(grid[i]);
+                    if (key != null && (pass == 1 || key.equals(jei.what()))) {
+                        match = i;
+                        break;
+                    }
+                }
+            }
+            if (match < 0) {
+                aligned.add(null);
+            } else {
+                used[match] = true;
+                aligned.add(new GenericStack(AEItemKey.of(grid[match]), Math.max(1, grid[match].getCount())));
+            }
+        }
+        return java.util.Collections.unmodifiableList(aligned);
     }
 
     private static boolean isUndamaged(AEKey what) {
