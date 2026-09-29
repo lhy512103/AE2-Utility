@@ -38,5 +38,8 @@
   "message.ae2utility.bulk_encode_exceeds_server_limit": "AE2 Utility: batch limit reached (%s patterns); remaining requests in this batch are skipped (see server config).",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "Require an open pattern-encoding menu for JEI encoding",
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "Block full-category JEI batch encoding",
-  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "Max patterns per batch encoding session"
+  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "Max patterns per batch encoding session",
+  "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "Show the full-category JEI batch encode button",
+  "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "On (default): show the button that encodes every recipe in the current JEI category (all pages).\nOff: hide it; takes effect after reopening JEI.",
+  "message.ae2utility.batch_encode_category_disabled_config": "AE2 Utility: full-category batch encoding is disabled in the client config."
 }

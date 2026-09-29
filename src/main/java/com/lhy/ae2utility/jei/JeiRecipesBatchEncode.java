@@ -3,6 +3,7 @@ package com.lhy.ae2utility.jei;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.ModNetworking;
@@ -29,6 +30,10 @@ public final class JeiRecipesBatchEncode {
         LocalPlayer player = minecraft.player;
         if (!EncodePatternButtonController.playerMayEncodePatterns(player)) {
             message(player, "message.ae2utility.batch_encode_no_terminal", ChatFormatting.RED);
+            return;
+        }
+        if (!currentPageOnly && !Ae2UtilityClientConfig.showJeiBatchEncodeFullCategoryButton()) {
+            message(player, "message.ae2utility.batch_encode_category_disabled_config", ChatFormatting.GOLD);
             return;
         }
         if (!currentPageOnly && RemoteEncodeRules.blocksFullCategoryBatch()) {

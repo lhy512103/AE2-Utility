@@ -38,5 +38,8 @@
   "message.ae2utility.bulk_encode_exceeds_server_limit": "AE2实用：已达单次批量上限（%s 条），本条及后续同批请求不再编码（见服务端配置）。",
   "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "须打开样板编码界面才能 JEI 编码",
   "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "禁止「整类全分页」JEI 批量编码",
-  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "单次批量编码最大样板数"
+  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "单次批量编码最大样板数",
+  "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "显示「整类全分页」JEI 批量编码按钮",
+  "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "开（默认）：JEI 显示「一键编码当前机器分类全部配方（所有分页）」按钮。\n关：隐藏该按钮，重新打开 JEI 后生效。",
+  "message.ae2utility.batch_encode_category_disabled_config": "AE2实用：客户端配置已关闭「整类全分页批量编码」。"
 }

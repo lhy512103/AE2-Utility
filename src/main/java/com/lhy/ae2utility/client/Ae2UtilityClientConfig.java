@@ -13,6 +13,7 @@ public final class Ae2UtilityClientConfig {
 
     public static final ForgeConfigSpec.BooleanValue ALLOW_JEI_PATTERN_ENCODE_WITHOUT_OPEN_TERMINAL;
     public static final ForgeConfigSpec.BooleanValue PREFER_FAVORITES_FOR_PATTERN_ENCODING;
+    public static final ForgeConfigSpec.BooleanValue SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON;
 
     private static final List<Option> OPTIONS;
 
@@ -29,13 +30,21 @@ public final class Ae2UtilityClientConfig {
                         "If false, do not read bookmarks and preserve the original alternative order.")
                 .translation("ae2utility.config.preferFavoritesForPatternEncoding")
                 .define("preferFavoritesForPatternEncoding", true);
+        SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON = BUILDER
+                .comment(
+                        "Show the batch-encode-all-pages-in-this-JEI-category button.",
+                        "Turn off if players accidentally click it and cause lag on multiplayer. Takes effect after reopening JEI.")
+                .translation("ae2utility.config.showJeiBatchEncodeFullCategoryButton")
+                .define("showJeiBatchEncodeFullCategoryButton", true);
         SPEC = BUILDER.build();
 
         OPTIONS = List.of(
                 new Option("ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal",
                         ALLOW_JEI_PATTERN_ENCODE_WITHOUT_OPEN_TERMINAL),
                 new Option("ae2utility.config.preferFavoritesForPatternEncoding",
-                        PREFER_FAVORITES_FOR_PATTERN_ENCODING));
+                        PREFER_FAVORITES_FOR_PATTERN_ENCODING),
+                new Option("ae2utility.config.showJeiBatchEncodeFullCategoryButton",
+                        SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON));
     }
 
     private Ae2UtilityClientConfig() {
@@ -51,6 +60,10 @@ public final class Ae2UtilityClientConfig {
 
     public static boolean preferFavoritesForPatternEncoding() {
         return PREFER_FAVORITES_FOR_PATTERN_ENCODING.get();
+    }
+
+    public static boolean showJeiBatchEncodeFullCategoryButton() {
+        return SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON.get();
     }
 
     public record Option(String key, ForgeConfigSpec.BooleanValue value) {
