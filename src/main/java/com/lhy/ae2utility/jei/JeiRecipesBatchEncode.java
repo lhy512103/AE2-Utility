@@ -41,11 +41,28 @@ public final class JeiRecipesBatchEncode {
             return;
         }
 
-        int sessionId = BulkEncodeSessions.next();
-        boolean fullCategory = !currentPageOnly;
         List<IRecipeLayoutDrawable<?>> layouts = currentPageOnly
                 ? JeiRecipesGuiAccess.getVisibleRecipeLayouts(screen)
                 : JeiRecipesGuiAccess.createSelectedCategoryRecipeLayouts(screen);
+        encode(player, layouts, !currentPageOnly, shiftUpload);
+    }
+
+    /** 批量编码任意 JEI 配方（如配方查找器所选），不属于整类批量。 */
+    public static void run(List<IRecipeLayoutDrawable<?>> layouts, boolean shiftUpload) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        if (!EncodePatternButtonController.playerMayEncodePatterns(player)) {
+            message(player, "message.ae2utility.batch_encode_no_terminal", ChatFormatting.RED);
+            return;
+        }
+        encode(player, layouts, false, shiftUpload);
+    }
+
+    private static void encode(LocalPlayer player, List<IRecipeLayoutDrawable<?>> layouts, boolean fullCategory,
+            boolean shiftUpload) {
+        int sessionId = BulkEncodeSessions.next();
         List<EncodePatternPacket> packets = filterExistingPatterns(collect(layouts, shiftUpload));
 
         int collected = packets.size();
@@ -72,7 +89,7 @@ public final class JeiRecipesBatchEncode {
         }
 
         if (shiftUpload) {
-            String machine = layouts.isEmpty() ? "" : EncodePatternButtonController.categoryTitle(layouts.get(0));
+            String machine = commonCategoryTitle(layouts);
             if (!JeiBatchEncodeQueue.start(tagged, machine)) {
                 message(player, "message.ae2utility.batch_encode_session_busy", ChatFormatting.GOLD);
                 return;
@@ -87,6 +104,18 @@ public final class JeiRecipesBatchEncode {
         }
         player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_sent", tagged.size())
                 .withStyle(ChatFormatting.GREEN), false);
+    }
+
+    private static String commonCategoryTitle(List<IRecipeLayoutDrawable<?>> layouts) {
+        String machine = null;
+        for (IRecipeLayoutDrawable<?> layout : layouts) {
+            String title = EncodePatternButtonController.categoryTitle(layout);
+            if (machine != null && !machine.equals(title)) {
+                return "";
+            }
+            machine = title;
+        }
+        return machine == null ? "" : machine;
     }
 
     private static void message(LocalPlayer player, String key, ChatFormatting color) {

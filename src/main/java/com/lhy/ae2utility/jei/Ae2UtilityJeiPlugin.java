@@ -3,9 +3,11 @@ package com.lhy.ae2utility.jei;
 import net.minecraft.resources.ResourceLocation;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.client.RecipeFinderScreen;
 
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 
 /**
@@ -20,6 +22,11 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public ResourceLocation getPluginUid() {
         return new ResourceLocation(Ae2UtilityMod.MOD_ID, "jei_plugin");
+    }
+
+    @Override
+    public void registerGuiHandlers(IGuiHandlerRegistration registration) {
+        registration.addGhostIngredientHandler(RecipeFinderScreen.class, new RecipeFinderGhostHandler());
     }
 
     @Override

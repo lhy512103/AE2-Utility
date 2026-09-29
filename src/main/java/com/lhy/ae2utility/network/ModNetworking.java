@@ -2,6 +2,7 @@ package com.lhy.ae2utility.network;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.jei.CraftableStateCache;
+import com.lhy.ae2utility.menu.RecipeFinderMenu;
 import com.lhy.ae2utility.service.ClearPatternsService;
 import com.lhy.ae2utility.service.CraftableStateService;
 import com.lhy.ae2utility.service.EncodePatternService;
@@ -94,6 +95,11 @@ public final class ModNetworking {
                     ctx.get().setPacketHandled(true);
                 },
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        CHANNEL.registerMessage(nextId++, RecipeFinderSamplePacket.class,
+                RecipeFinderSamplePacket::encode, RecipeFinderSamplePacket::decode,
+                (msg, ctx) -> handleRecipeFinderSample(msg, ctx.get()),
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     public static void sendToServer(Object payload) {
@@ -141,6 +147,15 @@ public final class ModNetworking {
         ctx.enqueueWork(() -> {
             if (ctx.getSender() != null) {
                 ClearPatternsService.handle(ctx.getSender(), msg);
+            }
+        });
+        ctx.setPacketHandled(true);
+    }
+
+    private static void handleRecipeFinderSample(RecipeFinderSamplePacket msg, NetworkEvent.Context ctx) {
+        ctx.enqueueWork(() -> {
+            if (ctx.getSender() != null && ctx.getSender().containerMenu instanceof RecipeFinderMenu menu) {
+                menu.applySample(msg.stack());
             }
         });
         ctx.setPacketHandled(true);
