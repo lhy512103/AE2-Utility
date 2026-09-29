@@ -8,6 +8,7 @@ import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.vanilla.IJeiIngredientInfoRecipe;
 import net.minecraft.resources.ResourceLocation;
 
+import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
 
 /**
@@ -40,8 +41,11 @@ public final class JeiRecipePageKinds {
             return false;
         }
         var slots = layout.getRecipeSlotsView();
-        return hasConvertibleIngredient(slots.getSlotViews(RecipeIngredientRole.INPUT))
-                && hasConvertibleIngredient(slots.getSlotViews(RecipeIngredientRole.OUTPUT));
+        if (!hasConvertibleIngredient(slots.getSlotViews(RecipeIngredientRole.INPUT))) {
+            return false;
+        }
+        return hasConvertibleIngredient(slots.getSlotViews(RecipeIngredientRole.OUTPUT))
+                || MultiblockStructurePatternCompat.isSupportedRecipe(layout.getRecipe(), true, false);
     }
 
     private static boolean hasConvertibleIngredient(java.util.List<IRecipeSlotView> slots) {

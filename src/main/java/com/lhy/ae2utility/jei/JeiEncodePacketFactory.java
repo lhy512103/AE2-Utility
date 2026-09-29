@@ -1,5 +1,6 @@
 package com.lhy.ae2utility.jei;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -9,6 +10,7 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
 
@@ -18,10 +20,12 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
+import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 
+import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 
@@ -50,6 +54,15 @@ public final class JeiEncodePacketFactory {
     private static Optional<EncodePatternPacket> tryCreate(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
             Object recipe, IRecipeSlotsView slotsView, boolean shiftUpload) {
         List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipe, slotsView);
+        boolean multiblockDraft = MultiblockStructurePatternCompat.isSupportedRecipe(
+                recipe, hasStructureInputs(slotsView), hasActualOutputs(slotsView));
+        if (multiblockDraft) {
+            GenericStack draftOutput = MultiblockStructurePatternCompat.createDraftOutput(recipe);
+            if (draftOutput == null) {
+                return Optional.empty();
+            }
+            outputs = List.of(draftOutput);
+        }
         Set<AEKey> outputKeys = outputs.stream()
                 .filter(Objects::nonNull)
                 .map(GenericStack::what)
@@ -57,8 +70,16 @@ public final class JeiEncodePacketFactory {
                 .collect(Collectors.toUnmodifiableSet());
         List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
                 slotsView, RecipeIngredientRole.INPUT, outputKeys);
+        if (multiblockDraft) {
+            inputs = filterMultiblockHatchSlots(slotsView, inputs);
+            if (!hasMeaningfulInputs(inputs)) {
+                inputs = MultiblockStructurePatternCompat.extractStructureInputs(recipe).stream()
+                        .map(List::of)
+                        .toList();
+            }
+        }
 
-        boolean hasInput = inputs.stream().anyMatch(Objects::nonNull);
+        boolean hasInput = hasMeaningfulInputs(inputs);
         boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
         boolean hasUnsupportedInput = inputs.stream().anyMatch(slot -> slot == null);
         boolean hasUnsupportedOutput = outputs.stream().anyMatch(Objects::isNull);
@@ -68,13 +89,13 @@ public final class JeiEncodePacketFactory {
         }
 
         ResourceLocation recipeId = null;
-        if (recipe instanceof Recipe<?> r) {
+        if (!multiblockDraft && recipe instanceof Recipe<?> r) {
             recipeId = r.getId();
         }
         String patternName = derivePatternName(recipeId, outputs);
 
         String providerSearchKey = computeEaepProviderSearchKey(recipeLayout, recipe, shiftUpload);
-        boolean craftingCategoryHint = isCraftingCategory(recipeLayout, recipe, inputs);
+        boolean craftingCategoryHint = !multiblockDraft && isCraftingCategory(recipeLayout, recipe, inputs);
 
         return Optional.of(new EncodePatternPacket(
                 inputs,
@@ -87,6 +108,38 @@ public final class JeiEncodePacketFactory {
                 JeiPatternSubstitutionUi.isFluidSubstituteOn(),
                 false,
                 craftingCategoryHint));
+    }
+
+    private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
+        return inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
+    }
+
+    public static boolean hasStructureInputs(IRecipeSlotsView slotsView) {
+        return slotsView.getSlotViews(RecipeIngredientRole.INPUT).stream()
+                .anyMatch(slot -> slot.getItemStacks().anyMatch(stack -> !stack.isEmpty()));
+    }
+
+    public static boolean hasActualOutputs(IRecipeSlotsView slotsView) {
+        return slotsView.getSlotViews(RecipeIngredientRole.OUTPUT).stream()
+                .anyMatch(slot -> slot.getAllIngredients().findAny().isPresent());
+    }
+
+    private static List<List<GenericStack>> filterMultiblockHatchSlots(IRecipeSlotsView slotsView,
+            List<List<GenericStack>> inputs) {
+        List<IRecipeSlotView> inputSlots = slotsView.getSlotViews(RecipeIngredientRole.INPUT);
+        List<List<GenericStack>> filtered = new ArrayList<>(inputs.size());
+        for (int index = 0; index < inputs.size(); index++) {
+            if (index < inputSlots.size()) {
+                List<ItemStack> alternatives = inputSlots.get(index).getItemStacks()
+                        .filter(stack -> !stack.isEmpty())
+                        .toList();
+                if (MultiblockStructurePatternCompat.isFilteredHatchSlot(alternatives)) {
+                    continue;
+                }
+            }
+            filtered.add(inputs.get(index));
+        }
+        return filtered;
     }
 
     private static boolean isCraftingCategory(@Nullable IRecipeLayoutDrawable<?> recipeLayout, Object recipe,
