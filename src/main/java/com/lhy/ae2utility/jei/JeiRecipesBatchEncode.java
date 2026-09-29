@@ -61,6 +61,11 @@ public final class JeiRecipesBatchEncode {
             return;
         }
 
+        if (BlankPatternClientPrecheck.lacksAnyDetectableBlankPattern(player)) {
+            message(player, "message.ae2utility.batch_encode_precheck_no_blank", ChatFormatting.GOLD);
+            return;
+        }
+
         List<EncodePatternPacket> tagged = new ArrayList<>(packets.size());
         for (EncodePatternPacket packet : packets) {
             tagged.add(packet.withBatch(fullCategory, sessionId));

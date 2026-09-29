@@ -56,5 +56,6 @@
   "gui.ae2utility.eaep_processing_pattern": "Processing pattern: %1$s (machine: %2$s)",
   "ae2utility.config.reuseProviderWithinBatch": "Reuse the same provider within a batch upload",
   "ae2utility.config.reuseProviderWithinBatch.tooltip": "On (default): within one JEI batch upload, when a search key matches several providers, pick the provider (by name) chosen earlier in the batch.\nRequires ExtendedAE Plus's unique-match auto upload toggle.\nOff: choose manually every time.",
-  "message.ae2utility.eco_pattern_duplicate": "AE2 Utility: this pattern already exists in the ECO crafting system; upload cancelled."
+  "message.ae2utility.eco_pattern_duplicate": "AE2 Utility: this pattern already exists in the ECO crafting system; upload cancelled.",
+  "message.ae2utility.batch_encode_precheck_no_blank": "No blank patterns found; batch encoding cancelled."
 }

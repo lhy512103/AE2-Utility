@@ -56,5 +56,6 @@
   "gui.ae2utility.eaep_processing_pattern": "正在处理样板：%1$s（机器：%2$s）",
   "ae2utility.config.reuseProviderWithinBatch": "批量上传时复用同名供应器",
   "ae2utility.config.reuseProviderWithinBatch.tooltip": "开（默认）：同一批 JEI 上传中，同一搜索关键字匹配到多个供应器时，自动选择本批次上次选过的同名供应器。\n仍需开启 EAEP 的「唯一匹配自动上传」。\n关：多个匹配时每次都手动选择。",
-  "message.ae2utility.eco_pattern_duplicate": "AE2实用：ECO 合成系统中已存在该样板，已取消上传。"
+  "message.ae2utility.eco_pattern_duplicate": "AE2实用：ECO 合成系统中已存在该样板，已取消上传。",
+  "message.ae2utility.batch_encode_precheck_no_blank": "未发现可用空白样板，已取消本次批量编码。"
 }
