@@ -6,8 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.ChatFormatting;
@@ -33,7 +35,6 @@ import com.lhy.ae2utility.service.CuriosWirelessTerminalLookup;
 import com.lhy.ae2utility.service.WirelessEncodeTerminalItems;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
-import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.RecipeIngredientRole;
@@ -133,24 +134,37 @@ public final class EncodePatternButtonController {
         }
     }
 
-    public static void addTooltips(ITooltipBuilder tooltip) {
-        for (Component line : getTooltipLines()) {
-            tooltip.add(line);
-        }
-    }
-
     public static List<Component> getTooltipLines() {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_button"));
-        if (isAvailable()) {
-            lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_blue_slots")
-                    .withStyle(ChatFormatting.BLUE));
-            if (ModList.get().isLoaded("extendedae_plus")) {
-                lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_shift")
-                        .withStyle(ChatFormatting.WHITE));
-            }
+        if (!isAvailable()) {
+            return lines;
+        }
+        lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_blue_slots")
+                .withStyle(ChatFormatting.BLUE));
+        if (!isDetailTooltipExpanded()) {
+            lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_prefix")
+                    .withStyle(ChatFormatting.WHITE)
+                    .append(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_key")
+                            .withStyle(ChatFormatting.AQUA))
+                    .append(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_suffix")
+                            .withStyle(ChatFormatting.WHITE)));
+            return lines;
+        }
+        lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_ctrl_left_hint")
+                .withStyle(ChatFormatting.WHITE));
+        if (ModList.get().isLoaded("extendedae_plus")) {
+            lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_shift")
+                    .withStyle(ChatFormatting.WHITE));
+            lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint")
+                    .withStyle(ChatFormatting.WHITE));
         }
         return lines;
+    }
+
+    private static boolean isDetailTooltipExpanded() {
+        long window = Minecraft.getInstance().getWindow().getWindow();
+        return Screen.hasShiftDown() && InputConstants.isKeyDown(window, GLFW.GLFW_KEY_N);
     }
 
     public static boolean press(IRecipeLayoutDrawable<?> recipeLayout) {
@@ -158,6 +172,9 @@ public final class EncodePatternButtonController {
             return false;
         }
         boolean shiftDown = Screen.hasShiftDown();
+        if (Screen.hasControlDown()) {
+            bookmarkMissingInputs(recipeLayout);
+        }
         var packet = JeiEncodePacketFactory.tryCreate(recipeLayout, shiftDown);
         if (packet.isEmpty() || !packet.get().fitsNetworkLimits()) {
             LocalPlayer player = Minecraft.getInstance().player;
@@ -172,6 +189,17 @@ public final class EncodePatternButtonController {
         playClickSound();
         ModNetworking.sendToServer(packet.get());
         return true;
+    }
+
+    private static void bookmarkMissingInputs(IRecipeLayoutDrawable<?> recipeLayout) {
+        int added = JeiBookmarkUtil.bookmarkMissingCraftingInputs(recipeLayout.getRecipeSlotsView());
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null) {
+            Component message = added > 0
+                    ? Component.translatable("message.ae2utility.bookmark_missing_inputs", added)
+                    : Component.translatable("message.ae2utility.bookmark_missing_inputs_none");
+            player.displayClientMessage(message.copy().withStyle(ChatFormatting.WHITE), true);
+        }
     }
 
     private static void playClickSound() {

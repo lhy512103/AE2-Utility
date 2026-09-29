@@ -45,5 +45,12 @@
   "message.ae2utility.batch_encode_blank_stopped": "AE2 Utility: out of blank patterns; the rest of this batch was stopped.",
   "message.ae2utility.uploads_cancelled": "AE2 Utility: stopped your active batch uploads (JEI Shift queue and EAEP pending pattern).",
   "message.ae2utility.stopuploads_requires_player": "AE2 Utility: /ae2utility stopuploads must be run by an online player; from the console use /execute as <player> run ...",
-  "message.ae2utility.stopuploads_all_done": "AE2 Utility: force-stopped batch uploads for %s online players."
+  "message.ae2utility.stopuploads_all_done": "AE2 Utility: force-stopped batch uploads for %s online players.",
+  "message.ae2utility.bookmark_missing_inputs": "Bookmarked %1$s missing ingredient(s) in JEI",
+  "message.ae2utility.bookmark_missing_inputs_none": "Nothing to bookmark (all inputs are craftable, empty, or already bookmarked)",
+  "jei.tooltip.ae2utility.encode_pattern_details_prefix": "Hold ",
+  "jei.tooltip.ae2utility.encode_pattern_details_key": "Shift+N",
+  "jei.tooltip.ae2utility.encode_pattern_details_suffix": " to view details",
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_left_hint": "Ctrl+left-click: encode the pattern and bookmark inputs that lack an auto-crafting pattern.",
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint": "Ctrl+Shift+left-click: Shift-upload the pattern (ExtendedAE Plus) and bookmark those inputs as above."
 }

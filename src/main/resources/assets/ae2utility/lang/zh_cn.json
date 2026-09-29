@@ -45,5 +45,12 @@
   "message.ae2utility.batch_encode_blank_stopped": "AE2实用：空白样板已用完，本次批量编码的剩余配方已停止。",
   "message.ae2utility.uploads_cancelled": "AE2实用：已停止当前的批量上传（JEI Shift 队列与 EAEP 待定样板）。",
   "message.ae2utility.stopuploads_requires_player": "AE2实用：/ae2utility stopuploads 只能由在线玩家使用；控制台可用 /execute as <玩家> run ...",
-  "message.ae2utility.stopuploads_all_done": "AE2实用：已对 %s 名在线玩家强制中止批量上传。"
+  "message.ae2utility.stopuploads_all_done": "AE2实用：已对 %s 名在线玩家强制中止批量上传。",
+  "message.ae2utility.bookmark_missing_inputs": "已将 %1$s 个缺失合成样板的材料加入 JEI 书签",
+  "message.ae2utility.bookmark_missing_inputs_none": "没有可加入书签的材料（输入均已可自动合成、槽位为空或已在书签中）",
+  "jei.tooltip.ae2utility.encode_pattern_details_prefix": "按住 ",
+  "jei.tooltip.ae2utility.encode_pattern_details_key": "Shift+N",
+  "jei.tooltip.ae2utility.encode_pattern_details_suffix": " 可查看描述",
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_left_hint": "Ctrl+左键：编码样板，并把缺少自动合成样板的输入加入 JEI 书签",
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint": "Ctrl+Shift+左键：按 Shift 流程上传样板，并同样加入上述书签"
 }
