@@ -42,5 +42,8 @@
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "显示「整类全分页」JEI 批量编码按钮",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "开（默认）：JEI 显示「一键编码当前机器分类全部配方（所有分页）」按钮。\n关：隐藏该按钮，重新打开 JEI 后生效。",
   "message.ae2utility.batch_encode_category_disabled_config": "AE2实用：客户端配置已关闭「整类全分页批量编码」。",
-  "message.ae2utility.batch_encode_blank_stopped": "AE2实用：空白样板已用完，本次批量编码的剩余配方已停止。"
+  "message.ae2utility.batch_encode_blank_stopped": "AE2实用：空白样板已用完，本次批量编码的剩余配方已停止。",
+  "message.ae2utility.uploads_cancelled": "AE2实用：已停止当前的批量上传（JEI Shift 队列与 EAEP 待定样板）。",
+  "message.ae2utility.stopuploads_requires_player": "AE2实用：/ae2utility stopuploads 只能由在线玩家使用；控制台可用 /execute as <玩家> run ...",
+  "message.ae2utility.stopuploads_all_done": "AE2实用：已对 %s 名在线玩家强制中止批量上传。"
 }

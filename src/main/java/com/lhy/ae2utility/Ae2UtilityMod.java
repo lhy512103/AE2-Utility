@@ -9,6 +9,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +24,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.command.Ae2UtilityCommands;
 import com.lhy.ae2utility.client.Ae2UtilityClientSetup;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.jei.CraftableStateCache;
@@ -62,6 +64,11 @@ public class Ae2UtilityMod {
             if (event.getEntity() instanceof ServerPlayer player) {
                 ModNetworking.sendToPlayer(player, SyncEncodeRulesPacket.fromServerConfig());
             }
+        }
+
+        @SubscribeEvent
+        public static void onRegisterCommands(RegisterCommandsEvent event) {
+            Ae2UtilityCommands.register(event);
         }
 
         @SubscribeEvent
