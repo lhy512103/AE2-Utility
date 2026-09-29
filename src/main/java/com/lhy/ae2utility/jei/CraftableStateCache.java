@@ -46,9 +46,6 @@ public final class CraftableStateCache {
         if (key == null) {
             return false;
         }
-        if (!isKeySafeForNetworkQuery(key)) {
-            return false;
-        }
 
         if (FMLEnvironment.dist == Dist.CLIENT) {
             Boolean fromClientRepo = lookupCraftableFromPatternTerminalClientRepo(key);
@@ -62,12 +59,12 @@ public final class CraftableStateCache {
 
         if (entry != null) {
             if (now - entry.timestamp > CACHE_TTL_MS) {
-                requestKey(key);
+                requestKey(key, entry.craftable);
             }
             return entry.craftable;
         }
 
-        requestKey(key);
+        requestKey(key, false);
         return false;
     }
 
@@ -85,13 +82,14 @@ public final class CraftableStateCache {
         return ClientRepoCraftableIndex.isCraftableOutput(menu, key);
     }
 
-    private static void requestKey(AEKey key) {
+    // 刷新期间保留旧值，避免高亮在等待回包时闪烁；无法序列化的键永久记为不可合成，不再重复检查。
+    private static void requestKey(AEKey key, boolean lastKnown) {
         if (!isKeySafeForNetworkQuery(key)) {
+            CACHE.put(key, new CacheEntry(false, Long.MAX_VALUE));
             return;
         }
-        long now = System.currentTimeMillis();
         PENDING_REQUESTS.add(key);
-        CACHE.put(key, new CacheEntry(false, now));
+        CACHE.put(key, new CacheEntry(lastKnown, System.currentTimeMillis()));
     }
 
     public static void tick() {
@@ -158,6 +156,12 @@ public final class CraftableStateCache {
         }
         existingPatternCachesStale = false;
         return true;
+    }
+
+    public static void clear() {
+        CACHE.clear();
+        PENDING_REQUESTS.clear();
+        cacheVersion++;
     }
 
     public static long cacheVersion() {

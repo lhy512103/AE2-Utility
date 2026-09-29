@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -61,8 +62,25 @@ public final class EncodePatternButtonController {
     }
 
     public static int computeButtonBackdropColor(Object recipe, IRecipeSlotsView slotsView) {
-        RecipeAnalysis analysis = analyzeRecipeSlots(recipe, slotsView);
+        return layoutState(recipe, slotsView).color();
+    }
 
+    private static LayoutState layoutState(Object recipe, IRecipeSlotsView slotsView) {
+        long tick = JeiClientCacheContext.getTickGeneration();
+        LayoutState cached = LAYOUT_STATES.get(slotsView);
+        if (cached != null && cached.tick() == tick) {
+            return cached;
+        }
+        RecipeAnalysis analysis = analyzeRecipeSlots(recipe, slotsView);
+        Map<IRecipeSlotView, Boolean> inputStates = computeInputCraftableStates(analysis);
+        LayoutState state = new LayoutState(tick, computeColor(analysis, inputStates, slotsView),
+                analysis.inputSlots(), inputStates);
+        LAYOUT_STATES.put(slotsView, state);
+        return state;
+    }
+
+    private static int computeColor(RecipeAnalysis analysis, Map<IRecipeSlotView, Boolean> inputStates,
+            IRecipeSlotsView slotsView) {
         for (GenericStack alt : analysis.outputs()) {
             if (alt != null && alt.what() != null && CraftableStateCache.isCraftable(alt.what())) {
                 return AE_BLUE_BUTTON_HIGHLIGHT_COLOR;
@@ -72,20 +90,13 @@ public final class EncodePatternButtonController {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player != null) {
             MEStorageMenu storageMenu = resolveOpenStorageMenu(player);
-            if (storageMenu != null && storageMenu.getClientRepo() != null) {
-                var preview = TerminalJeRecipeTransferPreview.compute(storageMenu, slotsView);
-                if (preview.anyCraftable()) {
-                    return AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
-                }
-            }
-        }
-
-        for (boolean inputCraftable : computeInputCraftableStates(analysis).values()) {
-            if (inputCraftable) {
+            if (storageMenu != null && storageMenu.getClientRepo() != null
+                    && TerminalJeRecipeTransferPreview.compute(storageMenu, slotsView).anyCraftable()) {
                 return AE_ORANGE_BUTTON_HIGHLIGHT_COLOR;
             }
         }
-        return 0;
+
+        return inputStates.containsValue(Boolean.TRUE) ? AE_ORANGE_BUTTON_HIGHLIGHT_COLOR : 0;
     }
 
     public static void drawButton(GuiGraphics guiGraphics, int x, int y, int width, int height, int backdropColor,
@@ -124,10 +135,9 @@ public final class EncodePatternButtonController {
     }
 
     public static void drawSlotHighlights(GuiGraphics guiGraphics, Object recipe, IRecipeSlotsView slotsView) {
-        RecipeAnalysis analysis = analyzeRecipeSlots(recipe, slotsView);
-        Map<IRecipeSlotView, Boolean> states = computeInputCraftableStates(analysis);
-        for (IRecipeSlotView slotView : analysis.inputSlots()) {
-            boolean hasPattern = Boolean.TRUE.equals(states.get(slotView));
+        LayoutState state = layoutState(recipe, slotsView);
+        for (IRecipeSlotView slotView : state.inputSlots()) {
+            boolean hasPattern = Boolean.TRUE.equals(state.inputStates().get(slotView));
             if (hasPattern) {
                 slotView.drawHighlight(guiGraphics, AE_BLUE_SLOT_HIGHLIGHT_COLOR);
             } else if (!slotView.isEmpty()) {
@@ -290,6 +300,13 @@ public final class EncodePatternButtonController {
             states.put(slotView, craftable);
         }
         return states;
+    }
+
+    // 每个配方布局每个客户端 tick 只分析一次槽位；键为布局自己的槽位视图，页面切换后自动回收。
+    private static final Map<IRecipeSlotsView, LayoutState> LAYOUT_STATES = new WeakHashMap<>();
+
+    private record LayoutState(long tick, int color, List<IRecipeSlotView> inputSlots,
+            Map<IRecipeSlotView, Boolean> inputStates) {
     }
 
     private record RecipeAnalysis(

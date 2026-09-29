@@ -87,6 +87,7 @@ public class Ae2UtilityMod {
         @SubscribeEvent
         public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             RemoteEncodeRules.clear();
+            CraftableStateCache.clear();
         }
 
         @SubscribeEvent
