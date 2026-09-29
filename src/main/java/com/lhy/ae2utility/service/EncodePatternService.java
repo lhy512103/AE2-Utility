@@ -142,15 +142,15 @@ public final class EncodePatternService {
 
         Predicate<AEKey> craftablePredicate =
                 grid != null ? key -> grid.getCraftingService().isCraftable(key) : null;
+        Set<AEKey> outputKeys = new java.util.HashSet<>(collectOutputKeysForRefresh(payload));
 
-        // 从多候选项中选股
         List<GenericStack> in = new ArrayList<>();
         for (List<GenericStack> alts : payload.inputs()) {
             if (alts == null || alts.isEmpty()) {
                 in.add(null);
             } else {
                 in.add(EncodePatternInputChooser.pickEncodedInput(alts, inventory, craftablePredicate,
-                        payload.preserveInputOrder()));
+                        payload.preserveInputOrder(), outputKeys));
             }
         }
 
@@ -162,7 +162,7 @@ public final class EncodePatternService {
         }
 
         EncodeComputation computation = computeEncodedPattern(serverPlayer, payload, in, out, inventory,
-                craftablePredicate);
+                craftablePredicate, outputKeys);
         ItemStack encodedPattern = computation.encodedPattern();
         if (encodedPattern.isEmpty()) {
             serverPlayer.sendSystemMessage(
@@ -203,7 +203,7 @@ public final class EncodePatternService {
     // ── 编码样板（合成/锻造/切石/处理）────────────────────────────
     private static EncodeComputation computeEncodedPattern(ServerPlayer serverPlayer, EncodePatternPacket payload,
             List<GenericStack> in, List<GenericStack> out, @Nullable MEStorage inventory,
-            @Nullable Predicate<AEKey> craftable) {
+            @Nullable Predicate<AEKey> craftable, Set<AEKey> outputKeys) {
         ItemStack encodedPattern = ItemStack.EMPTY;
         boolean canUploadToMatrix = false;
         boolean recognizedStructured = false;
@@ -218,7 +218,8 @@ public final class EncodePatternService {
                         && meaningfulInputCount <= 9
                         && craftingRecipe.canCraftInDimensions(3, 3)) {
                     recognizedStructured = true;
-                    ItemStack[] inArray = buildCraftingGridFromRecipe(craftingRecipe, in, inventory, craftable);
+                    ItemStack[] inArray = buildCraftingGridFromRecipe(craftingRecipe, in, inventory, craftable,
+                            outputKeys);
                     ItemStack outStack = toItemStack(out.isEmpty() ? null : out.get(0));
                     encodedPattern = PatternDetailsHelper.encodeCraftingPattern(craftingRecipe, inArray, outStack,
                             payload.substitute(), payload.substituteFluids());
@@ -365,7 +366,7 @@ public final class EncodePatternService {
 
     // ── 按配方 3x3 原料网格构建合成输入 ──────────────────────────
     private static ItemStack[] buildCraftingGridFromRecipe(CraftingRecipe recipe, List<GenericStack> chosenInputs,
-            @Nullable MEStorage inventory, @Nullable Predicate<AEKey> craftable) {
+            @Nullable MEStorage inventory, @Nullable Predicate<AEKey> craftable, Set<AEKey> outputKeys) {
         ItemStack[] inArray = new ItemStack[9];
         Arrays.fill(inArray, ItemStack.EMPTY);
         List<net.minecraft.world.item.crafting.Ingredient> ingredients3x3 =
@@ -394,7 +395,7 @@ public final class EncodePatternService {
                 }
             }
             if (chosen.isEmpty()) {
-                chosen = pickBestForIngredient(ingredient, inventory, craftable);
+                chosen = pickBestForIngredient(ingredient, inventory, craftable, outputKeys);
             }
             inArray[slot] = chosen;
         }
@@ -402,7 +403,7 @@ public final class EncodePatternService {
     }
 
     private static ItemStack pickBestForIngredient(net.minecraft.world.item.crafting.Ingredient ingredient,
-            @Nullable MEStorage inventory, @Nullable Predicate<AEKey> craftable) {
+            @Nullable MEStorage inventory, @Nullable Predicate<AEKey> craftable, Set<AEKey> outputKeys) {
         ItemStack[] items = ingredient.getItems();
         if (items.length == 0) return ItemStack.EMPTY;
         List<GenericStack> candidates = new ArrayList<>(items.length);
@@ -411,7 +412,8 @@ public final class EncodePatternService {
             if (key != null) candidates.add(new GenericStack(key, 1));
         }
         if (!candidates.isEmpty()) {
-            GenericStack best = EncodePatternInputChooser.pickEncodedInput(candidates, inventory, craftable, false);
+            GenericStack best = EncodePatternInputChooser.pickEncodedInput(candidates, inventory, craftable, false,
+                    outputKeys);
             if (best != null && best.what() instanceof AEItemKey k) {
                 return k.toStack();
             }

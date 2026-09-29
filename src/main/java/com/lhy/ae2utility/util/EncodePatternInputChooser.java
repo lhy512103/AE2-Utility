@@ -3,6 +3,7 @@ package com.lhy.ae2utility.util;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import org.jetbrains.annotations.Nullable;
@@ -25,8 +26,24 @@ public final class EncodePatternInputChooser {
 
     public static @Nullable GenericStack pickEncodedInput(List<GenericStack> alts, @Nullable MEStorage inventory,
             @Nullable Predicate<AEKey> craftable, boolean preserveInputOrder) {
+        return pickEncodedInput(alts, inventory, craftable, preserveInputOrder, Set.of());
+    }
+
+    /**
+     * {@code excluded}（通常是配方产物）只在还有其它候选时才剔除，避免生成自循环样板又不丢输入。
+     */
+    public static @Nullable GenericStack pickEncodedInput(List<GenericStack> alts, @Nullable MEStorage inventory,
+            @Nullable Predicate<AEKey> craftable, boolean preserveInputOrder, Set<AEKey> excluded) {
         if (alts == null || alts.isEmpty()) {
             return null;
+        }
+        if (!excluded.isEmpty()) {
+            List<GenericStack> eligible = alts.stream()
+                    .filter(alt -> alt != null && alt.what() != null && !excluded.contains(alt.what()))
+                    .toList();
+            if (!eligible.isEmpty()) {
+                alts = eligible;
+            }
         }
         if (alts.size() == 1) {
             return alts.get(0);
