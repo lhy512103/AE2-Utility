@@ -7,6 +7,7 @@ import java.util.Set;
 import org.jetbrains.annotations.Nullable;
 
 import com.lhy.ae2utility.jei.JeiBookmarkKeysCache;
+import com.lhy.ae2utility.jei.StochasticOutputDetector;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
 
 import appeng.api.stacks.AEItemKey;
@@ -148,6 +149,10 @@ public final class RecipeTransferPacketHelper {
     public static List<GenericStack> getEncodingOutputs(Object recipe, IRecipeSlotsView slotsView) {
         List<GenericStack> outputs = new ArrayList<>();
         for (IRecipeSlotView slotView : slotsView.getSlotViews(RecipeIngredientRole.OUTPUT)) {
+            boolean hasPrimaryOutput = outputs.stream().anyMatch(java.util.Objects::nonNull);
+            if (hasPrimaryOutput && StochasticOutputDetector.isChanceOutput(recipe, slotView)) {
+                continue;
+            }
             List<List<GenericStack>> singleSlot = getGenericStacks(new SingleRoleSlotsView(slotView), RecipeIngredientRole.OUTPUT);
             if (!singleSlot.isEmpty()) {
                 List<GenericStack> list = singleSlot.get(0);
