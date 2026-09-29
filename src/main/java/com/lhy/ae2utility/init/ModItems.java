@@ -11,6 +11,7 @@ import net.minecraftforge.registries.RegistryObject;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.item.MeQuickTransferToolItem;
+import com.lhy.ae2utility.item.RecipeFinderItem;
 
 public final class ModItems {
     public static final DeferredRegister<Item> REG = DeferredRegister.create(ForgeRegistries.ITEMS, Ae2UtilityMod.MOD_ID);
@@ -18,6 +19,8 @@ public final class ModItems {
 
     public static final RegistryObject<MeQuickTransferToolItem> ME_QUICK_TRANSFER = register("me_quick_transfer",
             () -> new MeQuickTransferToolItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<RecipeFinderItem> RECIPE_FINDER = register("recipe_finder",
+            () -> new RecipeFinderItem(new Item.Properties().stacksTo(1)));
 
     private ModItems() {
     }
