@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import appeng.api.stacks.GenericStack;
+import io.netty.buffer.Unpooled;
 
 /**
  * 客户端 → 服务端：请求编码一条 JEI 配方为样板（并可选 Shift 上传到 EAEP）。
@@ -120,23 +121,52 @@ public class EncodePatternPacket {
         boolean preserveInputOrder = buffer.readBoolean();
         boolean craftingCategoryHint = buffer.readBoolean();
 
-        int inputsSize = buffer.readVarInt();
+        int inputsSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_RECIPE_INPUT_SLOTS, "inputs");
         List<List<GenericStack>> inputs = new ArrayList<>(inputsSize);
         for (int i = 0; i < inputsSize; i++) {
             if (buffer.readBoolean()) {
-                inputs.add(readGenericStacks(buffer));
+                inputs.add(readGenericStacks(buffer, "input alternatives"));
             } else {
                 inputs.add(null);
             }
         }
 
-        List<GenericStack> outputs = readGenericStacks(buffer);
+        List<GenericStack> outputs = readGenericStacks(buffer, "outputs");
         return new EncodePatternPacket(inputs, outputs, id, patternName, providerSearchKey, shiftDown, substitute,
                 substituteFluids, preserveInputOrder, craftingCategoryHint);
     }
 
-    private static List<GenericStack> readGenericStacks(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+    public boolean fitsNetworkLimits() {
+        if (inputs.size() > NetworkValidation.MAX_RECIPE_INPUT_SLOTS
+                || outputs.size() > NetworkValidation.MAX_STACKS_PER_SLOT) {
+            return false;
+        }
+        long totalStacks = outputs.size();
+        for (List<GenericStack> slotInputs : inputs) {
+            if (slotInputs == null) {
+                continue;
+            }
+            if (slotInputs.size() > NetworkValidation.MAX_STACKS_PER_SLOT) {
+                return false;
+            }
+            totalStacks += slotInputs.size();
+        }
+        if (totalStacks > NetworkValidation.MAX_TOTAL_PATTERN_STACKS) {
+            return false;
+        }
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            encode(this, buffer);
+            return buffer.readableBytes() <= NetworkValidation.MAX_SERVERBOUND_PAYLOAD_BYTES;
+        } catch (RuntimeException e) {
+            return false;
+        } finally {
+            buffer.release();
+        }
+    }
+
+    private static List<GenericStack> readGenericStacks(FriendlyByteBuf buffer, String field) {
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_STACKS_PER_SLOT, field);
         List<GenericStack> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             if (buffer.readBoolean()) {

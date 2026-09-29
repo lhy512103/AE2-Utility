@@ -159,11 +159,13 @@ public final class EncodePatternButtonController {
         }
         boolean shiftDown = Screen.hasShiftDown();
         var packet = JeiEncodePacketFactory.tryCreate(recipeLayout, shiftDown);
-        if (packet.isEmpty()) {
+        if (packet.isEmpty() || !packet.get().fitsNetworkLimits()) {
             LocalPlayer player = Minecraft.getInstance().player;
             if (player != null) {
-                player.displayClientMessage(Component.translatable("message.ae2utility.encode_failed_unsupported")
-                        .withStyle(ChatFormatting.RED), false);
+                String key = packet.isEmpty()
+                        ? "message.ae2utility.encode_failed_unsupported"
+                        : "message.ae2utility.encode_failed_too_large";
+                player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.RED), false);
             }
             return true;
         }

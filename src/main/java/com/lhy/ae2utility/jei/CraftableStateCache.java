@@ -19,6 +19,7 @@ import appeng.api.stacks.AEKey;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.CraftableStatePacket;
 import com.lhy.ae2utility.network.ModNetworking;
+import com.lhy.ae2utility.network.NetworkValidation;
 import com.lhy.ae2utility.network.QueryCraftableStatePacket;
 
 import appeng.menu.me.common.MEStorageMenu;
@@ -99,18 +100,28 @@ public final class CraftableStateCache {
 
         long now = System.currentTimeMillis();
         if (now - lastRequestTime >= BATCH_SEND_INTERVAL_MS) {
-            List<AEKey> keysToRequest = new ArrayList<>(PENDING_REQUESTS.size());
+            List<AEKey> batch = new ArrayList<>();
+            int batchBytes = 5;
             for (AEKey key : PENDING_REQUESTS) {
-                if (isKeySafeForNetworkQuery(key)) {
-                    keysToRequest.add(key);
+                int keyBytes = networkSize(key);
+                if (keyBytes < 0) {
+                    continue;
                 }
+                if (!batch.isEmpty() && (batchBytes + keyBytes > NetworkValidation.MAX_SERVERBOUND_PAYLOAD_BYTES
+                        || batch.size() >= NetworkValidation.MAX_CRAFTABLE_KEYS)) {
+                    ModNetworking.sendToServer(new QueryCraftableStatePacket(batch));
+                    batch = new ArrayList<>();
+                    batchBytes = 5;
+                }
+                batch.add(key);
+                batchBytes += keyBytes;
             }
             PENDING_REQUESTS.clear();
-            if (keysToRequest.isEmpty()) {
+            if (batch.isEmpty()) {
                 return;
             }
             lastRequestTime = now;
-            ModNetworking.sendToServer(new QueryCraftableStatePacket(keysToRequest));
+            ModNetworking.sendToServer(new QueryCraftableStatePacket(batch));
         }
     }
 
@@ -142,16 +153,21 @@ public final class CraftableStateCache {
     }
 
     private static boolean isKeySafeForNetworkQuery(AEKey key) {
+        return networkSize(key) >= 0;
+    }
+
+    private static int networkSize(AEKey key) {
         if (key == null || Minecraft.getInstance().level == null) {
-            return false;
+            return -1;
         }
         FriendlyByteBuf buffer = null;
         try {
             buffer = new FriendlyByteBuf(Unpooled.buffer());
             AEKey.writeKey(buffer, key);
-            return true;
+            int size = buffer.readableBytes();
+            return size > NetworkValidation.MAX_SERVERBOUND_PAYLOAD_BYTES / 2 ? -1 : size;
         } catch (RuntimeException ex) {
-            return false;
+            return -1;
         } finally {
             if (buffer != null) {
                 buffer.release();

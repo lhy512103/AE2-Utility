@@ -25,7 +25,7 @@ public class QueryCraftableStatePacket {
     }
 
     public static QueryCraftableStatePacket decode(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_CRAFTABLE_KEYS, "craftable keys");
         List<AEKey> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(AEKey.readKey(buffer));

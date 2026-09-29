@@ -84,7 +84,9 @@ public final class JeiRecipesBatchEncode {
             if (!JeiRecipePageKinds.isEncodableRecipeLayout(layout)) {
                 continue;
             }
-            JeiEncodePacketFactory.tryCreate(layout, shiftUpload).ifPresent(out::add);
+            JeiEncodePacketFactory.tryCreate(layout, shiftUpload)
+                    .filter(EncodePatternPacket::fitsNetworkLimits)
+                    .ifPresent(out::add);
         }
         return out;
     }
