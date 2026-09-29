@@ -3,6 +3,7 @@ package com.lhy.ae2utility.jei;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.ModNetworking;
 
@@ -27,58 +28,61 @@ public final class JeiRecipesBatchEncode {
         Screen screen = minecraft.screen;
         LocalPlayer player = minecraft.player;
         if (!EncodePatternButtonController.playerMayEncodePatterns(player)) {
-            player.displayClientMessage(
-                    Component.translatable("message.ae2utility.batch_encode_no_terminal").withStyle(ChatFormatting.RED),
-                    false);
+            message(player, "message.ae2utility.batch_encode_no_terminal", ChatFormatting.RED);
+            return;
+        }
+        if (!currentPageOnly && RemoteEncodeRules.blocksFullCategoryBatch()) {
+            message(player, "message.ae2utility.encode_rejected_full_category_blocked_server", ChatFormatting.RED);
             return;
         }
 
-        List<EncodePatternPacket> packets = currentPageOnly
-                ? collectCurrentPage(screen, shiftUpload)
-                : collectSelectedCategory(screen, shiftUpload);
-        packets = filterExistingPatterns(packets);
+        int sessionId = BulkEncodeSessions.next();
+        boolean fullCategory = !currentPageOnly;
+        List<IRecipeLayoutDrawable<?>> layouts = currentPageOnly
+                ? JeiRecipesGuiAccess.getVisibleRecipeLayouts(screen)
+                : JeiRecipesGuiAccess.createSelectedCategoryRecipeLayouts(screen);
+        List<EncodePatternPacket> packets = filterExistingPatterns(collect(layouts, shiftUpload));
+
+        int collected = packets.size();
+        packets = RemoteEncodeRules.capToSessionLimit(packets);
+        if (packets.size() < collected) {
+            player.displayClientMessage(Component.translatable(
+                    "message.ae2utility.bulk_encode_truncated_client_notice", collected, packets.size())
+                    .withStyle(ChatFormatting.GOLD), false);
+        }
 
         if (packets.isEmpty()) {
-            player.displayClientMessage(
-                    Component.translatable("message.ae2utility.batch_encode_none").withStyle(ChatFormatting.GRAY),
-                    false);
+            message(player, "message.ae2utility.batch_encode_none", ChatFormatting.GRAY);
             return;
+        }
+
+        List<EncodePatternPacket> tagged = new ArrayList<>(packets.size());
+        for (EncodePatternPacket packet : packets) {
+            tagged.add(packet.withBatch(fullCategory, sessionId));
         }
 
         if (shiftUpload) {
-            if (!JeiBatchEncodeQueue.start(packets)) {
-                player.displayClientMessage(
-                        Component.translatable("message.ae2utility.batch_encode_session_busy")
-                                .withStyle(ChatFormatting.GOLD),
-                        false);
+            if (!JeiBatchEncodeQueue.start(tagged)) {
+                message(player, "message.ae2utility.batch_encode_session_busy", ChatFormatting.GOLD);
                 return;
             }
-            player.displayClientMessage(
-                    Component.translatable("message.ae2utility.batch_encode_queued", packets.size())
-                            .withStyle(ChatFormatting.GREEN),
-                    false);
+            player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_queued", tagged.size())
+                    .withStyle(ChatFormatting.GREEN), false);
             return;
         }
 
-        for (EncodePatternPacket packet : packets) {
+        for (EncodePatternPacket packet : tagged) {
             ModNetworking.sendToServer(packet);
         }
-        player.displayClientMessage(
-                Component.translatable("message.ae2utility.batch_encode_sent", packets.size())
-                        .withStyle(ChatFormatting.GREEN),
-                false);
+        player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_sent", tagged.size())
+                .withStyle(ChatFormatting.GREEN), false);
     }
 
-    private static List<EncodePatternPacket> collectCurrentPage(Screen screen, boolean shiftUpload) {
-        return collectFromLayouts(JeiRecipesGuiAccess.getVisibleRecipeLayouts(screen), shiftUpload);
+    private static void message(LocalPlayer player, String key, ChatFormatting color) {
+        player.displayClientMessage(Component.translatable(key).withStyle(color), false);
     }
 
-    private static List<EncodePatternPacket> collectSelectedCategory(Screen screen, boolean shiftUpload) {
-        return collectFromLayouts(JeiRecipesGuiAccess.createSelectedCategoryRecipeLayouts(screen), shiftUpload);
-    }
-
-    private static List<EncodePatternPacket> collectFromLayouts(List<IRecipeLayoutDrawable<?>> layouts,
-            boolean shiftUpload) {
+    private static List<EncodePatternPacket> collect(List<IRecipeLayoutDrawable<?>> layouts, boolean shiftUpload) {
         List<EncodePatternPacket> out = new ArrayList<>();
         for (IRecipeLayoutDrawable<?> layout : layouts) {
             if (!JeiRecipePageKinds.isEncodableRecipeLayout(layout)) {

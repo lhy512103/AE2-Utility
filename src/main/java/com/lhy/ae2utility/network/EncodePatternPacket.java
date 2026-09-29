@@ -13,9 +13,7 @@ import io.netty.buffer.Unpooled;
 
 /**
  * 客户端 → 服务端：请求编码一条 JEI 配方为样板（并可选 Shift 上传到 EAEP）。
- *
- * <p>1.20.1 forge 版本精简：去掉批量 / 顺序队列等附属字段，
- * 仅保留编码 + EAEP 上传所需的核心数据。</p>
+ * {@code bulkSessionId} 为 0 表示单条编码，非 0 表示同一次 JEI 批量操作。
  */
 public class EncodePatternPacket {
     private final List<List<GenericStack>> inputs;
@@ -29,10 +27,20 @@ public class EncodePatternPacket {
     private final boolean substituteFluids;
     private final boolean preserveInputOrder;
     private final boolean craftingCategoryHint;
+    private final boolean fullCategoryBatch;
+    private final int bulkSessionId;
 
     public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
             String patternName, String providerSearchKey, boolean shiftDown, boolean substitute,
             boolean substituteFluids, boolean preserveInputOrder, boolean craftingCategoryHint) {
+        this(inputs, outputs, recipeId, patternName, providerSearchKey, shiftDown, substitute, substituteFluids,
+                preserveInputOrder, craftingCategoryHint, false, 0);
+    }
+
+    public EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericStack> outputs, @Nullable ResourceLocation recipeId,
+            String patternName, String providerSearchKey, boolean shiftDown, boolean substitute,
+            boolean substituteFluids, boolean preserveInputOrder, boolean craftingCategoryHint,
+            boolean fullCategoryBatch, int bulkSessionId) {
         this.inputs = Collections.unmodifiableList(new ArrayList<>(inputs));
         this.outputs = Collections.unmodifiableList(new ArrayList<>(outputs));
         this.recipeId = recipeId;
@@ -43,6 +51,13 @@ public class EncodePatternPacket {
         this.substituteFluids = substituteFluids;
         this.preserveInputOrder = preserveInputOrder;
         this.craftingCategoryHint = craftingCategoryHint;
+        this.fullCategoryBatch = fullCategoryBatch;
+        this.bulkSessionId = bulkSessionId;
+    }
+
+    public EncodePatternPacket withBatch(boolean fullCategory, int sessionId) {
+        return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerSearchKey, shiftDown, substitute,
+                substituteFluids, preserveInputOrder, craftingCategoryHint, fullCategory, sessionId);
     }
 
     public List<List<GenericStack>> inputs() {
@@ -86,6 +101,18 @@ public class EncodePatternPacket {
         return craftingCategoryHint;
     }
 
+    public boolean fullCategoryBatch() {
+        return fullCategoryBatch;
+    }
+
+    public int bulkSessionId() {
+        return bulkSessionId;
+    }
+
+    public boolean isBatch() {
+        return bulkSessionId != 0;
+    }
+
     public static void encode(EncodePatternPacket msg, FriendlyByteBuf buffer) {
         buffer.writeBoolean(msg.recipeId != null);
         if (msg.recipeId != null) {
@@ -98,6 +125,8 @@ public class EncodePatternPacket {
         buffer.writeBoolean(msg.substituteFluids);
         buffer.writeBoolean(msg.preserveInputOrder);
         buffer.writeBoolean(msg.craftingCategoryHint);
+        buffer.writeBoolean(msg.fullCategoryBatch);
+        buffer.writeVarInt(msg.bulkSessionId);
 
         buffer.writeVarInt(msg.inputs.size());
         for (List<GenericStack> slotInputs : msg.inputs) {
@@ -120,6 +149,8 @@ public class EncodePatternPacket {
         boolean substituteFluids = buffer.readBoolean();
         boolean preserveInputOrder = buffer.readBoolean();
         boolean craftingCategoryHint = buffer.readBoolean();
+        boolean fullCategoryBatch = buffer.readBoolean();
+        int bulkSessionId = buffer.readVarInt();
 
         int inputsSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_RECIPE_INPUT_SLOTS, "inputs");
         List<List<GenericStack>> inputs = new ArrayList<>(inputsSize);
@@ -133,7 +164,7 @@ public class EncodePatternPacket {
 
         List<GenericStack> outputs = readGenericStacks(buffer, "outputs");
         return new EncodePatternPacket(inputs, outputs, id, patternName, providerSearchKey, shiftDown, substitute,
-                substituteFluids, preserveInputOrder, craftingCategoryHint);
+                substituteFluids, preserveInputOrder, craftingCategoryHint, fullCategoryBatch, bulkSessionId);
     }
 
     public boolean fitsNetworkLimits() {

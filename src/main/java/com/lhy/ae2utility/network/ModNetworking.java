@@ -16,7 +16,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import java.util.Optional;
 
 public final class ModNetworking {
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(Ae2UtilityMod.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
@@ -58,6 +58,14 @@ public final class ModNetworking {
                 ClearPatternsPacket::encode, ClearPatternsPacket::decode,
                 (msg, ctx) -> handleClearPatterns(msg, ctx.get()),
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(nextId++, SyncEncodeRulesPacket.class,
+                SyncEncodeRulesPacket::encode, SyncEncodeRulesPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> SyncEncodeRulesPacket.handle(msg));
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public static void sendToServer(Object payload) {

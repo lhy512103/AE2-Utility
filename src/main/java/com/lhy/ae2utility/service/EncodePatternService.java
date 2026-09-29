@@ -43,6 +43,7 @@ import appeng.menu.me.common.MEStorageMenu;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.Ae2UtilityServerConfig;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.CraftableStatePacket;
 import com.lhy.ae2utility.network.EncodePatternPacket;
@@ -133,6 +134,20 @@ public final class EncodePatternService {
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_failed_no_terminal")
                             .withStyle(ChatFormatting.RED));
+            return;
+        }
+        if (Ae2UtilityServerConfig.requireOpenPatternEncodingMenuForJei()
+                && !WcwtCompat.isPatternEncodingLikeMenu(serverPlayer.containerMenu)) {
+            Component message = Component.translatable("message.ae2utility.encode_rejected_require_open_encoding_menu")
+                    .withStyle(ChatFormatting.RED);
+            if (payload.isBatch()) {
+                EncodeBulkSessionLimiter.announceOnce(serverPlayer, payload.bulkSessionId(), "menu", message);
+            } else {
+                serverPlayer.sendSystemMessage(message);
+            }
+            return;
+        }
+        if (EncodeBulkSessionLimiter.rejectIfLimited(serverPlayer, payload)) {
             return;
         }
 

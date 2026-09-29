@@ -32,5 +32,11 @@
   "ae2utility.config.preferFavoritesForPatternEncoding": "编码时优先使用 JEI 书签",
   "ae2utility.config.preferFavoritesForPatternEncoding.tooltip": "开（默认）：多候选输入槽优先选用 JEI 书签中的物品。\n关：不读取书签，保留配方原始候选顺序。",
   "ae2utility.config.title": "AE2 实用配置",
-  "ae2utility.config.boolean_value": "%1$s：%2$s"
+  "ae2utility.config.boolean_value": "%1$s：%2$s",
+  "message.ae2utility.encode_rejected_full_category_blocked_server": "AE2实用：本服务器已禁止 JEI「整台机器分类含全部分页」的批量编码（见服务端配置）。",
+  "message.ae2utility.bulk_encode_truncated_client_notice": "AE2实用：本批 %1$s 条中仅发送前 %2$s 条（服务器单次批量上限）。",
+  "message.ae2utility.bulk_encode_exceeds_server_limit": "AE2实用：已达单次批量上限（%s 条），本条及后续同批请求不再编码（见服务端配置）。",
+  "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "须打开样板编码界面才能 JEI 编码",
+  "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "禁止「整类全分页」JEI 批量编码",
+  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "单次批量编码最大样板数"
 }

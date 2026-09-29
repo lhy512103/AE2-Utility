@@ -32,5 +32,11 @@
   "ae2utility.config.preferFavoritesForPatternEncoding": "Prefer JEI bookmarks when encoding",
   "ae2utility.config.preferFavoritesForPatternEncoding.tooltip": "On (default): input slots with alternatives prefer ingredients in your JEI bookmarks.\nOff: ignore bookmarks and keep the recipe's original alternative order.",
   "ae2utility.config.title": "AE2 Utility Configuration",
-  "ae2utility.config.boolean_value": "%1$s: %2$s"
+  "ae2utility.config.boolean_value": "%1$s: %2$s",
+  "message.ae2utility.encode_rejected_full_category_blocked_server": "AE2 Utility: this server blocks JEI batch encoding of a whole category across all pages (see server config).",
+  "message.ae2utility.bulk_encode_truncated_client_notice": "AE2 Utility: only the first %2$s of %1$s recipes were sent (server batch limit).",
+  "message.ae2utility.bulk_encode_exceeds_server_limit": "AE2 Utility: batch limit reached (%s patterns); remaining requests in this batch are skipped (see server config).",
+  "ae2utility.serverConfig.requireOpenPatternEncodingMenuForJei": "Require an open pattern-encoding menu for JEI encoding",
+  "ae2utility.serverConfig.blockJeiFullCategoryBatchEncode": "Block full-category JEI batch encoding",
+  "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "Max patterns per batch encoding session"
 }
