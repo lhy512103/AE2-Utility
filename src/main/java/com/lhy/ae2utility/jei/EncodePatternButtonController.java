@@ -167,13 +167,18 @@ public final class EncodePatternButtonController {
             return false;
         }
         boolean shiftDown = Screen.hasShiftDown();
-        return JeiEncodePacketFactory.tryCreate(recipeLayout, shiftDown)
-                .map(packet -> {
-                    playClickSound();
-                    ModNetworking.sendToServer(packet);
-                    return true;
-                })
-                .orElse(false);
+        var packet = JeiEncodePacketFactory.tryCreate(recipeLayout, shiftDown);
+        if (packet.isEmpty()) {
+            LocalPlayer player = Minecraft.getInstance().player;
+            if (player != null) {
+                player.displayClientMessage(Component.translatable("message.ae2utility.encode_failed_unsupported")
+                        .withStyle(ChatFormatting.RED), false);
+            }
+            return true;
+        }
+        playClickSound();
+        ModNetworking.sendToServer(packet.get());
+        return true;
     }
 
     private static void playClickSound() {

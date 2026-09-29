@@ -1,6 +1,7 @@
 package com.lhy.ae2utility.jei;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -8,13 +9,14 @@ import java.util.WeakHashMap;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
+import appeng.menu.me.common.GridInventoryEntry;
 import appeng.menu.me.common.MEStorageMenu;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 
 /**
- * 与 AE2 终端 JEI 拉配方相同的本地预览：背包占位 + {@link MEStorageMenu#hasIngredient} + 可合成替补。
+ * 与 AE2 终端 JEI 拉配方相同的本地预览：背包占位 + ME 客户端库存占位 + 可合成替补。
  */
 public final class TerminalJeRecipeTransferPreview {
     private static final byte MISSING = 1;
@@ -60,10 +62,12 @@ public final class TerminalJeRecipeTransferPreview {
         return assemble(inputs, flags, anyResolved);
     }
 
+    // Reserves whole amounts at once; per-unit iteration froze the client on recipes needing millions of items.
     private static boolean computeFlags(MEStorageMenu container, List<IRecipeSlotView> inputs, byte[] flags) {
-        var reservedTerminalAmounts = new it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap<Object>();
+        Map<GridInventoryEntry, Long> reservedTerminalAmounts = new IdentityHashMap<>();
         var playerItems = container.getPlayerInventory().items;
         var reservedPlayerItems = new int[playerItems.size()];
+        var repo = container.getClientRepo();
         boolean anyResolved = false;
 
         for (int idx = 0; idx < inputs.size(); idx++) {
@@ -73,49 +77,49 @@ public final class TerminalJeRecipeTransferPreview {
                 continue;
             }
 
-            int requiredCount = Math.max(getDisplayedStack(slotView).getCount(), 1);
+            long remaining = Math.max(getDisplayedStack(slotView).getCount(), 1);
+            long initial = remaining;
 
-            boolean missing = false;
-            boolean craftable = false;
-            for (int i = 0; i < requiredCount; i++) {
-                boolean found = false;
-                for (int slot = 0; slot < playerItems.size(); slot++) {
-                    if (container.isPlayerInventorySlotLocked(slot)) {
-                        continue;
+            for (int slot = 0; slot < playerItems.size() && remaining > 0; slot++) {
+                if (container.isPlayerInventorySlotLocked(slot)) {
+                    continue;
+                }
+                var stack = playerItems.get(slot);
+                int available = stack.getCount() - reservedPlayerItems[slot];
+                if (available > 0 && ingredient.test(stack)) {
+                    int take = (int) Math.min(available, remaining);
+                    reservedPlayerItems[slot] += take;
+                    remaining -= take;
+                }
+            }
+
+            if (remaining > 0 && repo != null) {
+                for (GridInventoryEntry entry : repo.getByIngredient(ingredient)) {
+                    long reserved = reservedTerminalAmounts.getOrDefault(entry, 0L);
+                    long available = entry.getStoredAmount() - reserved;
+                    if (available > 0) {
+                        long take = Math.min(available, remaining);
+                        reservedTerminalAmounts.put(entry, reserved + take);
+                        remaining -= take;
+                        if (remaining <= 0) {
+                            break;
+                        }
                     }
-
-                    var stack = playerItems.get(slot);
-                    if (stack.getCount() - reservedPlayerItems[slot] > 0 && ingredient.test(stack)) {
-                        reservedPlayerItems[slot]++;
-                        found = true;
-                        anyResolved = true;
-                        break;
-                    }
                 }
+            }
 
-                if (!found && container.hasIngredient(ingredient, reservedTerminalAmounts)) {
-                    reservedTerminalAmounts.merge(ingredient, 1, Integer::sum);
-                    found = true;
-                    anyResolved = true;
-                }
-
-                if (!found && hasCraftableAlternative(container, ingredient)) {
-                    craftable = true;
-                    found = true;
-                    anyResolved = true;
-                }
-
-                if (!found) {
-                    missing = true;
-                }
+            if (remaining < initial) {
+                anyResolved = true;
             }
 
             byte f = 0;
-            if (missing) {
-                f |= MISSING;
-            }
-            if (craftable) {
-                f |= CRAFTABLE;
+            if (remaining > 0) {
+                if (hasCraftableAlternative(container, ingredient)) {
+                    f |= CRAFTABLE;
+                    anyResolved = true;
+                } else {
+                    f |= MISSING;
+                }
             }
             flags[idx] = f;
         }

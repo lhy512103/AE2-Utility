@@ -1,6 +1,7 @@
 {
   "message.ae2utility.encode_failed_no_terminal": "AE2 Utility: no connected ME terminal or wireless terminal found.",
   "message.ae2utility.encode_failed_empty": "AE2 Utility: recipe has no inputs or outputs.",
+  "message.ae2utility.encode_failed_unsupported": "AE2 Utility: this recipe contains ingredients AE2 cannot store, so it cannot be encoded.",
   "message.ae2utility.encode_failed": "AE2 Utility: failed to encode %1$s.",
   "message.ae2utility.encode_failed_no_blank": "Cannot encode: no blank pattern found in terminal slot, inventory or ME network.",
   "message.ae2utility.encode_failed_no_blank_named": "Cannot encode %1$s, no blank pattern available.",

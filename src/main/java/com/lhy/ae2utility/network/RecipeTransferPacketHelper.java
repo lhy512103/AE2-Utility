@@ -116,7 +116,11 @@ public final class RecipeTransferPacketHelper {
             List<List<GenericStack>> singleSlot = getGenericStacks(new SingleRoleSlotsView(slotView), RecipeIngredientRole.OUTPUT);
             if (!singleSlot.isEmpty()) {
                 List<GenericStack> list = singleSlot.get(0);
-                outputs.add(list == null || list.isEmpty() ? null : list.get(0));
+                if (list == null) {
+                    outputs.add(null);
+                } else if (!list.isEmpty()) {
+                    outputs.add(list.get(0));
+                }
             }
         }
         return outputs;

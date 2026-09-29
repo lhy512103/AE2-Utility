@@ -1,6 +1,7 @@
 {
   "message.ae2utility.encode_failed_no_terminal": "AE2实用：未找到已连接的 ME 终端或无线终端。",
   "message.ae2utility.encode_failed_empty": "AE2实用：配方没有输入或输出。",
+  "message.ae2utility.encode_failed_unsupported": "AE2实用：该配方包含 AE2 无法存储的材料类型，无法编码。",
   "message.ae2utility.encode_failed": "AE2实用：编码 %1$s 失败。",
   "message.ae2utility.encode_failed_no_blank": "无法编码：终端空白槽、背包与 ME 中均未找到可消耗的空白样板。",
   "message.ae2utility.encode_failed_no_blank_named": "无法编码 %1$s，缺少空白样板。",
