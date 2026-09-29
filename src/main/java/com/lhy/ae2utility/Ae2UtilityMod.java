@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.command.Ae2UtilityCommands;
 import com.lhy.ae2utility.client.Ae2UtilityClientSetup;
+import com.lhy.ae2utility.client.EaepProviderScreenLabel;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.EncodePatternButtonState;
@@ -102,7 +103,15 @@ public class Ae2UtilityMod {
         }
 
         @SubscribeEvent
+        public static void onScreenClosing(ScreenEvent.Closing event) {
+            if (EaepProviderScreenLabel.isProviderSelectScreen(event.getScreen())) {
+                EaepProviderScreenLabel.clear();
+            }
+        }
+
+        @SubscribeEvent
         public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
+            EaepProviderScreenLabel.render(event.getScreen(), event.getGuiGraphics());
             if (!ModList.get().isLoaded("jei")) {
                 return;
             }

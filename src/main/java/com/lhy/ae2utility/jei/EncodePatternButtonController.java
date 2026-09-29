@@ -28,6 +28,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.menu.me.common.MEStorageMenu;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.client.EaepProviderScreenLabel;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
@@ -187,8 +188,19 @@ public final class EncodePatternButtonController {
             return true;
         }
         playClickSound();
+        if (shiftDown && ModList.get().isLoaded("extendedae_plus")) {
+            EaepProviderScreenLabel.setCurrent(packet.get().patternName(), categoryTitle(recipeLayout));
+        }
         ModNetworking.sendToServer(packet.get());
         return true;
+    }
+
+    public static String categoryTitle(IRecipeLayoutDrawable<?> recipeLayout) {
+        try {
+            return recipeLayout.getRecipeCategory().getTitle().getString();
+        } catch (RuntimeException e) {
+            return "";
+        }
     }
 
     private static void bookmarkMissingInputs(IRecipeLayoutDrawable<?> recipeLayout) {

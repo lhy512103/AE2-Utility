@@ -67,7 +67,8 @@ public final class JeiRecipesBatchEncode {
         }
 
         if (shiftUpload) {
-            if (!JeiBatchEncodeQueue.start(tagged)) {
+            String machine = layouts.isEmpty() ? "" : EncodePatternButtonController.categoryTitle(layouts.get(0));
+            if (!JeiBatchEncodeQueue.start(tagged, machine)) {
                 message(player, "message.ae2utility.batch_encode_session_busy", ChatFormatting.GOLD);
                 return;
             }

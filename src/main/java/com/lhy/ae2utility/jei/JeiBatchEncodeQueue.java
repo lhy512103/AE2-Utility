@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 
+import com.lhy.ae2utility.client.EaepProviderScreenLabel;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.ModNetworking;
 
@@ -19,16 +20,16 @@ import net.minecraft.network.chat.Component;
  */
 public final class JeiBatchEncodeQueue {
     private static final int NEXT_PACKET_DELAY_TICKS = 4;
-    private static final String EAEP_PROVIDER_SELECT_SCREEN = "com.extendedae_plus.client.screen.ProviderSelectScreen";
 
     private static final Deque<EncodePatternPacket> pending = new ArrayDeque<>();
+    private static String machineName = "";
     private static int waitTicks;
     private static boolean waitingForProviderScreen;
 
     private JeiBatchEncodeQueue() {
     }
 
-    public static boolean start(List<EncodePatternPacket> packets) {
+    public static boolean start(List<EncodePatternPacket> packets, String machine) {
         if (packets == null || packets.isEmpty()) {
             return false;
         }
@@ -36,6 +37,7 @@ public final class JeiBatchEncodeQueue {
             return false;
         }
         pending.addAll(packets);
+        machineName = machine == null ? "" : machine;
         waitTicks = 0;
         waitingForProviderScreen = false;
         sendNext();
@@ -48,7 +50,7 @@ public final class JeiBatchEncodeQueue {
         }
 
         Screen screen = Minecraft.getInstance().screen;
-        boolean providerScreenOpen = screen != null && EAEP_PROVIDER_SELECT_SCREEN.equals(screen.getClass().getName());
+        boolean providerScreenOpen = EaepProviderScreenLabel.isProviderSelectScreen(screen);
         if (providerScreenOpen) {
             waitingForProviderScreen = true;
             return;
@@ -96,6 +98,7 @@ public final class JeiBatchEncodeQueue {
             waitingForProviderScreen = false;
             return;
         }
+        EaepProviderScreenLabel.setCurrent(next.patternName(), machineName);
         ModNetworking.sendToServer(next);
         waitTicks = NEXT_PACKET_DELAY_TICKS;
     }

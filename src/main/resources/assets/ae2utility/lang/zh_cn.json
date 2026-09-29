@@ -52,5 +52,6 @@
   "jei.tooltip.ae2utility.encode_pattern_details_key": "Shift+N",
   "jei.tooltip.ae2utility.encode_pattern_details_suffix": " 可查看描述",
   "jei.tooltip.ae2utility.encode_pattern_ctrl_left_hint": "Ctrl+左键：编码样板，并把缺少自动合成样板的输入加入 JEI 书签",
-  "jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint": "Ctrl+Shift+左键：按 Shift 流程上传样板，并同样加入上述书签"
+  "jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint": "Ctrl+Shift+左键：按 Shift 流程上传样板，并同样加入上述书签",
+  "gui.ae2utility.eaep_processing_pattern": "正在处理样板：%1$s（机器：%2$s）"
 }
