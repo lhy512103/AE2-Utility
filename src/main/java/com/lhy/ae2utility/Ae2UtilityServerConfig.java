@@ -12,6 +12,8 @@ public final class Ae2UtilityServerConfig {
     public static final ForgeConfigSpec.BooleanValue REQUIRE_OPEN_PATTERN_ENCODING_MENU_FOR_JEI;
     public static final ForgeConfigSpec.BooleanValue BLOCK_JEI_FULL_CATEGORY_BATCH_ENCODE;
     public static final ForgeConfigSpec.IntValue JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION;
+    public static final ForgeConfigSpec.DoubleValue ME_QUICK_TRANSFER_GROUP_ENERGY;
+    public static final ForgeConfigSpec.DoubleValue ME_QUICK_TRANSFER_ALL_ENERGY;
 
     static {
         BUILDER.comment("Pattern encoding policy for dedicated servers / singleplayer host.");
@@ -30,6 +32,15 @@ public final class Ae2UtilityServerConfig {
                         "Extra requests in the same session are skipped.")
                 .translation("ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession")
                 .defineInRange("jeiBulkEncodeMaxPatternsPerSession", 1024, -1, 16384);
+        BUILDER.comment("ME Quick Transfer Tool energy costs.");
+        ME_QUICK_TRANSFER_GROUP_ENERGY = BUILDER
+                .comment("Fixed AE energy cost for a normal right-click transfer.")
+                .translation("ae2utility.serverConfig.meQuickTransferGroupEnergy")
+                .defineInRange("meQuickTransferGroupEnergy", 100.0, 0.0, Double.MAX_VALUE);
+        ME_QUICK_TRANSFER_ALL_ENERGY = BUILDER
+                .comment("Fixed AE energy cost for a sneak right-click transfer of all available contents.")
+                .translation("ae2utility.serverConfig.meQuickTransferAllEnergy")
+                .defineInRange("meQuickTransferAllEnergy", 1000.0, 0.0, Double.MAX_VALUE);
         SPEC = BUILDER.build();
     }
 
@@ -46,5 +57,13 @@ public final class Ae2UtilityServerConfig {
 
     public static int jeiBulkEncodeMaxPatternsPerSession() {
         return JEI_BULK_ENCODE_MAX_PATTERNS_PER_SESSION.get();
+    }
+
+    public static double meQuickTransferGroupEnergy() {
+        return ME_QUICK_TRANSFER_GROUP_ENERGY.get();
+    }
+
+    public static double meQuickTransferAllEnergy() {
+        return ME_QUICK_TRANSFER_ALL_ENERGY.get();
     }
 }
