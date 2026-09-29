@@ -45,6 +45,7 @@ import appeng.menu.me.items.PatternEncodingTermMenu;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.Ae2UtilityServerConfig;
 import com.lhy.ae2utility.compat.WcwtCompat;
+import com.lhy.ae2utility.network.BatchUploadStepPacket;
 import com.lhy.ae2utility.network.CancelJeiBatchEncodeQueuePacket;
 import com.lhy.ae2utility.network.CraftableStatePacket;
 import com.lhy.ae2utility.network.EncodePatternPacket;
@@ -81,11 +82,18 @@ public final class EncodePatternService {
         PATTERN_TERMINAL_SLOT, PLAYER_INVENTORY, ME_NETWORK
     }
 
+    private enum UploadOutcome {
+        NOT_HANDLED, HANDLED, AWAITING_PROVIDER
+    }
+
     public static void handle(Player player, EncodePatternPacket payload) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
-        encodePatternInternal(serverPlayer, payload);
+        boolean awaitingProvider = encodePatternInternal(serverPlayer, payload);
+        if (payload.isBatch() && payload.shiftDown()) {
+            ModNetworking.sendToPlayer(serverPlayer, new BatchUploadStepPacket(awaitingProvider));
+        }
     }
 
     // ── 解析编码上下文 ────────────────────────────────────────────
@@ -129,13 +137,13 @@ public final class EncodePatternService {
     }
 
     // ── 主编码逻辑 ────────────────────────────────────────────────
-    private static void encodePatternInternal(ServerPlayer serverPlayer, EncodePatternPacket payload) {
+    private static boolean encodePatternInternal(ServerPlayer serverPlayer, EncodePatternPacket payload) {
         EncodeContext ctx = resolveEncodeContext(serverPlayer);
         if (ctx == null) {
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_failed_no_terminal")
                             .withStyle(ChatFormatting.RED));
-            return;
+            return false;
         }
         if (Ae2UtilityServerConfig.requireOpenPatternEncodingMenuForJei()
                 && !WcwtCompat.isPatternEncodingLikeMenu(serverPlayer.containerMenu)) {
@@ -146,10 +154,10 @@ public final class EncodePatternService {
             } else {
                 serverPlayer.sendSystemMessage(message);
             }
-            return;
+            return false;
         }
         if (EncodeBulkSessionLimiter.rejectIfLimited(serverPlayer, payload)) {
-            return;
+            return false;
         }
 
         MEStorage inventory = ctx.inventory();
@@ -174,7 +182,7 @@ public final class EncodePatternService {
         if (in.isEmpty() || out.isEmpty()) {
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_failed_empty"));
-            return;
+            return false;
         }
 
         EncodeComputation computation = computeEncodedPattern(serverPlayer, payload, in, out, inventory,
@@ -184,12 +192,12 @@ public final class EncodePatternService {
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_failed",
                             payload.patternName().isBlank() ? "-" : payload.patternName()));
-            return;
+            return false;
         }
         tagEaepEncodePlayer(serverPlayer, encodedPattern);
 
         if (payload.isBatch() && EncodePatternDuplicateChecker.networkAlreadyContains(serverPlayer, grid, encodedPattern)) {
-            return;
+            return false;
         }
 
         // 消耗空白样板
@@ -203,20 +211,21 @@ public final class EncodePatternService {
                         Component.translatable("message.ae2utility.batch_encode_blank_stopped")
                                 .withStyle(ChatFormatting.RED));
                 ModNetworking.sendToPlayer(serverPlayer, CancelJeiBatchEncodeQueuePacket.INSTANCE);
-                return;
+                return false;
             }
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_failed_no_blank_named",
                             payload.patternName().isBlank() ? "-" : payload.patternName()));
-            return;
+            return false;
         }
 
         try {
             // Shift + EAEP 上传
             if (payload.shiftDown() && ModList.get().isLoaded("extendedae_plus")) {
-                if (tryEaepUpload(serverPlayer, payload, encodedPattern, computation.canUploadToMatrix(),
-                        grid, ctx, blankSource, blankPatternKey)) {
-                    return;
+                UploadOutcome outcome = tryEaepUpload(serverPlayer, payload, encodedPattern,
+                        computation.canUploadToMatrix(), grid, ctx, blankSource, blankPatternKey);
+                if (outcome != UploadOutcome.NOT_HANDLED) {
+                    return outcome == UploadOutcome.AWAITING_PROVIDER;
                 }
             }
 
@@ -226,6 +235,7 @@ public final class EncodePatternService {
             Ae2UtilityMod.LOGGER.error("Error encoding pattern: ", e);
             refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
         }
+        return false;
     }
 
     // ── 编码样板（合成/锻造/切石/处理）────────────────────────────
@@ -454,7 +464,7 @@ public final class EncodePatternService {
      * 直接调用 EAEP 公开 API（compileOnly 依赖），不使用反射。
      * @return true 表示已处理（上传成功或已进入供应器待定队列），false 表示未处理需走默认逻辑
      */
-    private static boolean tryEaepUpload(ServerPlayer serverPlayer, EncodePatternPacket payload,
+    private static UploadOutcome tryEaepUpload(ServerPlayer serverPlayer, EncodePatternPacket payload,
             ItemStack encodedPattern, boolean canUploadToMatrix, @Nullable IGrid grid,
             EncodeContext ctx, BlankPatternSource blankSource, AEItemKey blankPatternKey) {
         IGrid eaepGrid = grid;
@@ -463,7 +473,7 @@ public final class EncodePatternService {
                     Component.translatable("message.ae2utility.encode_failed_no_network")
                             .withStyle(ChatFormatting.RED));
             refundBlankPattern(serverPlayer, ctx.inventory(), ctx.actionSource(), blankPatternKey, blankSource);
-            return true;
+            return UploadOutcome.HANDLED;
         }
 
         // 1. 可进矩阵的样板（合成/锻造/切石）先尝试装配矩阵
@@ -473,7 +483,7 @@ public final class EncodePatternService {
                         .uploadPatternToMatrix(serverPlayer, encodedPattern, eaepGrid);
                 if (uploaded) {
                     sendCraftableCacheRefresh(serverPlayer, payload);
-                    return true;
+                    return UploadOutcome.HANDLED;
                 }
             } catch (Throwable ignored) {
             }
@@ -492,7 +502,7 @@ public final class EncodePatternService {
                         Component.translatable("message.ae2utility.encode_eaep_pending_failed")
                                 .withStyle(ChatFormatting.YELLOW));
                 giveEncodedPatternToPlayer(serverPlayer, encodedPattern);
-                return true;
+                return UploadOutcome.HANDLED;
             }
 
             // 设置供应器搜索关键字
@@ -505,12 +515,12 @@ public final class EncodePatternService {
 
             PendingCraftableRefreshService.remember(serverPlayer, collectOutputKeysForRefresh(payload));
             sendEaepProviderSelectionRequest(serverPlayer, payload, canUploadToMatrix);
-            return true;
+            return UploadOutcome.AWAITING_PROVIDER;
         } catch (Throwable e) {
             Ae2UtilityMod.LOGGER.error("EAEP upload failed", e);
             PendingCraftableRefreshService.clear(serverPlayer);
             refundBlankPattern(serverPlayer, ctx.inventory(), ctx.actionSource(), blankPatternKey, blankSource);
-            return true;
+            return UploadOutcome.HANDLED;
         }
     }
 

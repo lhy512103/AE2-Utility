@@ -53,5 +53,7 @@
   "jei.tooltip.ae2utility.encode_pattern_details_suffix": " to view details",
   "jei.tooltip.ae2utility.encode_pattern_ctrl_left_hint": "Ctrl+left-click: encode the pattern and bookmark inputs that lack an auto-crafting pattern.",
   "jei.tooltip.ae2utility.encode_pattern_ctrl_shift_hint": "Ctrl+Shift+left-click: Shift-upload the pattern (ExtendedAE Plus) and bookmark those inputs as above.",
-  "gui.ae2utility.eaep_processing_pattern": "Processing pattern: %1$s (machine: %2$s)"
+  "gui.ae2utility.eaep_processing_pattern": "Processing pattern: %1$s (machine: %2$s)",
+  "ae2utility.config.reuseProviderWithinBatch": "Reuse the same provider within a batch upload",
+  "ae2utility.config.reuseProviderWithinBatch.tooltip": "On (default): within one JEI batch upload, when a search key matches several providers, pick the provider (by name) chosen earlier in the batch.\nRequires ExtendedAE Plus's unique-match auto upload toggle.\nOff: choose manually every time."
 }

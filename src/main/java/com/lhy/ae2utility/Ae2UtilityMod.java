@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.command.Ae2UtilityCommands;
 import com.lhy.ae2utility.client.Ae2UtilityClientSetup;
+import com.lhy.ae2utility.client.EaepProviderReuse;
 import com.lhy.ae2utility.client.EaepProviderScreenLabel;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.jei.CraftableStateCache;
@@ -100,6 +101,11 @@ public class Ae2UtilityMod {
         @SubscribeEvent
         public static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
             EncodePatternButtonState.clearActiveButton();
+        }
+
+        @SubscribeEvent
+        public static void onScreenInitPost(ScreenEvent.Init.Post event) {
+            EaepProviderReuse.tryAutoChoose(event.getScreen());
         }
 
         @SubscribeEvent

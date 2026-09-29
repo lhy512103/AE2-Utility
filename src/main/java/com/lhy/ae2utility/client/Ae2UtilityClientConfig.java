@@ -14,6 +14,7 @@ public final class Ae2UtilityClientConfig {
     public static final ForgeConfigSpec.BooleanValue ALLOW_JEI_PATTERN_ENCODE_WITHOUT_OPEN_TERMINAL;
     public static final ForgeConfigSpec.BooleanValue PREFER_FAVORITES_FOR_PATTERN_ENCODING;
     public static final ForgeConfigSpec.BooleanValue SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON;
+    public static final ForgeConfigSpec.BooleanValue REUSE_PROVIDER_WITHIN_BATCH;
 
     private static final List<Option> OPTIONS;
 
@@ -36,6 +37,13 @@ public final class Ae2UtilityClientConfig {
                         "Turn off if players accidentally click it and cause lag on multiplayer. Takes effect after reopening JEI.")
                 .translation("ae2utility.config.showJeiBatchEncodeFullCategoryButton")
                 .define("showJeiBatchEncodeFullCategoryButton", true);
+        REUSE_PROVIDER_WITHIN_BATCH = BUILDER
+                .comment(
+                        "Within one JEI batch upload, when the same search key matches several ExtendedAE Plus providers,",
+                        "reuse the provider chosen earlier in the batch (matched by name).",
+                        "Still requires ExtendedAE Plus's 'auto upload unique match' toggle to be on.")
+                .translation("ae2utility.config.reuseProviderWithinBatch")
+                .define("reuseProviderWithinBatch", true);
         SPEC = BUILDER.build();
 
         OPTIONS = List.of(
@@ -44,7 +52,9 @@ public final class Ae2UtilityClientConfig {
                 new Option("ae2utility.config.preferFavoritesForPatternEncoding",
                         PREFER_FAVORITES_FOR_PATTERN_ENCODING),
                 new Option("ae2utility.config.showJeiBatchEncodeFullCategoryButton",
-                        SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON));
+                        SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON),
+                new Option("ae2utility.config.reuseProviderWithinBatch",
+                        REUSE_PROVIDER_WITHIN_BATCH));
     }
 
     private Ae2UtilityClientConfig() {
@@ -64,6 +74,10 @@ public final class Ae2UtilityClientConfig {
 
     public static boolean showJeiBatchEncodeFullCategoryButton() {
         return SHOW_JEI_BATCH_ENCODE_FULL_CATEGORY_BUTTON.get();
+    }
+
+    public static boolean reuseProviderWithinBatch() {
+        return REUSE_PROVIDER_WITHIN_BATCH.get();
     }
 
     public record Option(String key, ForgeConfigSpec.BooleanValue value) {

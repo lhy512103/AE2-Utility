@@ -66,6 +66,14 @@ public final class ModNetworking {
                     ctx.get().setPacketHandled(true);
                 },
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        CHANNEL.registerMessage(nextId++, BatchUploadStepPacket.class,
+                BatchUploadStepPacket::encode, BatchUploadStepPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> BatchUploadStepPacket.handle(msg));
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public static void sendToServer(Object payload) {
