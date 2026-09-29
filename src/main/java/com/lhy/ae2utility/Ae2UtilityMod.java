@@ -28,6 +28,7 @@ import com.lhy.ae2utility.command.Ae2UtilityCommands;
 import com.lhy.ae2utility.client.Ae2UtilityClientSetup;
 import com.lhy.ae2utility.client.EaepProviderReuse;
 import com.lhy.ae2utility.client.EaepProviderScreenLabel;
+import com.lhy.ae2utility.client.InventoryPatternUpload;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.init.ModSetup;
 import com.lhy.ae2utility.jei.CraftableStateCache;
@@ -129,6 +130,11 @@ public class Ae2UtilityMod {
         @SubscribeEvent
         public static void onMouseButtonPressed(ScreenEvent.MouseButtonPressed.Pre event) {
             if (event.getButton() != 0) {
+                return;
+            }
+            if (InventoryPatternUpload.onMouseClicked(event.getScreen(), event.getMouseX(), event.getMouseY(),
+                    event.getButton())) {
+                event.setCanceled(true);
                 return;
             }
             if (EncodePatternButtonState.pressIfHovered(event.getMouseX(), event.getMouseY())) {

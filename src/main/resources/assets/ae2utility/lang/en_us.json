@@ -63,5 +63,7 @@
   "ae2utility.config.previewEncodeIngredientsOnArrowHover": "Pin encoded ingredients while hovering the encode arrow",
   "ae2utility.config.previewEncodeIngredientsOnArrowHover.tooltip": "On (default): while hovering the JEI encode arrow, input slots with alternatives show the ingredient that will actually be encoded.\nOff: keep JEI's alternative cycling.",
   "ae2utility.config.previewEncodeTerminalOnArrowHover": "Show an encoding terminal preview on the encode arrow",
-  "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "On (default): the JEI encode arrow tooltip shows a read-only AE2 pattern-encoding terminal layout.\nOff: text-only tooltip."
+  "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "On (default): the JEI encode arrow tooltip shows a read-only AE2 pattern-encoding terminal layout.\nOff: text-only tooltip.",
+  "message.ae2utility.inventory_upload_none": "No encoded patterns in your inventory to upload",
+  "message.ae2utility.inventory_upload_matrix_done": "All patterns were uploaded to the assembly matrix"
 }

@@ -63,5 +63,7 @@
   "ae2utility.config.previewEncodeIngredientsOnArrowHover": "悬停编码箭头时固定显示实际编码材料",
   "ae2utility.config.previewEncodeIngredientsOnArrowHover.tooltip": "开（默认）：悬停 JEI 编码箭头时，多候选输入槽固定显示实际会写入样板的材料。\n关：保持 JEI 原有的候选轮换。",
   "ae2utility.config.previewEncodeTerminalOnArrowHover": "悬停编码箭头时显示编码终端预览",
-  "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "开（默认）：悬停 JEI 编码箭头时，tooltip 中显示只读的 AE2 样板编码终端布局。\n关：只显示文字提示。"
+  "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "开（默认）：悬停 JEI 编码箭头时，tooltip 中显示只读的 AE2 样板编码终端布局。\n关：只显示文字提示。",
+  "message.ae2utility.inventory_upload_none": "背包里没有可上传的已编码样板",
+  "message.ae2utility.inventory_upload_matrix_done": "全部样板已上传到装配矩阵"
 }

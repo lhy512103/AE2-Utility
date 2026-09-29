@@ -3,6 +3,9 @@ package com.lhy.ae2utility.jei;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
+
+import org.jetbrains.annotations.Nullable;
 
 import com.lhy.ae2utility.client.EaepProviderReuse;
 import com.lhy.ae2utility.client.EaepProviderScreenLabel;
@@ -14,8 +17,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
 /**
- * JEI Shift 批量上传的客户端节奏控制：一次只发一条，等服务端回执；
- * 若服务端打开了 EAEP 供应器选择界面，则等玩家选完（界面关闭）后再发下一条。
+ * 需要 EAEP 供应器选择的批量上传的客户端节奏控制：一次只发一条，等服务端回执；
+ * 若服务端打开了供应器选择界面，则等玩家选完（界面关闭）后再发下一条。
+ * 条目带分组时，玩家取消只跳过同组剩余条目，否则取消整批。
  */
 public final class JeiBatchEncodeQueue {
     private static final int SERVER_REPLY_TIMEOUT_TICKS = 200;
@@ -26,8 +30,11 @@ public final class JeiBatchEncodeQueue {
         IDLE, AWAIT_SERVER, AWAIT_SCREEN_OPEN, AWAIT_SCREEN_CLOSE, DELAY
     }
 
-    private static final Deque<EncodePatternPacket> pending = new ArrayDeque<>();
-    private static String machineName = "";
+    public record Entry(Object packet, String label, String machine, @Nullable String group) {
+    }
+
+    private static final Deque<Entry> pending = new ArrayDeque<>();
+    private static @Nullable Entry current;
     private static State state = State.IDLE;
     private static int timer;
 
@@ -35,11 +42,16 @@ public final class JeiBatchEncodeQueue {
     }
 
     public static boolean start(List<EncodePatternPacket> packets, String machine) {
-        if (packets == null || packets.isEmpty() || isActive()) {
+        return startEntries(packets.stream()
+                .map(packet -> new Entry(packet, packet.patternName(), machine, null))
+                .toList());
+    }
+
+    public static boolean startEntries(List<Entry> entries) {
+        if (entries == null || entries.isEmpty() || isActive()) {
             return false;
         }
-        pending.addAll(packets);
-        machineName = machine == null ? "" : machine;
+        pending.addAll(entries);
         EaepProviderReuse.reset();
         sendNext();
         return true;
@@ -95,8 +107,16 @@ public final class JeiBatchEncodeQueue {
         if (!isActive()) {
             return;
         }
+        String group = current == null ? null : current.group();
+        if (group != null) {
+            pending.removeIf(entry -> Objects.equals(entry.group(), group));
+            if (!pending.isEmpty()) {
+                return;
+            }
+        }
         pending.clear();
         state = State.IDLE;
+        current = null;
         EaepProviderReuse.reset();
 
         var player = Minecraft.getInstance().player;
@@ -114,14 +134,15 @@ public final class JeiBatchEncodeQueue {
     }
 
     private static void sendNext() {
-        EncodePatternPacket next = pending.pollFirst();
+        Entry next = pending.pollFirst();
+        current = next;
         if (next == null) {
             state = State.IDLE;
             EaepProviderReuse.reset();
             return;
         }
-        EaepProviderScreenLabel.setCurrent(next.patternName(), machineName);
-        ModNetworking.sendToServer(next);
+        EaepProviderScreenLabel.setCurrent(next.label(), next.machine());
+        ModNetworking.sendToServer(next.packet());
         state = State.AWAIT_SERVER;
         timer = SERVER_REPLY_TIMEOUT_TICKS;
     }

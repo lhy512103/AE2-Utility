@@ -5,6 +5,7 @@ import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.service.ClearPatternsService;
 import com.lhy.ae2utility.service.CraftableStateService;
 import com.lhy.ae2utility.service.EncodePatternService;
+import com.lhy.ae2utility.service.InventoryPatternUploadService;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -83,6 +84,38 @@ public final class ModNetworking {
                 EncodePreviewResultPacket::encode, EncodePreviewResultPacket::decode,
                 (msg, ctx) -> {
                     ctx.get().enqueueWork(() -> EncodePreviewResultPacket.handle(msg));
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        CHANNEL.registerMessage(nextId++, UploadInventoryPatternsPacket.class,
+                UploadInventoryPatternsPacket::encode, UploadInventoryPatternsPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> {
+                        if (ctx.get().getSender() != null) {
+                            InventoryPatternUploadService.uploadToMatrix(ctx.get().getSender(), msg);
+                        }
+                    });
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(nextId++, UploadInventoryPatternStepPacket.class,
+                UploadInventoryPatternStepPacket::encode, UploadInventoryPatternStepPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> {
+                        if (ctx.get().getSender() != null) {
+                            InventoryPatternUploadService.uploadStep(ctx.get().getSender(), msg);
+                        }
+                    });
+                    ctx.get().setPacketHandled(true);
+                },
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(nextId++, InventoryUploadRemainingPacket.class,
+                InventoryUploadRemainingPacket::encode, InventoryUploadRemainingPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> InventoryUploadRemainingPacket.handle(msg));
                     ctx.get().setPacketHandled(true);
                 },
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));

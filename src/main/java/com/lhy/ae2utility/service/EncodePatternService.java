@@ -290,6 +290,7 @@ public final class EncodePatternService {
             }
 
             // 直接给玩家
+            rememberProviderSearchKey(serverPlayer, payload, encodedPattern);
             giveEncodedPatternToPlayer(serverPlayer, encodedPattern);
         } catch (Throwable e) {
             Ae2UtilityMod.LOGGER.error("Error encoding pattern: ", e);
@@ -592,6 +593,18 @@ public final class EncodePatternService {
             return;
         }
         encodedPattern.getOrCreateTag().putString("encodePlayer", serverPlayer.getGameProfile().getName());
+    }
+
+    // 背包样板之后用 Alt+上传批量上传时，按编码时的机器关键字分组并预填供应器搜索框。
+    private static void rememberProviderSearchKey(ServerPlayer serverPlayer, EncodePatternPacket payload,
+            ItemStack encodedPattern) {
+        if (!ModList.get().isLoaded("extendedae_plus") || isCraftingRecipePayload(serverPlayer, payload)) {
+            return;
+        }
+        String searchKey = deriveRawEaepSearchKeyForSync(serverPlayer, payload);
+        if (searchKey != null && !searchKey.isBlank()) {
+            encodedPattern.getOrCreateTag().putString(InventoryPatternUploadService.SEARCH_KEY_TAG, searchKey);
+        }
     }
 
     private static void sendEaepProviderSelectionRequest(ServerPlayer serverPlayer, EncodePatternPacket payload,
