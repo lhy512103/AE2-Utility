@@ -2,10 +2,11 @@ package com.lhy.ae2utility.network;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.lhy.ae2utility.jei.JeiBookmarkKeysCache;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
 
 import appeng.api.stacks.AEItemKey;
@@ -31,10 +32,18 @@ public final class RecipeTransferPacketHelper {
     }
 
     public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
+        return getGenericStacks(slotsView, role, Set.of());
+    }
+
+    public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role,
+            Set<AEKey> excludedBookmarkKeys) {
+        List<AEKey> bookmarkedKeys = role == RecipeIngredientRole.INPUT
+                ? bookmarkKeysExcluding(excludedBookmarkKeys)
+                : List.of();
         List<List<GenericStack>> slots = new ArrayList<>();
 
         for (IRecipeSlotView slotView : slotsView.getSlotViews(role)) {
-            List<GenericStack> alternatives = collectEncodeAlternativesForInputSlot(slotView);
+            List<GenericStack> alternatives = collectEncodeAlternativesForInputSlot(slotView, bookmarkedKeys);
             if (alternatives.isEmpty()) {
                 slots.add(isEffectivelyEmptySlot(slotView) ? List.of() : null);
             } else {
@@ -45,11 +54,37 @@ public final class RecipeTransferPacketHelper {
     }
 
     public static List<GenericStack> collectEncodeAlternativesForInputSlot(IRecipeSlotView slotView) {
+        return collectEncodeAlternativesForInputSlot(slotView, JeiBookmarkKeysCache.getBookmarkKeys());
+    }
+
+    private static List<AEKey> bookmarkKeysExcluding(Set<AEKey> excluded) {
+        List<AEKey> keys = JeiBookmarkKeysCache.getBookmarkKeys();
+        if (excluded.isEmpty() || keys.isEmpty()) {
+            return keys;
+        }
+        return keys.stream().filter(key -> !excluded.contains(key)).toList();
+    }
+
+    // A bookmarked alternative, if any, becomes the slot's only candidate.
+    private static List<GenericStack> collectEncodeAlternativesForInputSlot(IRecipeSlotView slotView,
+            List<AEKey> bookmarkedKeys) {
         List<GenericStack> alternatives = new ArrayList<>();
-
         long count = resolveEncodeSlotDisplayedCount(slotView);
+        List<ITypedIngredient<?>> ingredients = slotView.getAllIngredients().toList();
 
-        for (ITypedIngredient<?> typed : slotView.getAllIngredients().toList()) {
+        if (!bookmarkedKeys.isEmpty()) {
+            for (AEKey bookmarkedKey : bookmarkedKeys) {
+                for (ITypedIngredient<?> typed : ingredients) {
+                    Object ing = typed.getIngredient();
+                    AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
+                    if (bookmarkedKey.equals(ingKey)) {
+                        return List.of(new GenericStack(ingKey, GenericIngredientUtil.resolveAmount(ing, count)));
+                    }
+                }
+            }
+        }
+
+        for (ITypedIngredient<?> typed : ingredients) {
             Object ing = typed.getIngredient();
             AEKey ingKey = GenericIngredientUtil.toAEKey(ing);
             if (ingKey != null) {

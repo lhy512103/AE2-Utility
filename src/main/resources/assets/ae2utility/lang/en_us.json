@@ -28,6 +28,8 @@
   "jei.tooltip.ae2utility.fluid_substitution.disabled": "Fluid substitutions disabled",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal": "Allow JEI pattern encode without open terminal",
   "ae2utility.config.allowJeiPatternEncodeWithoutOpenTerminal.tooltip": "On (default): carrying a wireless encoding terminal in inventory/curios is enough to use JEI pattern encode.\nOff: an open pattern-encoding ME menu is required, reducing lag.",
+  "ae2utility.config.preferFavoritesForPatternEncoding": "Prefer JEI bookmarks when encoding",
+  "ae2utility.config.preferFavoritesForPatternEncoding.tooltip": "On (default): input slots with alternatives prefer ingredients in your JEI bookmarks.\nOff: ignore bookmarks and keep the recipe's original alternative order.",
   "ae2utility.config.title": "AE2 Utility Configuration",
   "ae2utility.config.boolean_value": "%1$s: %2$s"
 }

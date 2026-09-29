@@ -3,6 +3,8 @@ package com.lhy.ae2utility.jei;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -12,6 +14,7 @@ import net.minecraft.world.item.crafting.Recipe;
 
 import net.minecraftforge.fml.ModList;
 
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
@@ -46,8 +49,14 @@ public final class JeiEncodePacketFactory {
 
     private static Optional<EncodePatternPacket> tryCreate(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
             Object recipe, IRecipeSlotsView slotsView, boolean shiftUpload) {
-        List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(slotsView, RecipeIngredientRole.INPUT);
         List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipe, slotsView);
+        Set<AEKey> outputKeys = outputs.stream()
+                .filter(Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+        List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
+                slotsView, RecipeIngredientRole.INPUT, outputKeys);
 
         boolean hasInput = inputs.stream().anyMatch(Objects::nonNull);
         boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
