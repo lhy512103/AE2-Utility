@@ -29,6 +29,7 @@ import com.lhy.ae2utility.client.Ae2UtilityClientSetup;
 import com.lhy.ae2utility.client.EaepProviderReuse;
 import com.lhy.ae2utility.client.EaepProviderScreenLabel;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
+import com.lhy.ae2utility.init.ModSetup;
 import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.EncodePatternButtonState;
 import com.lhy.ae2utility.jei.JeiClientCacheContext;
@@ -51,6 +52,7 @@ public class Ae2UtilityMod {
         DistExecutor.unsafeRunWhenOn(
                 Dist.CLIENT,
                 () -> () -> Ae2UtilityClientSetup.init(context.getContainer(), context.getModEventBus()));
+        ModSetup.register(context.getModEventBus());
         context.getModEventBus().addListener(this::commonSetup);
         MinecraftForge.EVENT_BUS.register(ModNetworking.class);
     }
