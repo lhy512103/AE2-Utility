@@ -3,6 +3,7 @@ package com.lhy.ae2utility.jei;
 import net.minecraft.resources.ResourceLocation;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.compat.JeictCompat;
 
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
@@ -25,6 +26,7 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
         EncodePatternButtonState.setJeiRuntime(jeiRuntime);
+        JeictCompat.tryRegisterBackend();
     }
 
     @Override

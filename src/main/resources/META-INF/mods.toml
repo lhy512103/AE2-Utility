@@ -83,3 +83,10 @@ config="${mod_id}.mixins.json"
     versionRange="[0,)"
     ordering="AFTER"
     side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="jeict"
+    mandatory=false
+    versionRange="[0,)"
+    ordering="NONE"
+    side="CLIENT"

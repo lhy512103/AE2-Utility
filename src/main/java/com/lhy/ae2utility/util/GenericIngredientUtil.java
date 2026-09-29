@@ -40,6 +40,12 @@ public final class GenericIngredientUtil {
         return new GenericStack(key, normalizedAmount);
     }
 
+    /** 按给定数量构造，不读取原料自身数量（配方树草稿里的数量已由玩家编辑）。 */
+    public static @Nullable GenericStack toGenericStackExact(@Nullable Object ingredient, long amount) {
+        AEKey key = toAEKey(ingredient);
+        return key == null ? null : new GenericStack(key, Math.max(1L, amount));
+    }
+
     public static @Nullable AEKey toAEKey(@Nullable Object ingredient) {
         if (ingredient instanceof ItemStack stack && !stack.isEmpty()) {
             return AEItemKey.of(stack);

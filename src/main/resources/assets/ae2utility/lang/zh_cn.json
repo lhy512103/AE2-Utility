@@ -65,5 +65,8 @@
   "ae2utility.config.previewEncodeTerminalOnArrowHover": "悬停编码箭头时显示编码终端预览",
   "ae2utility.config.previewEncodeTerminalOnArrowHover.tooltip": "开（默认）：悬停 JEI 编码箭头时，tooltip 中显示只读的 AE2 样板编码终端布局。\n关：只显示文字提示。",
   "message.ae2utility.inventory_upload_none": "背包里没有可上传的已编码样板",
-  "message.ae2utility.inventory_upload_matrix_done": "全部样板已上传到装配矩阵"
+  "message.ae2utility.inventory_upload_matrix_done": "全部样板已上传到装配矩阵",
+  "jei.tooltip.ae2utility.encode_pattern_alt_jeict": "Alt+左键：打开 JEI Crafting Tree",
+  "message.ae2utility.jeict_pattern_draft_invalid": "AE2实用：配方树样板草稿无效（缺少输入或主产物，或超出 81 输入 / 27 输出上限）。",
+  "gui.ae2utility.bulk_encode.substitution_hint": "批量编码时：仅 AE 支持替换的样板类型会应用上述开关（如合成类）；处理样板按 AE 自身规则编码。"
 }

@@ -34,6 +34,7 @@ public final class CraftableStateCache {
     private static final long CACHE_TTL_MS = 5000L;
 
     private static volatile long cacheVersion;
+    private static volatile boolean existingPatternCachesStale;
 
     private static final Map<AEKey, CacheEntry> CACHE = new HashMap<>();
     private static final Set<AEKey> PENDING_REQUESTS = new HashSet<>();
@@ -134,6 +135,7 @@ public final class CraftableStateCache {
             CACHE.put(key, new CacheEntry(false, now));
         }
         cacheVersion++;
+        existingPatternCachesStale = true;
     }
 
     public static void invalidateKeys(Iterable<AEKey> keys) {
@@ -146,6 +148,16 @@ public final class CraftableStateCache {
             PENDING_REQUESTS.remove(key);
         }
         cacheVersion++;
+        existingPatternCachesStale = true;
+    }
+
+    /** 供 JEI Crafting Tree 轮询：自上次调用以来可合成状态是否有变化（读取即清零）。 */
+    public static boolean pollExistingPatternCachesStale() {
+        if (!existingPatternCachesStale) {
+            return false;
+        }
+        existingPatternCachesStale = false;
+        return true;
     }
 
     public static long cacheVersion() {

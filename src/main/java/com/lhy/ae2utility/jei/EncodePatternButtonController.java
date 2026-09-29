@@ -29,6 +29,7 @@ import appeng.menu.me.common.MEStorageMenu;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.client.EaepProviderScreenLabel;
+import com.lhy.ae2utility.compat.JeictCompat;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
@@ -147,6 +148,10 @@ public final class EncodePatternButtonController {
             lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_hover_preview")
                     .withStyle(ChatFormatting.GRAY));
         }
+        if (JeictCompat.isLoaded()) {
+            lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_alt_jeict")
+                    .withStyle(ChatFormatting.WHITE));
+        }
         if (!isDetailTooltipExpanded()) {
             lines.add(Component.translatable("jei.tooltip.ae2utility.encode_pattern_details_prefix")
                     .withStyle(ChatFormatting.WHITE)
@@ -175,6 +180,9 @@ public final class EncodePatternButtonController {
     public static boolean press(IRecipeLayoutDrawable<?> recipeLayout) {
         if (!isAvailable()) {
             return false;
+        }
+        if (JeictCompat.isLoaded() && Screen.hasAltDown() && !Screen.hasControlDown() && !Screen.hasShiftDown()) {
+            return JeictCompat.openFromLayout(recipeLayout, Minecraft.getInstance().screen);
         }
         boolean shiftDown = Screen.hasShiftDown();
         if (Screen.hasControlDown()) {
