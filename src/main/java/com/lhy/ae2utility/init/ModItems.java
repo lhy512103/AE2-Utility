@@ -10,10 +10,14 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.item.MeQuickTransferToolItem;
 
 public final class ModItems {
     public static final DeferredRegister<Item> REG = DeferredRegister.create(ForgeRegistries.ITEMS, Ae2UtilityMod.MOD_ID);
     private static final List<RegistryObject<? extends Item>> CREATIVE_TAB_ITEMS = new ArrayList<>();
+
+    public static final RegistryObject<MeQuickTransferToolItem> ME_QUICK_TRANSFER = register("me_quick_transfer",
+            () -> new MeQuickTransferToolItem(new Item.Properties().stacksTo(1)));
 
     private ModItems() {
     }

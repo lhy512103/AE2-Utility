@@ -2,6 +2,7 @@ package com.lhy.ae2utility;
 
 import com.mojang.logging.LogUtils;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.features.GridLinkables;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.InteractionResult;
@@ -30,7 +31,9 @@ import com.lhy.ae2utility.client.EaepProviderReuse;
 import com.lhy.ae2utility.client.EaepProviderScreenLabel;
 import com.lhy.ae2utility.client.InventoryPatternUpload;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
+import com.lhy.ae2utility.init.ModItems;
 import com.lhy.ae2utility.init.ModSetup;
+import com.lhy.ae2utility.item.MeQuickTransferToolItem;
 import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.EncodePatternButtonState;
 import com.lhy.ae2utility.jei.JeiClientCacheContext;
@@ -41,6 +44,7 @@ import com.lhy.ae2utility.network.ClearPatternsPacket;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.SyncEncodeRulesPacket;
 import com.lhy.ae2utility.service.EncodeBulkSessionLimiter;
+import com.lhy.ae2utility.service.MeQuickTransferService;
 
 @Mod(Ae2UtilityMod.MOD_ID)
 public class Ae2UtilityMod {
@@ -60,6 +64,9 @@ public class Ae2UtilityMod {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         ModNetworking.register();
+        event.enqueueWork(() -> GridLinkables.register(ModItems.ME_QUICK_TRANSFER.get(),
+                MeQuickTransferToolItem.LINKABLE_HANDLER));
+        MeQuickTransferService.registerTickHandler();
     }
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -79,6 +86,7 @@ public class Ae2UtilityMod {
         @SubscribeEvent
         public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
             EncodeBulkSessionLimiter.clearFor(event.getEntity().getUUID());
+            MeQuickTransferService.cancel(event.getEntity().getUUID());
         }
     }
 
