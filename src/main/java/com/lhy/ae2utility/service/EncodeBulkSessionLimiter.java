@@ -33,6 +33,9 @@ public final class EncodeBulkSessionLimiter {
         }
         UUID uuid = player.getUUID();
         int sessionId = payload.bulkSessionId();
+        if (ANNOUNCED.containsKey(uuid + "|" + sessionId + "|aborted")) {
+            return true;
+        }
 
         if (payload.fullCategoryBatch() && Ae2UtilityServerConfig.blockJeiFullCategoryBatchEncode()) {
             announceOnce(player, sessionId, "fullcat",
@@ -52,6 +55,10 @@ public final class EncodeBulkSessionLimiter {
             }
         }
         return false;
+    }
+
+    public static void abortSession(ServerPlayer player, int sessionId) {
+        ANNOUNCED.put(player.getUUID() + "|" + sessionId + "|aborted", Boolean.TRUE);
     }
 
     public static void announceOnce(ServerPlayer player, int sessionId, String topic, Component message) {

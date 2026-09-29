@@ -16,7 +16,7 @@
   "message.ae2utility.batch_encode_session_busy": "已有一个 JEI 批量上传正在进行。",
   "message.ae2utility.batch_encode_queued": "已将 %s 条配方加入批量上传队列。",
   "message.ae2utility.batch_encode_cancelled": "已取消剩余的 JEI 批量上传队列。",
-  "message.ae2utility.batch_encode_sent": "已向服务端发送 %s 条批量编码请求（网络已有样板会自动跳过）。",
+  "message.ae2utility.batch_encode_sent": "已向服务端发送 %s 条批量编码请求（网络已有相同样板会自动跳过）。",
   "jei.tooltip.ae2utility.encode_pattern_button": "编码处理样板",
   "jei.tooltip.ae2utility.encode_pattern_blue_slots": "蓝色高亮的物品 可以自动制作。",
   "jei.tooltip.ae2utility.encode_pattern_shift": "按住 Shift 映射/上传样板到供应器",
@@ -41,5 +41,6 @@
   "ae2utility.serverConfig.jeiBulkEncodeMaxPatternsPerSession": "单次批量编码最大样板数",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton": "显示「整类全分页」JEI 批量编码按钮",
   "ae2utility.config.showJeiBatchEncodeFullCategoryButton.tooltip": "开（默认）：JEI 显示「一键编码当前机器分类全部配方（所有分页）」按钮。\n关：隐藏该按钮，重新打开 JEI 后生效。",
-  "message.ae2utility.batch_encode_category_disabled_config": "AE2实用：客户端配置已关闭「整类全分页批量编码」。"
+  "message.ae2utility.batch_encode_category_disabled_config": "AE2实用：客户端配置已关闭「整类全分页批量编码」。",
+  "message.ae2utility.batch_encode_blank_stopped": "AE2实用：空白样板已用完，本次批量编码的剩余配方已停止。"
 }

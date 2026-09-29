@@ -45,6 +45,7 @@ import appeng.menu.me.items.PatternEncodingTermMenu;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.Ae2UtilityServerConfig;
 import com.lhy.ae2utility.compat.WcwtCompat;
+import com.lhy.ae2utility.network.CancelJeiBatchEncodeQueuePacket;
 import com.lhy.ae2utility.network.CraftableStatePacket;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.ModNetworking;
@@ -187,11 +188,23 @@ public final class EncodePatternService {
         }
         tagEaepEncodePlayer(serverPlayer, encodedPattern);
 
+        if (payload.isBatch() && EncodePatternDuplicateChecker.networkAlreadyContains(serverPlayer, grid, encodedPattern)) {
+            return;
+        }
+
         // 消耗空白样板
         AEItemKey blankPatternKey = AEItemKey.of(AEItems.BLANK_PATTERN);
         BlankPatternSource blankSource = consumeOneBlankPattern(serverPlayer, inventory, actionSource,
                 blankPatternKey);
         if (blankSource == null) {
+            if (payload.isBatch()) {
+                EncodeBulkSessionLimiter.abortSession(serverPlayer, payload.bulkSessionId());
+                EncodeBulkSessionLimiter.announceOnce(serverPlayer, payload.bulkSessionId(), "blank",
+                        Component.translatable("message.ae2utility.batch_encode_blank_stopped")
+                                .withStyle(ChatFormatting.RED));
+                ModNetworking.sendToPlayer(serverPlayer, CancelJeiBatchEncodeQueuePacket.INSTANCE);
+                return;
+            }
             serverPlayer.sendSystemMessage(
                     Component.translatable("message.ae2utility.encode_failed_no_blank_named",
                             payload.patternName().isBlank() ? "-" : payload.patternName()));
