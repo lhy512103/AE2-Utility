@@ -32,6 +32,18 @@ public final class RecipeTransferPacketHelper {
     private RecipeTransferPacketHelper() {
     }
 
+    public static List<PullRecipeInputsPacket.RequestedIngredient> readRequestedIngredients(net.minecraft.network.FriendlyByteBuf buffer) {
+        int size = buffer.readVarInt();
+        if (size < 0 || size > 64) return List.of();
+        List<PullRecipeInputsPacket.RequestedIngredient> result = new ArrayList<>(); long total = 0;
+        for (int i=0;i<size;i++) { int n=buffer.readVarInt(); if(n<0 || n>256) return List.of(); total+=n; if(total>4096)return List.of(); List<ItemStack> stacks=new ArrayList<>(n); for(int j=0;j<n;j++) stacks.add(buffer.readItem()); result.add(new PullRecipeInputsPacket.RequestedIngredient(stacks,buffer.readVarInt())); }
+        return result;
+    }
+    public static boolean canEncodeRequestedIngredients(List<PullRecipeInputsPacket.RequestedIngredient> ingredients) { if(ingredients.size()>64)return false; long total=0; for(var i:ingredients){if(i.alternatives().size()>256)return false; total+=i.alternatives().size(); if(total>4096)return false;} return true; }
+    public static void writeRequestedIngredients(net.minecraft.network.FriendlyByteBuf buffer,List<PullRecipeInputsPacket.RequestedIngredient> ingredients){if(!canEncodeRequestedIngredients(ingredients)){buffer.writeVarInt(0);return;} buffer.writeVarInt(ingredients.size()); for(var i:ingredients){buffer.writeVarInt(i.alternatives().size());for(ItemStack s:i.alternatives())buffer.writeItem(s);buffer.writeVarInt(i.count());}}
+    public static String requestSignature(List<PullRecipeInputsPacket.RequestedIngredient> ingredients){return ingredients.stream().map(i->i.count()+"#"+i.alternatives().stream().map(s->stackHash(s)+"#"+s.getCount()+"#"+s.getItem()).sorted().reduce((a,b)->a+"|"+b).orElse("")).sorted().reduce((a,b)->a+"||"+b).orElse("");}
+    private static long stackHash(ItemStack stack) { long hash = 31L * net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode(); return 31L * hash + (stack.hasTag() ? stack.getTag().hashCode() : 0L); }
+
     public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
         return getGenericStacks(slotsView, role, Set.of());
     }

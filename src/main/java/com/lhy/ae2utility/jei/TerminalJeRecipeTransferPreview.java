@@ -1,27 +1,35 @@
 package com.lhy.ae2utility.jei;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
-import appeng.menu.me.common.GridInventoryEntry;
 import appeng.menu.me.common.MEStorageMenu;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 
 /**
- * 与 AE2 终端 JEI 拉配方相同的本地预览：背包占位 + ME 客户端库存占位 + 可合成替补。
+ * 与 AE2 终端 {@link Ae2TerminalRecipeTransferHandler JEI 拉配方} 相同的本地预览：<br>
+ * 背包占位 + {@link MEStorageMenu#hasIngredient} +{@link ClientRepoCraftableIndex} 可合成替补。
+ * <p>JEI 每客户端 tick（20/s）对每个屏上配方布局都会调一次 {@code transferRecipe(doTransfer=false)} 且不缓存，
+ * 故本类按 {@link IRecipeSlotsView} 对象身份（{@code RecipeLayout} 每 tick 返回同一实例）缓存判定结果：
+ * 同一配方在「背包未变 + 可合成快照未变 + 未超 {@link #REFRESH_INTERVAL_TICKS} 兜底刷新」时直接复用，
+ * 避免重复的全背包扫描 / {@code hasIngredient} / {@code getByIngredient} 网络查询。
+ * 缓存只存每槽判定位（{@code byte[]}），高亮用的 {@link IRecipeSlotView} 始终取自当次调用，
+ * 既避免过期引用画错位，也避免 value 反向 pin 住 WeakHashMap 的 key。</p>
  */
 public final class TerminalJeRecipeTransferPreview {
     private static final byte MISSING = 1;
     private static final byte CRAFTABLE = 2;
 
+    /** 库存量（stored amount）变化没有显式版本号，用每槽独立的 tick TTL 兜底刷新（0.5s）。 */
     private static final long REFRESH_INTERVAL_TICKS = 10L;
 
     private static final Map<IRecipeSlotsView, Cached> CACHE = new WeakHashMap<>();
@@ -35,8 +43,24 @@ public final class TerminalJeRecipeTransferPreview {
             List<IRecipeSlotView> craftableSlots,
             boolean anyResolved
     ) {
+        public boolean anyMissing() {
+            return !missingSlots.isEmpty();
+        }
+
         public boolean anyCraftable() {
             return !craftableSlots.isEmpty();
+        }
+
+        public boolean anyMissingOrCraftable() {
+            return anyMissing() || anyCraftable();
+        }
+
+        public boolean canIgnoreMissing() {
+            return anyMissing() && anyResolved;
+        }
+
+        public int totalSize() {
+            return missingSlots.size() + craftableSlots.size();
         }
     }
 
@@ -62,12 +86,11 @@ public final class TerminalJeRecipeTransferPreview {
         return assemble(inputs, flags, anyResolved);
     }
 
-    // Reserves whole amounts at once; per-unit iteration froze the client on recipes needing millions of items.
+    /** 跑完整判定，写入每槽 {@code flags}；返回是否有任一份料能被满足（背包/库存/可合成）。 */
     private static boolean computeFlags(MEStorageMenu container, List<IRecipeSlotView> inputs, byte[] flags) {
-        Map<GridInventoryEntry, Long> reservedTerminalAmounts = new IdentityHashMap<>();
+        var reservedTerminalAmounts = new Object2IntOpenHashMap<>();
         var playerItems = container.getPlayerInventory().items;
         var reservedPlayerItems = new int[playerItems.size()];
-        var repo = container.getClientRepo();
         boolean anyResolved = false;
 
         for (int idx = 0; idx < inputs.size(); idx++) {
@@ -77,49 +100,49 @@ public final class TerminalJeRecipeTransferPreview {
                 continue;
             }
 
-            long remaining = Math.max(getDisplayedStack(slotView).getCount(), 1);
-            long initial = remaining;
+            int requiredCount = Math.max(getDisplayedStack(slotView).getCount(), 1);
 
-            for (int slot = 0; slot < playerItems.size() && remaining > 0; slot++) {
-                if (container.isPlayerInventorySlotLocked(slot)) {
-                    continue;
-                }
-                var stack = playerItems.get(slot);
-                int available = stack.getCount() - reservedPlayerItems[slot];
-                if (available > 0 && ingredient.test(stack)) {
-                    int take = (int) Math.min(available, remaining);
-                    reservedPlayerItems[slot] += take;
-                    remaining -= take;
-                }
-            }
+            boolean missing = false;
+            boolean craftable = false;
+            for (int i = 0; i < requiredCount; i++) {
+                boolean found = false;
+                for (int slot = 0; slot < playerItems.size(); slot++) {
+                    if (container.isPlayerInventorySlotLocked(slot)) {
+                        continue;
+                    }
 
-            if (remaining > 0 && repo != null) {
-                for (GridInventoryEntry entry : repo.getByIngredient(ingredient)) {
-                    long reserved = reservedTerminalAmounts.getOrDefault(entry, 0L);
-                    long available = entry.getStoredAmount() - reserved;
-                    if (available > 0) {
-                        long take = Math.min(available, remaining);
-                        reservedTerminalAmounts.put(entry, reserved + take);
-                        remaining -= take;
-                        if (remaining <= 0) {
-                            break;
-                        }
+                    var stack = playerItems.get(slot);
+                    if (stack.getCount() - reservedPlayerItems[slot] > 0 && ingredient.test(stack)) {
+                        reservedPlayerItems[slot]++;
+                        found = true;
+                        anyResolved = true;
+                        break;
                     }
                 }
-            }
 
-            if (remaining < initial) {
-                anyResolved = true;
+                if (!found && container.hasIngredient(ingredient, reservedTerminalAmounts)) {
+                    reservedTerminalAmounts.merge(ingredient, 1, Integer::sum);
+                    found = true;
+                    anyResolved = true;
+                }
+
+                if (!found && hasCraftableAlternative(container, ingredient)) {
+                    craftable = true;
+                    found = true;
+                    anyResolved = true;
+                }
+
+                if (!found) {
+                    missing = true;
+                }
             }
 
             byte f = 0;
-            if (remaining > 0) {
-                if (hasCraftableAlternative(container, ingredient)) {
-                    f |= CRAFTABLE;
-                    anyResolved = true;
-                } else {
-                    f |= MISSING;
-                }
+            if (missing) {
+                f |= MISSING;
+            }
+            if (craftable) {
+                f |= CRAFTABLE;
             }
             flags[idx] = f;
         }
@@ -142,17 +165,23 @@ public final class TerminalJeRecipeTransferPreview {
         return new PreviewSlots(missingSlots, craftableSlots, anyResolved);
     }
 
+    /** 背包内容（物品+数量+锁定状态）指纹；任一变化即让缓存失效。 */
     private static int playerInventoryHash(MEStorageMenu container) {
         var items = container.getPlayerInventory().items;
         int h = 1;
         for (int slot = 0; slot < items.size(); slot++) {
             var stack = items.get(slot);
-            int stackHash = stack.isEmpty() ? 0 : stack.hasTag() ? stack.getTag().hashCode() : 0;
-            h = 31 * h + stackHash;
+            long stackHash = stack.isEmpty() ? 0L : stackHash(stack);
+            h = 31 * h + Long.hashCode(stackHash);
             h = 31 * h + stack.getCount();
             h = 31 * h + (container.isPlayerInventorySlotLocked(slot) ? 1 : 0);
         }
         return h;
+    }
+
+    private static long stackHash(ItemStack stack) {
+        long hash = 31L * net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode();
+        return 31L * hash + (stack.hasTag() ? stack.getTag().hashCode() : 0L);
     }
 
     private static List<IRecipeSlotView> collectInputSlots(IRecipeSlotsView recipeSlots) {

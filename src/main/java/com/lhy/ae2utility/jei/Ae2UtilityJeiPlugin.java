@@ -35,6 +35,10 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
         SomeUselessThingsCompat.prepare(registration.getTransferHelper());
+        registration.addUniversalRecipeTransferHandler(new Ae2TerminalRecipeTransferHandler<>(
+                appeng.menu.me.common.MEStorageMenu.class,
+                appeng.menu.me.common.MEStorageMenu.TYPE,
+                registration.getTransferHelper()));
     }
 
     @Override

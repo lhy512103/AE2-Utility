@@ -7,6 +7,7 @@ import com.lhy.ae2utility.service.ClearPatternsService;
 import com.lhy.ae2utility.service.CraftableStateService;
 import com.lhy.ae2utility.service.EncodePatternService;
 import com.lhy.ae2utility.service.InventoryPatternUploadService;
+import com.lhy.ae2utility.service.TerminalPullService;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
@@ -133,6 +134,28 @@ public final class ModNetworking {
                 RecipeFinderSamplePacket::encode, RecipeFinderSamplePacket::decode,
                 (msg, ctx) -> handleRecipeFinderSample(msg, ctx.get()),
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(nextId++, PullRecipeInputsPacket.class,
+                PullRecipeInputsPacket::encode, PullRecipeInputsPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> {
+                        if (ctx.get().getSender() != null) {
+                            TerminalPullService.handle(ctx.get().getSender(), msg);
+                        }
+                    });
+                    ctx.get().setPacketHandled(true);
+                }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(nextId++, RedstoneSignalCardConfigApplyPacket.class,
+                RedstoneSignalCardConfigApplyPacket::encode, RedstoneSignalCardConfigApplyPacket::decode,
+                (msg, ctx) -> {
+                    ctx.get().enqueueWork(() -> {
+                        if (ctx.get().getSender() != null) {
+                            RedstoneSignalCardConfigApplyPacket.applyOnServer(ctx.get().getSender(), msg);
+                        }
+                    });
+                    ctx.get().setPacketHandled(true);
+                }, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     public static void sendToServer(Object payload) {
