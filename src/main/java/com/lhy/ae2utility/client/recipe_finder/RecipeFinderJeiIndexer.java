@@ -161,7 +161,7 @@ public final class RecipeFinderJeiIndexer {
         Set<String> features = new LinkedHashSet<>();
         for (IRecipeSlotView slot : slots) {
             slot.getAllIngredients().forEach(ingredient ->
-                    features.addAll(RecipeFinderFeatureClassifier.classifyIngredient(ingredient.getIngredient())));
+                    features.addAll(com.lhy.ae2utility.api.Ae2UtilityApi.recipeFinder().classify(ingredient.getIngredient())));
         }
         if (features.isEmpty()) {
             features.add("other");
