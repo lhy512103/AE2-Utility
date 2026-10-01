@@ -3,6 +3,8 @@ package com.lhy.ae2utility.network;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 import net.minecraft.network.FriendlyByteBuf;
 
@@ -24,6 +26,11 @@ public record EncodePreviewResultPacket(
         int extraInputs,
         int extraOutputs) {
     private static final int MAX_PANEL_OUTPUTS = 27;
+    private static final List<Consumer<EncodePreviewResultPacket>> CLIENT_LISTENERS = new CopyOnWriteArrayList<>();
+
+    public static void addListener(Consumer<EncodePreviewResultPacket> listener) {
+        CLIENT_LISTENERS.add(listener);
+    }
 
     public EncodePreviewResultPacket {
         inputs = copyStacks(inputs);
@@ -80,6 +87,7 @@ public record EncodePreviewResultPacket(
 
     public static void handle(EncodePreviewResultPacket msg) {
         EncodePreviewCache.handleResult(msg);
+        CLIENT_LISTENERS.forEach(listener -> listener.accept(msg));
     }
 
     private static List<GenericStack> readStacks(FriendlyByteBuf buffer, int max, String field) {

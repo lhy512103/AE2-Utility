@@ -90,3 +90,10 @@ config="${mod_id}.mixins.json"
     versionRange="[0,)"
     ordering="NONE"
     side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="emi"
+    mandatory=false
+    versionRange="[1.1.0,)"
+    ordering="AFTER"
+    side="CLIENT"

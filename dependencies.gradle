@@ -23,7 +23,7 @@ dependencies {
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:${v.curios.get()}:api")
     compileOnly fg.deobf(libs.ae2wcwt)
     compileOnly "mezz.jei:jei-1.20.1-forge:${v.jei.get()}"
-    compileOnly "dev.emi:emi-forge:${v.emi.get()}:api"
+    compileOnly "curse.maven:emi-580555:8081375"
     // EAEP 作为 compileOnly：直接 import com.extendedae_plus.* 公开 API 类
     compileOnly fg.deobf("maven.modrinth:extendedae-plus:${v.extendedae.plus.get()}")
     compileOnly fg.deobf("org.appliedenergistics:guideme:${v.guideme.get()}")

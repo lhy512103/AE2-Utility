@@ -143,5 +143,12 @@
   "gui.ae2utility.recipe_finder.feature.acid": "酸液",
   "gui.ae2utility.recipe_finder.feature.chemical": "化学品",
   "gui.ae2utility.recipe_finder.feature.special": "特殊",
-  "gui.ae2utility.recipe_finder.feature.other": "其他"
+  "gui.ae2utility.recipe_finder.feature.other": "其他",
+  "emi.tooltip.ae2utility.encode_pattern_button": "样板编码/上传",
+  "emi.tooltip.ae2utility.encode_pattern_click": "左键：编码样板",
+  "emi.tooltip.ae2utility.encode_pattern_shift": "Shift+左键：上传样板",
+  "emi.tooltip.ae2utility.encode_pattern_blue_slots": "蓝色高亮的物品 可以自动制作。",
+  "emi.tooltip.ae2utility.batch_encode_page": "一键编码当前 EMI 页面的全部配方",
+  "emi.tooltip.ae2utility.batch_encode_category": "一键编码当前 EMI 配方分类下的全部配方(含所有分页)",
+  "emi.tooltip.ae2utility.batch_encode_shift_hint": "按住 Shift 可批量上传"
 }

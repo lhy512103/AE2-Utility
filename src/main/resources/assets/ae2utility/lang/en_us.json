@@ -143,5 +143,12 @@
   "gui.ae2utility.recipe_finder.feature.acid": "Acid",
   "gui.ae2utility.recipe_finder.feature.chemical": "Chemical",
   "gui.ae2utility.recipe_finder.feature.special": "Special",
-  "gui.ae2utility.recipe_finder.feature.other": "Other"
+  "gui.ae2utility.recipe_finder.feature.other": "Other",
+  "emi.tooltip.ae2utility.encode_pattern_button": "Encode/Upload Pattern",
+  "emi.tooltip.ae2utility.encode_pattern_click": "Left-click: encode pattern",
+  "emi.tooltip.ae2utility.encode_pattern_shift": "Shift+left-click: upload pattern",
+  "emi.tooltip.ae2utility.encode_pattern_blue_slots": "Blue highlighted items can be auto-crafted.",
+  "emi.tooltip.ae2utility.batch_encode_page": "Batch encode every recipe on the current EMI page",
+  "emi.tooltip.ae2utility.batch_encode_category": "Batch encode all recipes in this EMI category (every page)",
+  "emi.tooltip.ae2utility.batch_encode_shift_hint": "Hold Shift for batch upload"
 }

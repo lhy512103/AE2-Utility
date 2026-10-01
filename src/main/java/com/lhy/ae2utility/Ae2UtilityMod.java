@@ -92,6 +92,12 @@ public class Ae2UtilityMod {
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
     public static class ClientForgeEvents {
+        static {
+            if (ModList.get().isLoaded("emi")) {
+                MinecraftForge.EVENT_BUS.register(com.lhy.ae2utility.emi.EmiBatchScreenButtons.class);
+            }
+        }
+
         @SubscribeEvent
         public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             RemoteEncodeRules.clear();
