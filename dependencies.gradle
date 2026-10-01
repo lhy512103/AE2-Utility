@@ -16,10 +16,12 @@ dependencies {
     // ══════════════════════════════════════════════════════════
     implementation "appeng:appliedenergistics2-forge:${v.ae2.get()}"
     implementation fg.deobf("maven.modrinth:applied-energistics-2-wireless-terminals:${v.ae2wtlib.get()}")
-    implementation fg.deobf("curse.maven:neo-eco-ae-extension-1460639:8739989")
+    // Optional runtime mods: keep CurseMaven jars unmapped so ForgeGradle does not
+    // require unavailable *_mapped_official_1.20.1 compile artifacts.
+    runtimeOnly "curse.maven:neo-eco-ae-extension-1460639:8739989"
     // AE2 Lightning Tech 2.x requires Thunderbolt Core at runtime.
-    implementation fg.deobf("curse.maven:thunderbolt-core-1631756:8747721")
-    implementation fg.deobf("curse.maven:ae2-lightning-tech-1527395:8829989")
+    runtimeOnly "curse.maven:thunderbolt-core-1631756:8747721"
+    runtimeOnly "curse.maven:ae2-lightning-tech-1527395:8829989"
 
     // ══════════════════════════════════════════════════════════
     //  compileOnly — 仅编译期，不打入运行时

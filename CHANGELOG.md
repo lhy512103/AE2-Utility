@@ -2,7 +2,7 @@
 
 ## 未发布
 
-- 新增：加入 Neo ECO AE Extension 与 AE2 Lightning Tech 运行时依赖。
+- 新增：加入 Neo ECO AE Extension、Thunderbolt Core 与 AE2 Lightning Tech 运行时依赖。
 
 - 新增：第三方模组可注册配方查找器材料分类规则。
 - 新增：JEI 终端配方输入拉取，可从 ME 网络提取材料到玩家背包。
