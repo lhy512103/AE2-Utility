@@ -150,5 +150,15 @@
   "emi.tooltip.ae2utility.encode_pattern_blue_slots": "蓝色高亮的物品 可以自动制作。",
   "emi.tooltip.ae2utility.batch_encode_page": "一键编码当前 EMI 页面的全部配方",
   "emi.tooltip.ae2utility.batch_encode_category": "一键编码当前 EMI 配方分类下的全部配方(含所有分页)",
-  "emi.tooltip.ae2utility.batch_encode_shift_hint": "按住 Shift 可批量上传"
+  "emi.tooltip.ae2utility.batch_encode_shift_hint": "按住 Shift 可批量上传",
+  "item.ae2utility.nbt_tear_card": "NBT撕裂卡",
+  "item.ae2utility.nbt_tear_card.tooltip_all": "装入后：物品产物按物品类型匹配，忽略NBT。",
+  "item.ae2utility.nbt_tear_card.tooltip_whitelist": "装入后：%s 种物品使用放宽匹配。",
+  "item.ae2utility.redstone_signal_card": "红石发信卡",
+  "item.ae2utility.redstone_signal_card.tooltip_mode_prefix": "当前模式：",
+  "item.ae2utility.redstone_signal_card.tooltip_interval_prefix": "信号间隔：",
+  "item.ae2utility.redstone_signal_card.tooltip_hint": "右键进行配置",
+  "item.ae2utility.redstone_signal_card.mode.order": "检测下单",
+  "item.ae2utility.redstone_signal_card.mode.craft": "检测返还进网",
+  "item.ae2utility.redstone_signal_card.mode.until_recipe": "直到配方合成"
 }

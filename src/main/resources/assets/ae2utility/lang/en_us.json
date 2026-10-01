@@ -150,5 +150,15 @@
   "emi.tooltip.ae2utility.encode_pattern_blue_slots": "Blue highlighted items can be auto-crafted.",
   "emi.tooltip.ae2utility.batch_encode_page": "Batch encode every recipe on the current EMI page",
   "emi.tooltip.ae2utility.batch_encode_category": "Batch encode all recipes in this EMI category (every page)",
-  "emi.tooltip.ae2utility.batch_encode_shift_hint": "Hold Shift for batch upload"
+  "emi.tooltip.ae2utility.batch_encode_shift_hint": "Hold Shift for batch upload",
+  "item.ae2utility.nbt_tear_card": "NBT Tear Card",
+  "item.ae2utility.nbt_tear_card.tooltip_all": "When installed: item outputs match by item type only.",
+  "item.ae2utility.nbt_tear_card.tooltip_whitelist": "When installed: %s item types use relaxed matching.",
+  "item.ae2utility.redstone_signal_card": "Redstone Signal Card",
+  "item.ae2utility.redstone_signal_card.tooltip_mode_prefix": "Current mode: ",
+  "item.ae2utility.redstone_signal_card.tooltip_interval_prefix": "Signal interval: ",
+  "item.ae2utility.redstone_signal_card.tooltip_hint": "Right-click to configure",
+  "item.ae2utility.redstone_signal_card.mode.order": "Detect order push",
+  "item.ae2utility.redstone_signal_card.mode.craft": "Detect return into ME",
+  "item.ae2utility.redstone_signal_card.mode.until_recipe": "Until crafting completes"
 }
