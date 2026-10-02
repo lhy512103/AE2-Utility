@@ -3,6 +3,8 @@ package com.lhy.ae2utility.client;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -70,7 +72,7 @@ public final class Ae2UtilityConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(@Nonnull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics);
         guiGraphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFFFF);
         for (Row row : rows) {
@@ -97,7 +99,9 @@ public final class Ae2UtilityConfigScreen extends Screen {
     @Override
     public void onClose() {
         Ae2UtilityClientConfig.SPEC.save();
-        minecraft.setScreen(parent);
+        if (minecraft != null) {
+            minecraft.setScreen(parent);
+        }
     }
 
     private record Row(Ae2UtilityClientConfig.Option option, List<FormattedCharSequence> lines, int y, int height,

@@ -58,9 +58,9 @@ public final class EmiEncodePacketFactory {
             outputs = List.of(draftOutput);
         }
         java.util.Set<AEKey> outputKeys = outputs.stream()
-                .filter(Objects::nonNull)
-                .map(GenericStack::what)
-                .filter(Objects::nonNull)
+                .filter(stack -> stack != null)
+                .map(stack -> stack.what())
+                .filter(key -> key != null)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<EmiIngredient> encodingInputs = multiblockStructureDraft
                 ? recipe.getInputs().stream()
@@ -126,9 +126,9 @@ public final class EmiEncodePacketFactory {
             return false;
         }
         List<ItemStack> alternatives = ingredient.getEmiStacks().stream()
-                .map(EmiStack::getItemStack)
+                .map(stack -> stack.getItemStack())
                 .filter(stack -> stack != null && !stack.isEmpty())
-                .map(ItemStack::copy)
+                .map(stack -> stack.copy())
                 .toList();
         return MultiblockStructurePatternCompat.isFilteredHatchSlot(alternatives);
     }

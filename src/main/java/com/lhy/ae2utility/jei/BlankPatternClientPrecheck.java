@@ -34,11 +34,15 @@ public final class BlankPatternClientPrecheck {
                 return false;
             }
         }
-        if (!(player.containerMenu instanceof MEStorageMenu menu) || menu.getClientRepo() == null) {
+        if (!(player.containerMenu instanceof MEStorageMenu menu)) {
+            return false;
+        }
+        var clientRepo = menu.getClientRepo();
+        if (clientRepo == null) {
             return false;
         }
         AEItemKey blankKey = AEItemKey.of(AEItems.BLANK_PATTERN);
-        for (var entry : menu.getClientRepo().getAllEntries()) {
+        for (var entry : clientRepo.getAllEntries()) {
             if (blankKey.equals(entry.getWhat()) && entry.getStoredAmount() > 0) {
                 return false;
             }

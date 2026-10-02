@@ -24,7 +24,7 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
 
     @Override
     public ResourceLocation getPluginUid() {
-        return new ResourceLocation(Ae2UtilityMod.MOD_ID, "jei_plugin");
+        return ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "jei_plugin");
     }
 
     @Override

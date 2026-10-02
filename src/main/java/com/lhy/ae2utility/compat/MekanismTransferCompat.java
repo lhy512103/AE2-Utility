@@ -61,7 +61,7 @@ public final class MekanismTransferCompat {
                 }
                 MekanismKey key = MekanismKey.of(stack);
                 if (key != null) {
-                    result.merge(key, stack.getAmount(), Long::sum);
+                    result.merge(key, stack.getAmount(), (left, right) -> left + right);
                     tanksByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(tank);
                 }
             }

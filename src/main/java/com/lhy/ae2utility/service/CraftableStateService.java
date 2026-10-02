@@ -14,6 +14,7 @@ import appeng.helpers.WirelessTerminalMenuHost;
 import appeng.menu.me.common.MEStorageMenu;
 
 import com.lhy.ae2utility.compat.WcwtCompat;
+import com.lhy.ae2utility.util.ActionHosts;
 import com.lhy.ae2utility.network.CraftableStatePacket;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.QueryCraftableStatePacket;
@@ -30,18 +31,16 @@ public final class CraftableStateService {
 
         if (serverPlayer.containerMenu instanceof MEStorageMenu storageMenu) {
             ITerminalHost host = WcwtCompat.extractTerminalHost(storageMenu);
-            if (host instanceof IActionHost ah && ah.getActionableNode() != null) {
-                grid = ah.getActionableNode().getGrid();
+            if (host instanceof IActionHost actionHost) {
+                grid = ActionHosts.gridOf(actionHost);
             }
         }
 
         if (grid == null) {
             var resolution = WirelessTerminalContextResolver.resolve(serverPlayer);
-            if (resolution.status() == WirelessTerminalContextResolver.Status.READY && resolution.host() != null) {
-                WirelessTerminalMenuHost host = resolution.host();
-                if (host.getActionableNode() != null) {
-                    grid = host.getActionableNode().getGrid();
-                }
+            WirelessTerminalMenuHost host = resolution.host();
+            if (resolution.isReady() && host != null) {
+                grid = ActionHosts.gridOf(host);
             }
         }
 

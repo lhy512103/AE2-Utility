@@ -13,7 +13,6 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -21,7 +20,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import com.lhy.ae2utility.network.ModNetworking;
 
@@ -40,6 +38,7 @@ import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
+import com.lhy.ae2utility.util.ItemIds;
 import com.lhy.ae2utility.util.PullIngredientOrdering;
 
 public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implements IUniversalRecipeTransferHandler<C> {
@@ -115,13 +114,17 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     private IRecipeTransferError delegateWcwtRecipeTransfer(AbstractContainerMenu container, Object recipe,
             IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
         try {
+            Method transfer;
+            Object handler;
             synchronized (wcwtDelegateLock) {
-                if (wcwtDelegateTransfer == null) {
+                transfer = wcwtDelegateTransfer;
+                handler = wcwtDelegateHandler;
+                if (transfer == null || handler == null) {
                     Class<?> wcwtMenuClass = Class.forName(WCWT_MENU_CLASS_NAME);
                     Class<?> wcwtHandlerClass = Class.forName("com.lhy.wcwt.compat.jei.WcwtRecipeTransferHandler");
-                    wcwtDelegateHandler =
-                            wcwtHandlerClass.getConstructor(IRecipeTransferHandlerHelper.class).newInstance(transferHelper);
-                    wcwtDelegateTransfer = wcwtHandlerClass.getMethod(
+                    handler = wcwtHandlerClass.getConstructor(IRecipeTransferHandlerHelper.class)
+                            .newInstance(transferHelper);
+                    transfer = wcwtHandlerClass.getMethod(
                             "transferRecipe",
                             wcwtMenuClass,
                             Object.class,
@@ -129,10 +132,12 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
                             Player.class,
                             boolean.class,
                             boolean.class);
+                    wcwtDelegateHandler = handler;
+                    wcwtDelegateTransfer = transfer;
                 }
             }
-            return (IRecipeTransferError) wcwtDelegateTransfer.invoke(
-                    wcwtDelegateHandler, container, recipe, recipeSlots, player, maxTransfer, doTransfer);
+            return (IRecipeTransferError) transfer.invoke(
+                    handler, container, recipe, recipeSlots, player, maxTransfer, doTransfer);
         } catch (Throwable t) {
             Ae2UtilityMod.LOGGER.warn("WCWT JEI recipe transfer delegation failed", t);
             return transferHelper.createInternalError();
@@ -199,8 +204,9 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     }
 
     private static long stackHash(ItemStack stack) {
-        long hash = 31L * net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode();
-        return 31L * hash + (stack.hasTag() ? stack.getTag().hashCode() : 0L);
+        long hash = 31L * ItemIds.of(stack).hashCode();
+        var tag = stack.getTag();
+        return 31L * hash + (tag != null ? tag.hashCode() : 0L);
     }
 
     private static ItemStack chooseBestItem(Map<AEKey, Integer> ingredientPriorities, Ingredient ingredient,
@@ -230,11 +236,12 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
     }
 
     private static Map<AEKey, Integer> getIngredientPriorities(MEStorageMenu menu) {
-        if (menu.getClientRepo() == null) {
+        var clientRepo = menu.getClientRepo();
+        if (clientRepo == null) {
             return Map.of();
         }
 
-        var orderedEntries = menu.getClientRepo().getAllEntries().stream()
+        var orderedEntries = clientRepo.getAllEntries().stream()
                 .sorted(Comparator
                         .comparing(GridInventoryEntry::isCraftable)
                         .thenComparing(Ae2TerminalRecipeTransferHandler::isUndamaged)

@@ -1,7 +1,46 @@
 # Changelog
 
-## 未发布
+## v1.20.1.1
 
+### English
+- Added: Neo ECO AE Extension, Thunderbolt Core, and AE2 Lightning Tech as runtime dependencies.
+
+- Added: Third-party mods can register recipe-finder material classification rules.
+- Added: JEI terminal recipe-input pulling, extracting materials from the ME network into the player inventory.
+- Added: NBT Tear Card and Redstone Signal Card items, configuration APIs, and Forge recipes.
+- Added: EMI single/batch pattern encoding, upload, and recipe-substitution buttons.
+- Added: Optional JEI encoding compatibility for Some Useless Things omnibus patterns.
+
+- Improved: JEI encode-button state is computed once per recipe per tick, reducing lag on multi-candidate/multi-recipe pages.
+- Added: JEI Crafting Tree integration as its AE2 encode/upload backend with editable pattern drafts; Alt+left-click the encode arrow to open the recipe tree.
+- Added: Alt+left-click the EAEP upload button on the pattern encoding terminal to batch-upload all patterns in the inventory (cancelling skips that machine group).
+- Added: ME Quick Transfer tool — after linking a wireless access point, move items, fluids, and chemicals from a container into the ME network.
+- Added: Recipe Finder that filters JEI recipes by sample, mod, machine, and material features, then batch-encodes them.
+- Added: Configurable lock of multi-candidate input slots to the actually encoded materials while hovering the JEI encode arrow.
+- Added: Configurable read-only pattern-encoding-terminal preview in the tooltip while hovering the JEI encode arrow.
+- Added: Pre-check for blank patterns before batch encoding; cancel immediately with a message if none are available.
+- Added: Single and batch encode/upload support for GTCEu/GTL and Neo ECO multiblock structure info pages.
+- Added: Shift-upload of crafting/smithing/stonecutting patterns prefers the Neo ECO AE Extension crafting subsystem and checks for duplicates.
+- Added: Configurable reuse of a previously chosen same-named provider when a batch-upload search key matches multiple providers.
+- Fixed: Batch Shift-upload could send the next pattern too early on high-latency servers and overwrite the pending pattern.
+- Added: EAEP provider selection screen shows the pattern and machine currently being processed.
+- Added: Ctrl+left-click encode bookmarks missing-pattern inputs in JEI; Ctrl+Shift+left-click also uploads.
+- Improved: Encode-button tooltip is shorter; hold Shift+N for the full control legend.
+- Added: JEI encoding automatically strips chance byproducts while keeping the primary output.
+- Added: `/ae2utility stopuploads [all]` command to abort batch uploads.
+- Added: Batch encoding skips patterns that already exist on the ME network.
+- Added: Batch encoding stops remaining recipes when blank patterns run out.
+- Added: Client config option to hide the "entire category, all pages" batch-encode button.
+- Added: Server config to require an open encoding UI, disable full-category batch encoding, and cap batch size.
+- Added: Configurable preference for JEI bookmarks when encoding multi-candidate inputs.
+- Fixed: Multi-candidate encoding could pick a recipe output as an input, creating a self-looping pattern.
+- Fixed: Recipes with too many ingredient alternatives could exceed the packet size limit and disconnect.
+- Fixed: Severe lag when viewing JEI recipes with huge ingredient counts while an AE terminal is open.
+- Fixed: Encode button did nothing for GregTech-style recipes with multiple output slots.
+- Improved: Encoding now shows a message when a recipe contains unsupported ingredients.
+- Improved: Encode buttons are hidden on tag pages, info pages, and other layouts with nothing to encode.
+
+### 中文
 - 新增：加入 Neo ECO AE Extension、Thunderbolt Core 与 AE2 Lightning Tech 远程运行时依赖。
 
 - 新增：第三方模组可注册配方查找器材料分类规则。
@@ -39,7 +78,7 @@
 - 优化：配方含不支持的材料时编码给出提示
 - 优化：标签页、信息页等无可编码输入输出的页面不再显示编码按钮
 
-## 20.1.0
+## v1.20.1.0
 
 ### English
 
@@ -57,7 +96,7 @@
 4. 修复 WCWT 终端放入 Curios 饰品栏时，EAEP 映射界面无法获取供应器列表的问题。
 5. 修复 JEI 上传时 Advanced AE 反应仓映射为空的问题。
 
-## 0.0.1-forge-1.20.1
+## v1.20.1
 
 ### English
 

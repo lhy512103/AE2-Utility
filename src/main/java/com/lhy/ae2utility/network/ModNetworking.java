@@ -21,7 +21,7 @@ import java.util.Optional;
 public final class ModNetworking {
     private static final String PROTOCOL_VERSION = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-            new ResourceLocation(Ae2UtilityMod.MOD_ID, "main"),
+            ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
             PROTOCOL_VERSION::equals,
             PROTOCOL_VERSION::equals);
@@ -210,7 +210,8 @@ public final class ModNetworking {
 
     private static void handleRecipeFinderSample(RecipeFinderSamplePacket msg, NetworkEvent.Context ctx) {
         ctx.enqueueWork(() -> {
-            if (ctx.getSender() != null && ctx.getSender().containerMenu instanceof RecipeFinderMenu menu) {
+            var sender = ctx.getSender();
+            if (sender != null && sender.containerMenu instanceof RecipeFinderMenu menu) {
                 menu.applySample(msg.stack());
             }
         });

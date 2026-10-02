@@ -37,11 +37,13 @@ public final class EmiBatchScreenButtons {
     private static final int BATCH_ICON_SOURCE_SIZE = 8;
 
     private static final ResourceLocation EMI_BACKGROUND =
-            new ResourceLocation("emi", "textures/gui/background.png");
+            ResourceLocation.fromNamespaceAndPath("emi", "textures/gui/background.png");
     private static final ResourceLocation TEX_BATCH_PAGE =
-            new ResourceLocation(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_page.png");
+            ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_page.png");
     private static final ResourceLocation TEX_BATCH_CATEGORY =
-            new ResourceLocation(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_category.png");
+            ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_category.png");
+    private static final ResourceLocation EMI_WIDGETS =
+            ResourceLocation.fromNamespaceAndPath("emi", "textures/gui/widgets.png");
 
     private enum Button {
         ITEM_SUBSTITUTION,
@@ -152,7 +154,7 @@ public final class EmiBatchScreenButtons {
     private static void drawButton(GuiGraphics graphics, Button button, int x, int y, int mouseX, int mouseY) {
         boolean hovered = contains(x, y, mouseX, mouseY);
         EmiDrawContext context = EmiDrawContext.wrap(graphics);
-        context.drawTexture(new ResourceLocation("emi", "textures/gui/widgets.png"), x, y, SLOT_SIZE, SLOT_SIZE,
+        context.drawTexture(EMI_WIDGETS, x, y, SLOT_SIZE, SLOT_SIZE,
                 0, 0, SLOT_SIZE, SLOT_SIZE, 256, 256);
 
         int iconX = x + (SLOT_SIZE - ICON_SIZE) / 2;

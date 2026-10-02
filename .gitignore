@@ -1,7 +1,9 @@
 # eclipse
 bin
 *.launch
-.settings
+.settings/*
+!.settings/org.eclipse.jdt.core.prefs
+!.settings/org.eclipse.buildship.core.prefs
 .metadata
 .classpath
 .project
@@ -12,7 +14,8 @@ out
 *.iws
 *.iml
 .idea
-.vscode
+.vscode/*
+!.vscode/settings.json
 
 # gradle
 build

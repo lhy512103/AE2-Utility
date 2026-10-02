@@ -14,6 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
@@ -25,6 +26,7 @@ import net.minecraft.world.item.crafting.StonecutterRecipe;
 
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.items.ItemHandlerHelper;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import appeng.api.config.Actionable;
 import appeng.api.crafting.PatternDetailsHelper;
@@ -52,6 +54,7 @@ import com.lhy.ae2utility.network.CraftableStatePacket;
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.network.EncodePreviewResultPacket;
 import com.lhy.ae2utility.network.QueryEncodePreviewPacket;
+import com.lhy.ae2utility.util.ActionHosts;
 import com.lhy.ae2utility.util.PatternEncodingPreview;
 import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.OpenEaepProviderSelectionPacket;
@@ -72,6 +75,17 @@ import com.lhy.ae2utility.util.EncodePatternInputChooser;
  * 直接 import EAEP 公开 API（compileOnly 依赖），不使用反射。</p>
  */
 public final class EncodePatternService {
+    private static final AbstractContainerMenu DUMMY_CRAFTING_MENU = new AbstractContainerMenu(null, -1) {
+        @Override
+        public ItemStack quickMoveStack(Player player, int index) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return false;
+        }
+    };
 
     private EncodePatternService() {
     }
@@ -159,24 +173,20 @@ public final class EncodePatternService {
             ITerminalHost host = WcwtCompat.extractTerminalHost(storageMenu);
             if (host != null) {
                 inventory = host.getInventory();
-                if (host instanceof IActionHost ah) {
-                    actionSource = IActionSource.ofPlayer(serverPlayer, ah);
-                    if (ah.getActionableNode() != null) {
-                        grid = ah.getActionableNode().getGrid();
-                    }
+                if (host instanceof IActionHost actionHost) {
+                    actionSource = IActionSource.ofPlayer(serverPlayer, actionHost);
+                    grid = ActionHosts.gridOf(actionHost);
                 }
             }
         }
 
         if (inventory == null) {
             var resolution = WirelessTerminalContextResolver.resolve(serverPlayer);
-            if (resolution.isReady() && resolution.host() != null) {
-                WirelessTerminalMenuHost host = resolution.host();
-                inventory = host.getInventory();
-                actionSource = IActionSource.ofPlayer(serverPlayer, host);
-                if (host.getActionableNode() != null) {
-                    grid = host.getActionableNode().getGrid();
-                }
+            WirelessTerminalMenuHost wirelessHost = resolution.host();
+            if (resolution.isReady() && wirelessHost != null) {
+                inventory = wirelessHost.getInventory();
+                actionSource = IActionSource.ofPlayer(serverPlayer, wirelessHost);
+                grid = ActionHosts.gridOf(wirelessHost);
             }
         }
 
@@ -310,9 +320,10 @@ public final class EncodePatternService {
 
         int meaningfulInputCount = countMeaningfulInputs(in);
 
-        if (payload.recipeId() != null) {
-            Recipe<?> recipe = serverPlayer.getServer().getRecipeManager()
-                    .byKey(payload.recipeId()).orElse(null);
+        ResourceLocation recipeId = payload.recipeId();
+        var server = serverPlayer.getServer();
+        if (recipeId != null && server != null) {
+            Recipe<?> recipe = server.getRecipeManager().byKey(recipeId).orElse(null);
             if (recipe != null) {
                 if (recipe instanceof CraftingRecipe craftingRecipe
                         && meaningfulInputCount <= 9
@@ -370,7 +381,6 @@ public final class EncodePatternService {
     }
 
     // ── 锻造样板编码 ──────────────────────────────────────────────
-    @SuppressWarnings("unchecked")
     private static ItemStack encodeSmithingPatternFlexible(SmithingRecipe recipe, EncodePatternPacket payload,
             List<GenericStack> in, List<GenericStack> out) {
         AEItemKey outKey = firstItemKey(out);
@@ -414,15 +424,18 @@ public final class EncodePatternService {
     private record CraftingFallbackMatch(CraftingRecipe recipe, ItemStack[] inputs) {
     }
 
-    @SuppressWarnings("unchecked")
     private static @Nullable CraftingFallbackMatch findCraftingRecipeFromJeiInputs(ServerPlayer serverPlayer,
             List<GenericStack> in) {
+        var server = serverPlayer.getServer();
+        if (server == null) {
+            return null;
+        }
         ItemStack[] sparseInputs = buildSparseCraftingInputs(in);
-        TransientCraftingContainer sparseInput = new TransientCraftingContainer(null, 3, 3);
+        TransientCraftingContainer sparseInput = new TransientCraftingContainer(DUMMY_CRAFTING_MENU, 3, 3);
         for (int i = 0; i < sparseInputs.length; i++) {
             sparseInput.setItem(i, sparseInputs[i]);
         }
-        var sparseMatch = serverPlayer.getServer().getRecipeManager()
+        var sparseMatch = server.getRecipeManager()
                 .getRecipeFor(RecipeType.CRAFTING, sparseInput, serverPlayer.level());
         if (sparseMatch.isPresent()) {
             return new CraftingFallbackMatch((CraftingRecipe) sparseMatch.get(), sparseInputs);
@@ -432,11 +445,11 @@ public final class EncodePatternService {
         if (Arrays.equals(sparseInputs, compactInputs)) {
             return null;
         }
-        TransientCraftingContainer compactInput = new TransientCraftingContainer(null, 3, 3);
+        TransientCraftingContainer compactInput = new TransientCraftingContainer(DUMMY_CRAFTING_MENU, 3, 3);
         for (int i = 0; i < compactInputs.length; i++) {
             compactInput.setItem(i, compactInputs[i]);
         }
-        var compactMatch = serverPlayer.getServer().getRecipeManager()
+        var compactMatch = server.getRecipeManager()
                 .getRecipeFor(RecipeType.CRAFTING, compactInput, serverPlayer.level());
         return compactMatch
                 .map(r -> new CraftingFallbackMatch((CraftingRecipe) r, compactInputs))
@@ -625,10 +638,12 @@ public final class EncodePatternService {
     }
 
     private static boolean isCraftingRecipePayload(ServerPlayer serverPlayer, EncodePatternPacket payload) {
-        if (payload.recipeId() == null || serverPlayer.getServer() == null) {
+        ResourceLocation recipeId = payload.recipeId();
+        var server = serverPlayer.getServer();
+        if (recipeId == null || server == null) {
             return false;
         }
-        return serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId())
+        return server.getRecipeManager().byKey(recipeId)
                 .map(recipe -> recipe instanceof CraftingRecipe)
                 .orElse(false);
     }
@@ -638,11 +653,13 @@ public final class EncodePatternService {
         if (searchKey != null && !searchKey.isBlank()) {
             return searchKey;
         }
-        if (payload.recipeId() == null || serverPlayer.getServer() == null) {
+        ResourceLocation recipeId = payload.recipeId();
+        var server = serverPlayer.getServer();
+        if (recipeId == null || server == null) {
             return "";
         }
 
-        Recipe<?> recipe = serverPlayer.getServer().getRecipeManager().byKey(payload.recipeId()).orElse(null);
+        Recipe<?> recipe = server.getRecipeManager().byKey(recipeId).orElse(null);
         if (recipe == null) {
             return "";
         }
@@ -658,7 +675,7 @@ public final class EncodePatternService {
         } catch (Throwable ignored) {
         }
 
-        ResourceLocation recipeTypeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(recipe.getType());
+        ResourceLocation recipeTypeId = ForgeRegistries.RECIPE_TYPES.getKey(recipe.getType());
         return recipeTypeId != null ? recipeTypeId.getPath() : "";
     }
 

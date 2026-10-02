@@ -57,7 +57,7 @@ final class RecipeFinderApiImpl implements RecipeFinderApi {
 
     private synchronized List<RegisteredClassifier> orderedClassifiers() {
         List<RegisteredClassifier> ordered = new ArrayList<>(classifiers.values());
-        ordered.sort(Comparator.comparingInt(RegisteredClassifier::priority).reversed()
+        ordered.sort(Comparator.comparingInt((RegisteredClassifier entry) -> entry.priority()).reversed()
                 .thenComparing(entry -> entry.id().toString()));
         return List.copyOf(ordered);
     }

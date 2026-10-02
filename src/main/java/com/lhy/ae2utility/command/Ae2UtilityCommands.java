@@ -1,5 +1,7 @@
 package com.lhy.ae2utility.command;
 
+import java.util.Objects;
+
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,8 +27,8 @@ public final class Ae2UtilityCommands {
                 .then(Commands.literal("stopuploads")
                         .executes(ctx -> {
                             if (!(ctx.getSource().getEntity() instanceof ServerPlayer player)) {
-                                ctx.getSource().sendFailure(
-                                        Component.translatable("message.ae2utility.stopuploads_requires_player"));
+                                ctx.getSource().sendFailure(Objects.requireNonNull(
+                                        Component.translatable("message.ae2utility.stopuploads_requires_player")));
                                 return 0;
                             }
                             abortUploads(player);

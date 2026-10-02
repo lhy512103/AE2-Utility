@@ -21,6 +21,7 @@ import appeng.crafting.pattern.AEStonecuttingPattern;
 import appeng.menu.AEBaseMenu;
 
 import com.lhy.ae2utility.compat.WcwtCompat;
+import com.lhy.ae2utility.util.ActionHosts;
 import com.lhy.ae2utility.network.BatchUploadStepPacket;
 import com.lhy.ae2utility.network.InventoryUploadRemainingPacket;
 import com.lhy.ae2utility.network.ModNetworking;
@@ -90,7 +91,8 @@ public final class InventoryPatternUploadService {
         if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
             return false;
         }
-        String searchKey = stack.hasTag() ? stack.getTag().getString(SEARCH_KEY_TAG) : "";
+        var tag = stack.getTag();
+        String searchKey = tag != null ? tag.getString(SEARCH_KEY_TAG) : "";
         boolean crafting = searchKey.isBlank() && isMatrixCapable(player, stack);
         if (com.extendedae_plus.util.uploadPattern.ProviderUploadUtil.beginPendingCtrlQUpload(player,
                 uploadCopy(stack)) == null) {
@@ -105,9 +107,10 @@ public final class InventoryPatternUploadService {
 
     private static ItemStack uploadCopy(ItemStack stack) {
         ItemStack copy = stack.copyWithCount(1);
-        if (copy.hasTag()) {
-            copy.getTag().remove(SEARCH_KEY_TAG);
-            if (copy.getTag().isEmpty()) {
+        var tag = copy.getTag();
+        if (tag != null) {
+            tag.remove(SEARCH_KEY_TAG);
+            if (tag.isEmpty()) {
                 copy.setTag(null);
             }
         }
@@ -128,12 +131,16 @@ public final class InventoryPatternUploadService {
         if (!(host instanceof IActionHost) && WcwtCompat.isWcwtMenu(player.containerMenu)) {
             host = WcwtCompat.extractTerminalHost(player.containerMenu);
         }
-        if (host instanceof IActionHost actionHost && actionHost.getActionableNode() != null) {
-            return actionHost.getActionableNode().getGrid();
+        if (host instanceof IActionHost actionHost) {
+            IGrid grid = ActionHosts.gridOf(actionHost);
+            if (grid != null) {
+                return grid;
+            }
         }
         var resolution = WirelessTerminalContextResolver.resolve(player);
-        if (resolution.isReady() && resolution.host().getActionableNode() != null) {
-            return resolution.host().getActionableNode().getGrid();
+        var wirelessHost = resolution.host();
+        if (resolution.isReady() && wirelessHost != null) {
+            return ActionHosts.gridOf(wirelessHost);
         }
         return null;
     }

@@ -5,10 +5,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
+
+import com.lhy.ae2utility.util.ItemIds;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.ModList;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /** 按注册名关键字给配方查找器的材料/产物打特征标签。 */
 public final class RecipeFinderFeatureClassifier {
@@ -44,7 +47,7 @@ public final class RecipeFinderFeatureClassifier {
             return Set.of();
         }
 
-        String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().toLowerCase(Locale.ROOT);
+        String path = ItemIds.of(stack).getPath().toLowerCase(Locale.ROOT);
         Set<String> features = new LinkedHashSet<>();
 
         if (isWoodLike(path)) {
@@ -105,7 +108,11 @@ public final class RecipeFinderFeatureClassifier {
             return Set.of();
         }
 
-        String path = BuiltInRegistries.FLUID.getKey(stack.getFluid()).getPath().toLowerCase(Locale.ROOT);
+        ResourceLocation id = ForgeRegistries.FLUIDS.getKey(stack.getFluid());
+        if (id == null) {
+            return Set.of("fluid");
+        }
+        String path = id.getPath().toLowerCase(Locale.ROOT);
         Set<String> features = new LinkedHashSet<>();
         features.add("fluid");
 

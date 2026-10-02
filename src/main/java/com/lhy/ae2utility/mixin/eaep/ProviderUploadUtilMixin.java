@@ -21,11 +21,12 @@ public abstract class ProviderUploadUtilMixin {
         }
 
         var resolution = WirelessTerminalContextResolver.resolve(player);
-        if (!resolution.isReady()) {
+        var host = resolution.host();
+        if (!resolution.isReady() || host == null) {
             return;
         }
 
-        var node = resolution.host().getActionableNode();
+        var node = host.getActionableNode();
         if (node != null && node.getGrid() != null) {
             cir.setReturnValue(node.getGrid());
         }

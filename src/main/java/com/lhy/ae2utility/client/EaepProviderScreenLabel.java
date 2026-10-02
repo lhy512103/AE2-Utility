@@ -50,7 +50,9 @@ public final class EaepProviderScreenLabel {
         String machine = machineName == null || machineName.isBlank() ? "-" : machineName;
         String text = Component.translatable("gui.ae2utility.eaep_processing_pattern", patternName, machine).getString();
         String trimmed = font.plainSubstrByWidth(text, Math.max(40, searchBox.getWidth() - 4));
-        guiGraphics.drawString(font, trimmed, searchBox.getX() + 2, searchBox.getY() - 12, 0xFFFFFFFF);
+        if (trimmed != null) {
+            guiGraphics.drawString(font, trimmed, searchBox.getX() + 2, searchBox.getY() - 12, 0xFFFFFFFF);
+        }
     }
 
     private static @Nullable EditBox searchBox(Screen screen) {
@@ -58,12 +60,13 @@ public final class EaepProviderScreenLabel {
             return null;
         }
         try {
-            if (searchBoxField == null) {
-                Field field = screen.getClass().getDeclaredField("searchBox");
+            Field field = searchBoxField;
+            if (field == null) {
+                field = screen.getClass().getDeclaredField("searchBox");
                 field.setAccessible(true);
                 searchBoxField = field;
             }
-            return searchBoxField.get(screen) instanceof EditBox box ? box : null;
+            return field.get(screen) instanceof EditBox box ? box : null;
         } catch (ReflectiveOperationException | RuntimeException e) {
             reflectionFailed = true;
             return null;

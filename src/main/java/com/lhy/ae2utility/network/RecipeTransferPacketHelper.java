@@ -9,8 +9,8 @@ import org.jetbrains.annotations.Nullable;
 import com.lhy.ae2utility.jei.JeiBookmarkKeysCache;
 import com.lhy.ae2utility.jei.StochasticOutputDetector;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
+import com.lhy.ae2utility.util.ItemIds;
 
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
@@ -42,7 +42,7 @@ public final class RecipeTransferPacketHelper {
     public static boolean canEncodeRequestedIngredients(List<PullRecipeInputsPacket.RequestedIngredient> ingredients) { if(ingredients.size()>64)return false; long total=0; for(var i:ingredients){if(i.alternatives().size()>256)return false; total+=i.alternatives().size(); if(total>4096)return false;} return true; }
     public static void writeRequestedIngredients(net.minecraft.network.FriendlyByteBuf buffer,List<PullRecipeInputsPacket.RequestedIngredient> ingredients){if(!canEncodeRequestedIngredients(ingredients)){buffer.writeVarInt(0);return;} buffer.writeVarInt(ingredients.size()); for(var i:ingredients){buffer.writeVarInt(i.alternatives().size());for(ItemStack s:i.alternatives())buffer.writeItem(s);buffer.writeVarInt(i.count());}}
     public static String requestSignature(List<PullRecipeInputsPacket.RequestedIngredient> ingredients){return ingredients.stream().map(i->i.count()+"#"+i.alternatives().stream().map(s->stackHash(s)+"#"+s.getCount()+"#"+s.getItem()).sorted().reduce((a,b)->a+"|"+b).orElse("")).sorted().reduce((a,b)->a+"||"+b).orElse("");}
-    private static long stackHash(ItemStack stack) { long hash = 31L * net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode(); return 31L * hash + (stack.hasTag() ? stack.getTag().hashCode() : 0L); }
+    private static long stackHash(ItemStack stack) { long hash = 31L * ItemIds.of(stack).hashCode(); var tag=stack.getTag(); return 31L * hash + (tag != null ? tag.hashCode() : 0L); }
 
     public static List<List<GenericStack>> getGenericStacks(IRecipeSlotsView slotsView, RecipeIngredientRole role) {
         return getGenericStacks(slotsView, role, Set.of());

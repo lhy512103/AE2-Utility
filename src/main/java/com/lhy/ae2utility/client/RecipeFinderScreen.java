@@ -9,13 +9,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nonnull;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
@@ -26,6 +28,7 @@ import com.lhy.ae2utility.client.recipe_finder.RecipeFinderClientState;
 import com.lhy.ae2utility.client.recipe_finder.RecipeFinderJeiIndexer;
 import com.lhy.ae2utility.menu.RecipeFinderMenu;
 import com.lhy.ae2utility.recipe_finder.RecipeFinderFeatureClassifier;
+import com.lhy.ae2utility.util.ItemIds;
 
 public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu> {
     private static final String KEY = "gui.ae2utility.recipe_finder.";
@@ -174,7 +177,7 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
         outputOpts = buildOpts(KindField.OUTPUT);
         excludeTagOpts = buildOpts(KindField.EXCLUDE_TAG);
         restoreSelectedValues();
-        Set<String> keys = candidates.stream().map(RecipeFinderCandidate::identityKey).collect(Collectors.toSet());
+        Set<String> keys = candidates.stream().map(candidate -> candidate.identityKey()).collect(Collectors.toSet());
         selectedKeys.retainAll(keys);
         rebuildFiltered();
     }
@@ -210,8 +213,9 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
         if (sample.isEmpty()) {
             return src;
         }
-        String sampleId = BuiltInRegistries.ITEM.getKey(sample.getItem()).toString();
-        String sampleModId = BuiltInRegistries.ITEM.getKey(sample.getItem()).getNamespace();
+        ResourceLocation sampleKey = ItemIds.of(sample);
+        String sampleId = sampleKey.toString();
+        String sampleModId = sampleKey.getNamespace();
         Set<String> features = sampleFeatures(sample);
 
         return src.stream().filter(c -> {
@@ -316,7 +320,7 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
     }
 
     @Override
-    protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
+    protected void renderBg(@Nonnull GuiGraphics g, float pt, int mx, int my) {
         int x = leftPos, y = topPos;
 
         panel(g, x, y, W, H, false);
@@ -688,9 +692,10 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
         }
         if (currentTab == 1 && openDropdown == null) {
             int idx = hoveredResultIndex(mx, my);
-            if (idx >= 0 && idx < filteredIdxs.size()) {
+            var mc = minecraft;
+            if (idx >= 0 && idx < filteredIdxs.size() && mc != null) {
                 RecipeFinderCandidate c = candidates.get(filteredIdxs.get(idx));
-                List<Component> lines = new ArrayList<>(getTooltipFromItem(minecraft, c.previewStack()));
+                List<Component> lines = new ArrayList<>(getTooltipFromItem(mc, c.previewStack()));
                 lines.add(tr("machine_filter", c.machineLabel()).withStyle(ChatFormatting.GRAY));
                 lines.add(tr("mod_filter", c.sourceModName()).withStyle(ChatFormatting.GRAY));
                 if (!c.encodable()) {
@@ -770,8 +775,7 @@ public class RecipeFinderScreen extends AbstractContainerScreen<RecipeFinderMenu
     }
 
     private static Component sampleSummary(ItemStack sample) {
-        String modName = RecipeFinderFeatureClassifier.modDisplayName(
-                BuiltInRegistries.ITEM.getKey(sample.getItem()).getNamespace());
+        String modName = RecipeFinderFeatureClassifier.modDisplayName(ItemIds.of(sample).getNamespace());
         Set<String> features = sampleFeatures(sample);
         if (features.isEmpty()) {
             return tr("sample_mod", modName);

@@ -13,7 +13,7 @@ import org.jetbrains.annotations.Nullable;
 
 import appeng.api.stacks.GenericStack;
 import com.lhy.ae2utility.Ae2UtilityMod;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.lhy.ae2utility.util.ItemIds;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
@@ -68,8 +68,7 @@ public final class MultiblockStructurePatternCompat {
     public static boolean isFilteredHatchSlot(List<ItemStack> alternatives) {
         String[] filters = getGtlHatchFilters();
         return filters.length > 0 && !alternatives.isEmpty() && alternatives.stream().allMatch(stack -> {
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            String itemId = id == null ? "" : id.toString();
+            String itemId = ItemIds.of(stack).toString();
             return Arrays.stream(filters)
                     .filter(filter -> filter != null && !filter.isBlank())
                     .anyMatch(itemId::contains);

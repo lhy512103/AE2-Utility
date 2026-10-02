@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.annotation.Nonnull;
+
 import org.jetbrains.annotations.Nullable;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
@@ -43,7 +45,7 @@ import net.minecraft.sounds.SoundEvents;
 public class EmiEncodePatternButtonWidget extends Widget {
     private static final int SIZE = 12;
     private static final ResourceLocation EMI_BUTTONS =
-            new ResourceLocation("emi", "textures/gui/buttons.png");
+            ResourceLocation.fromNamespaceAndPath("emi", "textures/gui/buttons.png");
     /** u offset of the blank button slot in buttons.png. */
     private static final int BLANK_BUTTON_U = 72;
     private static final int AE_BLUE_BUTTON_HIGHLIGHT_COLOR = 0x804545FF;
@@ -81,7 +83,7 @@ public class EmiEncodePatternButtonWidget extends Widget {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void render(@Nonnull GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         boolean hovered = getBounds().contains(mouseX, mouseY);
         int v = hovered ? SIZE : 0;
         graphics.blit(EMI_BUTTONS, x, y, SIZE, SIZE, (float) BLANK_BUTTON_U, (float) v, SIZE, SIZE, 256, 256);

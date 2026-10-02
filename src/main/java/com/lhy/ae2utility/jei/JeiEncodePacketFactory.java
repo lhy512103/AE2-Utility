@@ -15,6 +15,7 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
 
 import net.minecraftforge.fml.ModList;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -192,7 +193,7 @@ public final class JeiEncodePacketFactory {
             return "crafting";
         }
         String mapped = vanillaRecipe != null ? mapRecipeTypeToSearchKey(vanillaRecipe) : null;
-        if (isAdvancedAeReaction(typeId)) {
+        if (typeId != null && isAdvancedAeReaction(typeId)) {
             if (mapped != null && !mapped.isEmpty() && !mapped.equalsIgnoreCase(typeId.getPath())) {
                 return mapped;
             }
@@ -208,7 +209,7 @@ public final class JeiEncodePacketFactory {
     private static @Nullable ResourceLocation recipeTypeId(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
             @Nullable Recipe<?> recipe) {
         if (recipe != null) {
-            ResourceLocation typeId = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getKey(recipe.getType());
+            ResourceLocation typeId = ForgeRegistries.RECIPE_TYPES.getKey(recipe.getType());
             if (typeId != null) {
                 return typeId;
             }

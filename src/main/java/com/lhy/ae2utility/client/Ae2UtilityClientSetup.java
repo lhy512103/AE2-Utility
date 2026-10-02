@@ -1,6 +1,6 @@
 package com.lhy.ae2utility.client;
 
-import java.util.function.Function;
+import java.util.Objects;
 
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.client.ConfigScreenHandler;
@@ -22,11 +22,12 @@ public final class Ae2UtilityClientSetup {
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> MenuScreens.register(ModMenus.RECIPE_FINDER.get(), RecipeFinderScreen::new));
+        event.enqueueWork(() -> MenuScreens.register(Objects.requireNonNull(ModMenus.RECIPE_FINDER.get()),
+                RecipeFinderScreen::new));
     }
 
     private static void registerTooltipComponents(RegisterClientTooltipComponentFactoriesEvent event) {
-        event.register(PatternEncodingPreviewTooltip.class, Function.identity());
+        event.register(PatternEncodingPreviewTooltip.class, tooltip -> tooltip);
     }
 
     private static void registerConfigScreen(ModContainer container) {

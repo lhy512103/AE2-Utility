@@ -11,7 +11,6 @@ import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -35,6 +34,7 @@ import com.lhy.ae2utility.jei.JeiRecipePageKinds;
 import com.lhy.ae2utility.jei.JeiRecipesBatchEncode;
 import com.lhy.ae2utility.recipe_finder.RecipeFinderFeatureClassifier;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
+import com.lhy.ae2utility.util.ItemIds;
 
 /** 遍历 JEI 全部分类，为配方查找器建立候选索引。 */
 public final class RecipeFinderJeiIndexer {
@@ -56,9 +56,9 @@ public final class RecipeFinderJeiIndexer {
         }
 
         List<RecipeFinderCandidate> recipes = unique.values().stream()
-                .sorted(Comparator.comparing(RecipeFinderCandidate::sourceModName)
-                        .thenComparing(RecipeFinderCandidate::machineLabel)
-                        .thenComparing(RecipeFinderCandidate::displayName))
+                .sorted(Comparator.comparing((RecipeFinderCandidate candidate) -> candidate.sourceModName())
+                        .thenComparing(candidate -> candidate.machineLabel())
+                        .thenComparing(candidate -> candidate.displayName()))
                 .toList();
 
         Component status = recipes.isEmpty()
@@ -96,9 +96,6 @@ public final class RecipeFinderJeiIndexer {
             category = runtime.getRecipeManager().getRecipeCategory(recipeType);
             recipes = runtime.getRecipeManager().createRecipeLookup(recipeType).get().toList();
         } catch (RuntimeException e) {
-            return;
-        }
-        if (category == null) {
             return;
         }
         for (T recipe : recipes) {
@@ -174,7 +171,7 @@ public final class RecipeFinderJeiIndexer {
         for (IRecipeSlotView slot : slots) {
             slot.getItemStacks()
                     .filter(stack -> !stack.isEmpty())
-                    .forEach(stack -> ids.add(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()));
+                    .forEach(stack -> ids.add(ItemIds.of(stack).toString()));
         }
         return Set.copyOf(ids);
     }
@@ -221,7 +218,7 @@ public final class RecipeFinderJeiIndexer {
             return null;
         }
         ItemStack previewStack = ingredient.getItemStack()
-                .map(ItemStack::copy)
+                .map(stack -> stack.copy())
                 .orElseGet(() -> wrapIngredientPreview(ingredient.getIngredient()));
         return new DisplayedIngredient(displayName(ingredientManager, ingredient), previewStack);
     }
@@ -246,7 +243,7 @@ public final class RecipeFinderJeiIndexer {
             return recipeId.getNamespace();
         }
         if (!primaryOutput.previewStack().isEmpty()) {
-            return BuiltInRegistries.ITEM.getKey(primaryOutput.previewStack().getItem()).getNamespace();
+            return ItemIds.of(primaryOutput.previewStack()).getNamespace();
         }
         return "unknown";
     }

@@ -65,12 +65,13 @@ public final class StochasticOutputDetector {
             return null;
         }
         try {
-            if (tooltipCallbacksField == null || tooltipCallbacksField.getDeclaringClass() != slotView.getClass()) {
-                Field field = slotView.getClass().getDeclaredField("tooltipCallbacks");
+            Field field = tooltipCallbacksField;
+            if (field == null || field.getDeclaringClass() != slotView.getClass()) {
+                field = slotView.getClass().getDeclaredField("tooltipCallbacks");
                 field.setAccessible(true);
                 tooltipCallbacksField = field;
             }
-            return tooltipCallbacksField.get(slotView) instanceof List<?> list ? list : null;
+            return field.get(slotView) instanceof List<?> list ? list : null;
         } catch (NoSuchFieldException e) {
             return null;
         } catch (ReflectiveOperationException | RuntimeException e) {

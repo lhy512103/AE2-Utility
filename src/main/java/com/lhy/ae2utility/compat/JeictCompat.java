@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -148,10 +149,11 @@ public final class JeictCompat {
     }
 
     private static @Nullable Recipe<?> resolveRecipe(Object recipe) {
-        if (!(invoke(recipe, "recipeId") instanceof ResourceLocation id) || Minecraft.getInstance().level == null) {
+        var level = Minecraft.getInstance().level;
+        if (!(invoke(recipe, "recipeId") instanceof ResourceLocation id) || level == null) {
             return null;
         }
-        return Minecraft.getInstance().level.getRecipeManager().byKey(id).orElse(null);
+        return level.getRecipeManager().byKey(id).orElse(null);
     }
 
     private static List<Component> validatePatternDraft(Object request) {
@@ -195,18 +197,22 @@ public final class JeictCompat {
 
     private static boolean dispatchPackets(List<EncodePatternPacket> source, boolean uploadMode) {
         var player = Minecraft.getInstance().player;
-        List<EncodePatternPacket> fitting = source.stream().filter(EncodePatternPacket::fitsNetworkLimits).toList();
+        List<EncodePatternPacket> fitting = source.stream()
+                .filter(packet -> packet.fitsNetworkLimits())
+                .toList();
         if (fitting.isEmpty() || player == null) {
             return false;
         }
         List<EncodePatternPacket> capped = RemoteEncodeRules.capToSessionLimit(fitting);
         if (capped.size() < fitting.size()) {
-            player.displayClientMessage(Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice",
-                    fitting.size(), capped.size()).withStyle(ChatFormatting.GOLD), false);
+            player.displayClientMessage(Objects.requireNonNull(
+                    Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice",
+                            fitting.size(), capped.size()).withStyle(ChatFormatting.GOLD)), false);
         }
         if (BlankPatternClientPrecheck.lacksAnyDetectableBlankPattern(player)) {
-            player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_precheck_no_blank")
-                    .withStyle(ChatFormatting.GOLD), false);
+            player.displayClientMessage(Objects.requireNonNull(
+                    Component.translatable("message.ae2utility.batch_encode_precheck_no_blank")
+                            .withStyle(ChatFormatting.GOLD)), false);
             return false;
         }
         int sessionId = BulkEncodeSessions.next();

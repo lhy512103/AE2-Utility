@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -42,8 +43,9 @@ public final class InventoryPatternUpload {
             return true;
         }
         if (JeiBatchEncodeQueue.isActive()) {
-            player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_session_busy")
-                    .withStyle(ChatFormatting.GOLD), true);
+            player.displayClientMessage(Objects.requireNonNull(
+                    Component.translatable("message.ae2utility.batch_encode_session_busy")
+                            .withStyle(ChatFormatting.GOLD)), true);
             return true;
         }
         List<Integer> slots = new ArrayList<>();
@@ -54,8 +56,9 @@ public final class InventoryPatternUpload {
             }
         }
         if (slots.isEmpty()) {
-            player.displayClientMessage(Component.translatable("message.ae2utility.inventory_upload_none")
-                    .withStyle(ChatFormatting.RED), true);
+            player.displayClientMessage(Objects.requireNonNull(
+                    Component.translatable("message.ae2utility.inventory_upload_none")
+                            .withStyle(ChatFormatting.RED)), true);
             return true;
         }
         ModNetworking.sendToServer(new UploadInventoryPatternsPacket(slots));
@@ -73,7 +76,8 @@ public final class InventoryPatternUpload {
             if (stack.isEmpty() || !PatternDetailsHelper.isEncodedPattern(stack)) {
                 continue;
             }
-            String searchKey = stack.hasTag() ? stack.getTag().getString(InventoryPatternUploadService.SEARCH_KEY_TAG) : "";
+            var tag = stack.getTag();
+            String searchKey = tag != null ? tag.getString(InventoryPatternUploadService.SEARCH_KEY_TAG) : "";
             String label = patternName(player, stack);
             List<JeiBatchEncodeQueue.Entry> group = groups.computeIfAbsent(searchKey, k -> new ArrayList<>());
             for (int i = 0; i < stack.getCount(); i++) {
@@ -81,10 +85,11 @@ public final class InventoryPatternUpload {
                         "inventory:" + searchKey));
             }
         }
-        List<JeiBatchEncodeQueue.Entry> entries = groups.values().stream().flatMap(List::stream).toList();
+        List<JeiBatchEncodeQueue.Entry> entries = groups.values().stream().flatMap(group -> group.stream()).toList();
         if (!JeiBatchEncodeQueue.startEntries(entries)) {
-            player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_session_busy")
-                    .withStyle(ChatFormatting.GOLD), true);
+            player.displayClientMessage(Objects.requireNonNull(
+                    Component.translatable("message.ae2utility.batch_encode_session_busy")
+                            .withStyle(ChatFormatting.GOLD)), true);
         }
     }
 

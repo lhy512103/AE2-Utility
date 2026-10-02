@@ -2,6 +2,8 @@ package com.lhy.ae2utility.compat;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.lhy.ae2utility.util.ActionHosts;
+
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.storage.ITerminalHost;
@@ -44,7 +46,7 @@ public final class WcwtCompat {
         if (menu instanceof MEStorageMenu storageMenu) {
             return storageMenu.getHost();
         }
-        if (!isWcwtMenu(menu)) {
+        if (menu == null || !isWcwtMenu(menu)) {
             return null;
         }
         try {
@@ -58,10 +60,7 @@ public final class WcwtCompat {
 
     public static @Nullable IGrid resolveGrid(@Nullable AbstractContainerMenu menu) {
         ITerminalHost host = extractTerminalHost(menu);
-        if (host instanceof IActionHost actionHost && actionHost.getActionableNode() != null) {
-            return actionHost.getActionableNode().getGrid();
-        }
-        return null;
+        return host instanceof IActionHost actionHost ? ActionHosts.gridOf(actionHost) : null;
     }
 
     public static boolean isWcwtHost(@Nullable Object host) {

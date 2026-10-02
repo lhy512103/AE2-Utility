@@ -83,6 +83,6 @@ public class Ae2UtilityEmiPlugin implements EmiPlugin {
     }
 
     static ResourceLocation id(String path) {
-        return new ResourceLocation(Ae2UtilityMod.MOD_ID, path);
+        return ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, path);
     }
 }

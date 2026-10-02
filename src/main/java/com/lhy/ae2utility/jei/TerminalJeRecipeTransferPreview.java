@@ -10,6 +10,8 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
+import com.lhy.ae2utility.util.ItemIds;
+
 import appeng.menu.me.common.MEStorageMenu;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
@@ -180,8 +182,9 @@ public final class TerminalJeRecipeTransferPreview {
     }
 
     private static long stackHash(ItemStack stack) {
-        long hash = 31L * net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).hashCode();
-        return 31L * hash + (stack.hasTag() ? stack.getTag().hashCode() : 0L);
+        long hash = 31L * ItemIds.of(stack).hashCode();
+        var tag = stack.getTag();
+        return 31L * hash + (tag != null ? tag.hashCode() : 0L);
     }
 
     private static List<IRecipeSlotView> collectInputSlots(IRecipeSlotsView recipeSlots) {

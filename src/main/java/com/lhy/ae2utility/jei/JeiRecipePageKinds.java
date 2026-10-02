@@ -26,18 +26,15 @@ public final class JeiRecipePageKinds {
     }
 
     public static boolean isTagRecipeLayout(@Nullable IRecipeLayoutDrawable<?> layout) {
-        if (layout == null || layout.getRecipeCategory() == null) {
+        if (layout == null) {
             return false;
         }
         var recipeType = layout.getRecipeCategory().getRecipeType();
-        if (recipeType == null) {
-            return false;
-        }
         return isTagRecipeType(recipeType.getUid()) || isTagOrInformationRecipe(layout.getRecipe());
     }
 
     public static boolean isEncodableRecipeLayout(@Nullable IRecipeLayoutDrawable<?> layout) {
-        if (layout == null || layout.getRecipeCategory() == null || isTagRecipeLayout(layout)) {
+        if (layout == null || isTagRecipeLayout(layout)) {
             return false;
         }
         var slots = layout.getRecipeSlotsView();

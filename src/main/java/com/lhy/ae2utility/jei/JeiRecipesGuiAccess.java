@@ -57,27 +57,28 @@ public final class JeiRecipesGuiAccess {
         return result;
     }
 
-    @SuppressWarnings("unchecked")
     private static @Nullable List<?> getVisibleRecipeLayoutRows(Screen screen) {
         if (reflectionFailed || !isRecipesGui(screen)) {
             return null;
         }
 
         try {
-            if (layoutsField == null) {
-                layoutsField = screen.getClass().getDeclaredField("layouts");
-                layoutsField.setAccessible(true);
-            }
-            Object layouts = layoutsField.get(screen);
+            Field layouts = layoutsField;
             if (layouts == null) {
+                layouts = declaredField(screen.getClass(), "layouts");
+                layoutsField = layouts;
+            }
+            Object layoutsValue = layouts.get(screen);
+            if (layoutsValue == null) {
                 return null;
             }
 
-            if (recipeLayoutsWithButtonsField == null) {
-                recipeLayoutsWithButtonsField = layouts.getClass().getDeclaredField("recipeLayoutsWithButtons");
-                recipeLayoutsWithButtonsField.setAccessible(true);
+            Field recipeLayouts = recipeLayoutsWithButtonsField;
+            if (recipeLayouts == null) {
+                recipeLayouts = declaredField(layoutsValue.getClass(), "recipeLayoutsWithButtons");
+                recipeLayoutsWithButtonsField = recipeLayouts;
             }
-            Object value = recipeLayoutsWithButtonsField.get(layouts);
+            Object value = recipeLayouts.get(layoutsValue);
             return value instanceof List<?> list ? list : null;
         } catch (ReflectiveOperationException | RuntimeException e) {
             reflectionFailed = true;
@@ -92,11 +93,12 @@ public final class JeiRecipesGuiAccess {
         }
 
         try {
-            if (recipeLayoutMethod == null) {
-                recipeLayoutMethod = layoutWithButtons.getClass().getDeclaredMethod("recipeLayout");
-                recipeLayoutMethod.setAccessible(true);
+            Method method = recipeLayoutMethod;
+            if (method == null) {
+                method = declaredMethod(layoutWithButtons.getClass(), "recipeLayout");
+                recipeLayoutMethod = method;
             }
-            Object value = recipeLayoutMethod.invoke(layoutWithButtons);
+            Object value = method.invoke(layoutWithButtons);
             return value instanceof IRecipeLayoutDrawable<?> recipeLayout ? recipeLayout : null;
         } catch (ReflectiveOperationException | RuntimeException e) {
             reflectionFailed = true;
@@ -116,20 +118,22 @@ public final class JeiRecipesGuiAccess {
         }
 
         try {
-            if (logicField == null) {
-                logicField = screen.getClass().getDeclaredField("logic");
-                logicField.setAccessible(true);
+            Field logicRef = logicField;
+            if (logicRef == null) {
+                logicRef = declaredField(screen.getClass(), "logic");
+                logicField = logicRef;
             }
-            Object logic = logicField.get(screen);
+            Object logic = logicRef.get(screen);
             if (logic == null) {
                 return List.of();
             }
 
-            if (stateField == null) {
-                stateField = logic.getClass().getDeclaredField("state");
-                stateField.setAccessible(true);
+            Field stateRef = stateField;
+            if (stateRef == null) {
+                stateRef = declaredField(logic.getClass(), "state");
+                stateField = stateRef;
             }
-            Object state = stateField.get(logic);
+            Object state = stateRef.get(logic);
             if (state == null) {
                 return List.of();
             }
@@ -156,26 +160,44 @@ public final class JeiRecipesGuiAccess {
 
     private static @Nullable Object invokeFocusedRecipes(Object state)
             throws ReflectiveOperationException {
-        if (focusedRecipesMethod == null) {
-            focusedRecipesMethod = state.getClass().getMethod("getFocusedRecipes");
+        Method method = focusedRecipesMethod;
+        if (method == null) {
+            method = state.getClass().getMethod("getFocusedRecipes");
+            focusedRecipesMethod = method;
         }
-        return focusedRecipesMethod.invoke(state);
+        return method.invoke(state);
     }
 
     private static @Nullable Object invokeRecipes(Object focusedRecipes)
             throws ReflectiveOperationException {
-        if (recipesMethod == null) {
-            recipesMethod = focusedRecipes.getClass().getMethod("getRecipes");
+        Method method = recipesMethod;
+        if (method == null) {
+            method = focusedRecipes.getClass().getMethod("getRecipes");
+            recipesMethod = method;
         }
-        return recipesMethod.invoke(focusedRecipes);
+        return method.invoke(focusedRecipes);
     }
 
     private static @Nullable Object invokeRecipeCategory(Object focusedRecipes)
             throws ReflectiveOperationException {
-        if (recipeCategoryMethod == null) {
-            recipeCategoryMethod = focusedRecipes.getClass().getMethod("getRecipeCategory");
+        Method method = recipeCategoryMethod;
+        if (method == null) {
+            method = focusedRecipes.getClass().getMethod("getRecipeCategory");
+            recipeCategoryMethod = method;
         }
-        return recipeCategoryMethod.invoke(focusedRecipes);
+        return method.invoke(focusedRecipes);
+    }
+
+    private static Field declaredField(Class<?> type, String name) throws ReflectiveOperationException {
+        Field field = type.getDeclaredField(name);
+        field.setAccessible(true);
+        return field;
+    }
+
+    private static Method declaredMethod(Class<?> type, String name) throws ReflectiveOperationException {
+        Method method = type.getDeclaredMethod(name);
+        method.setAccessible(true);
+        return method;
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
