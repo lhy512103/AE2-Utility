@@ -2,8 +2,16 @@ name: Build
 
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -11,23 +19,32 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
-
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test release safety gates (no credentials or publishing)
+        run: python -m unittest discover -s .github/scripts/tests -v
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-
-      - name: Gradle build
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Ensure gradlew is executable
-        run: chmod +x gradlew
-
-      - name: Compile and test jar
-        run: ./gradlew build --no-daemon
-
-      - name: Upload jar artifact
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile and test
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+      - name: Upload build JARs (not a platform release)
         uses: actions/upload-artifact@v6
         with:
-          name: ae2utility-jar
+          name: ae2utility-build-${{ github.sha }}
           path: build/libs/*.jar
+          if-no-files-found: error
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tests-${{ github.sha }}
+          path: build/reports/tests/
+          if-no-files-found: ignore

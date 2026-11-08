@@ -29,6 +29,10 @@ Thumbs.db
 *.log
 .gradle-user-home-debug/
 
+# Release automation Python cache
+__pycache__/
+*.py[cod]
+
 # Cursor / local tooling (optional)
 .cursor/
 

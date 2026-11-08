@@ -1,0 +1,94 @@
+name: Tag Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+      - '[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, e.g. v1.8.1 (must match mod_version and CHANGELOG)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# All tag/manual/Release-event entry points serialize the same tag.
+concurrency:
+  group: distribution-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out the exact tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          path: source
+          persist-credentials: false
+      - name: Check out trusted release automation
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: automation
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate tag/version and extract only this version's changelog
+        id: metadata
+        run: >-
+          python automation/.github/scripts/release.py prepare
+          --source source --config automation/.github/release-config.json
+          --tag "$RELEASE_TAG" --bundle dist/release
+      - name: Test release safety gates
+        run: python -m unittest discover -s automation/.github/scripts/tests -v
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test the tagged source
+        working-directory: source
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+      - name: Require the exact valid main JAR
+        run: >-
+          python automation/.github/scripts/release.py pack
+          --libs source/build/libs --bundle dist/release
+      - uses: actions/upload-artifact@v6
+        with:
+          name: github-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/release/
+          if-no-files-found: error
+      - name: Attach JAR, verify remote bytes, then publish/update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python automation/.github/scripts/release.py github-release
+          --repository "$GITHUB_REPOSITORY" --bundle dist/release
+
+  # GITHUB_TOKEN-created releases do NOT trigger a second release-event workflow.
+  # Call the publisher explicitly after the JAR-bearing GitHub Release is ready.
+  publish:
+    needs: release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
