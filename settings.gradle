@@ -2,6 +2,9 @@ pluginManagement {
     repositories {
         maven {
             url = "https://maven.neoforged.net/releases"
+            content {
+                includeGroupByRegex "net\\.neoforged.*"
+            }
         }
         gradlePluginPortal()
     }

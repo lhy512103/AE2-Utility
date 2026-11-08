@@ -70,7 +70,9 @@ sourceSets {
     }
     clientMinimal {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += output + (sourceSets.main.runtimeClasspath - configurations.compatibilityLocalRuntime) + configurations.clientLocalRuntime
+        // Minimal means core only: addon jars cannot be kept without their
+        // compatibility libraries (GeckoLib, Glodium, Create, Mekanism, etc.).
+        runtimeClasspath += output + (sourceSets.main.runtimeClasspath - configurations.compatibilityLocalRuntime - configurations.ae2AddonLocalRuntime) + configurations.clientLocalRuntime
     }
     clientCompatibility {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
@@ -121,18 +123,34 @@ repositories {
     maven {
         name = "CreateMod Maven"
         url = "https://maven.createmod.net"
+        content {
+            includeGroup "com.simibubi.create"
+            includeGroup "dev.engine-room.flywheel"
+            includeGroup "net.createmod.ponder"
+            includeGroup "dev.engine-room.vanillin"
+        }
     }
     maven {
         name = "Jared's Maven"
         url = "https://maven.blamejared.com/"
+        content {
+            includeGroup "mezz.jei"
+            includeGroupByRegex "net\\.mezzdev.*"
+        }
     }
     maven {
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/"
+        content {
+            includeGroup "dev.emi"
+        }
     }
     maven {
         name = "ModMaven"
         url = "https://modmaven.dev"
+        content {
+            includeGroup "me.desht.pneumaticcraft"
+        }
     }
     maven {
         name = "FTB Mods"
@@ -187,14 +205,6 @@ repositories {
         }
     }
     maven {
-        url = uri("https://modmaven.dev/")
-        content {
-            includeGroup "appeng"
-            includeGroup "org.appliedenergistics"
-            includeGroup "de.mari_023"
-        }
-    }
-    maven {
         name = "Modrinth Maven"
         url = "https://api.modrinth.com/maven"
         content {
@@ -212,77 +222,14 @@ repositories {
 
 apply from: "$rootDir/dependencies.gradle"
 
-configurations {
-    neoEcoApi
-    createMod
-}
-
+// Use complete release jars and retain their Jar-in-Jar metadata. Neo ECO is
+// accessed reflectively, so it does not need a second compile-only API jar.
 dependencies {
-    neoEcoApi "maven.modrinth:neoecoae:${neoecoae_version}"
-    createMod "com.simibubi.create:create-1.21.1:${create_version}"
-}
-
-def neoEcoSanitizedJar = layout.buildDirectory.file("neoeco/neoecoae-${neoecoae_version}-dev.jar")
-def createSanitizedJar = layout.buildDirectory.file("create/create-1.21.1-${create_version}-dev.jar")
-
-tasks.register("sanitizeNeoEcoJar", Jar) {
-    archiveFileName = "neoecoae-${neoecoae_version}-dev.jar"
-    destinationDirectory = layout.buildDirectory.dir("neoeco")
-    dependsOn configurations.neoEcoApi
-    from {
-        zipTree(configurations.neoEcoApi.singleFile).matching {
-            exclude "META-INF/jarjar/Registrate-*.jar"
-            exclude "META-INF/jarjar/metadata.json"
-        }
+    compatibilityLocalRuntime("com.simibubi.create:create-1.21.1:${create_version}") {
+        transitive = false
     }
-}
-
-tasks.register("sanitizeCreateJar", Jar) {
-    archiveFileName = "create-1.21.1-${create_version}-dev.jar"
-    destinationDirectory = layout.buildDirectory.dir("create")
-    dependsOn configurations.createMod
-    from {
-        def createJar = configurations.createMod.files.find {
-            it.name.endsWith(".jar") && !it.name.endsWith("-sources.jar") && !it.name.endsWith("-javadoc.jar")
-        }
-        if (createJar == null) {
-            throw new GradleException("Could not find the main Create jar in createMod")
-        }
-        zipTree(createJar).matching {
-            exclude "META-INF/jarjar/Registrate-*.jar"
-            exclude "META-INF/jarjar/metadata.json"
-        }
-    }
-}
-
-configurations.named("compileClasspath") {
-    extendsFrom(configurations.neoEcoApi)
-}
-
-dependencies {
-    compileOnly files(neoEcoSanitizedJar)
-    compatibilityLocalRuntime files(createSanitizedJar)
+    compatibilityLocalRuntime "maven.modrinth:neoecoae:${neoecoae_version}"
     compatibilityLocalRuntime "com.lowdragmc.ldlib2:ldlib2-neoforge-1.21.1:${ldlib2_version}:all"
-}
-
-tasks.named("compileJava").configure {
-    dependsOn("sanitizeNeoEcoJar")
-}
-
-tasks.named("prepareClientRun").configure {
-    dependsOn("sanitizeNeoEcoJar")
-    dependsOn("sanitizeCreateJar")
-}
-
-tasks.named("prepareClientEMIRun").configure {
-    dependsOn("sanitizeNeoEcoJar")
-    dependsOn("sanitizeCreateJar")
-}
-
-// Create declares Flywheel with a dynamic version range. Pin the cached, compatible
-// version so runClient does not require Create Maven metadata during dependency resolution.
-configurations.configureEach {
-    resolutionStrategy.force("dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}")
 }
 
 // 纯逻辑测试不需要启动 Minecraft 客户端；使用 JUnit 5 验证状态、编码和边界规则。
