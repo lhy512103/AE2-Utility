@@ -251,7 +251,17 @@ public final class MeQuickTransferService {
 
         IItemHandler items = getCapability(blockEntity, ForgeCapabilities.ITEM_HANDLER, side);
         if (items != null) {
-            sources.add(new ItemSource(items));
+            TransferSource itemSource = null;
+            if (com.lhy.ae2utility.compat.ModCapabilities.hasSophisticatedCore()) {
+                try {
+                    IItemHandler unsided = getCapability(blockEntity, ForgeCapabilities.ITEM_HANDLER, null);
+                    itemSource = com.lhy.ae2utility.compat.SophisticatedTransferCompat.findSource(
+                            level, pos, unsided != null ? unsided : items);
+                } catch (LinkageError error) {
+                    Ae2UtilityMod.LOGGER.warn("Sophisticated storage fast transfer is unavailable", error);
+                }
+            }
+            sources.add(itemSource != null ? itemSource : new ItemSource(items));
         }
 
         IFluidHandler fluids = getCapability(blockEntity, ForgeCapabilities.FLUID_HANDLER, side);

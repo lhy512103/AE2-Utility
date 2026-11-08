@@ -1,14 +1,24 @@
 package com.lhy.ae2utility.network;
 
 import net.minecraft.network.FriendlyByteBuf;
+import com.lhy.ae2utility.network.codec.StreamCodec;
+import com.lhy.ae2utility.network.codec.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 
-public class ClearPatternsPacket {
+import com.lhy.ae2utility.Ae2UtilityMod;
+
+public class ClearPatternsPacket implements CustomPacketPayload {
+    public static final Type<ClearPatternsPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "clear_patterns"));
+
     public static final ClearPatternsPacket INSTANCE = new ClearPatternsPacket();
 
-    public static void encode(ClearPatternsPacket msg, FriendlyByteBuf buffer) {
-    }
+    public static final StreamCodec<FriendlyByteBuf, ClearPatternsPacket> STREAM_CODEC = StreamCodec.of(
+        (buf, pkt) -> {},
+        buf -> INSTANCE
+    );
 
-    public static ClearPatternsPacket decode(FriendlyByteBuf buffer) {
-        return INSTANCE;
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

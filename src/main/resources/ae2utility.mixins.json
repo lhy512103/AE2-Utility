@@ -1,18 +1,59 @@
 {
-  "required": false,
+  "required": true,
+  "minVersion": "0.8.5",
   "package": "com.lhy.ae2utility.mixin",
   "compatibilityLevel": "JAVA_17",
-  "minVersion": "0.8",
   "mixins": [
-    "eaep.ProviderUploadUtilMixin"
+    "MixinAEBaseMenu",
+    "AppEngSlotMenuAccessor",
+    "AEBaseMenuInvoker",
+    "PatternProviderLogicInvoker",
+    "CraftingServiceAccessor",
+    "CraftingTreeProcessAccessor",
+    "CraftingTreeNodeAccessor",
+    "MixinAdvPatternProviderLogic",
+    "MixinCraftingCpuLogicGroup",
+    "MixinAeStylePatternProviderBlock",
+    "MixinAdvStylePatternProviderBlock",
+    "MixinCraftingStylePatternInput",
+    "MixinProcessingStylePatternInput",
+    "MixinProcessingStylePatternPushInputs",
+    "MixinMeteoritePatternProviderLogic",
+    "MixinResonatingPatternProviderLogic",
+    "MixinCraftingCalculation",
+    "MixinCraftingCalculationMissing",
+    "MixinCraftingCpuHelper",
+    "MixinCraftingTreeNode",
+    "MixinCraftingTreeProcess",
+    "MixinCtrlQPendingUploadUtil",
+    "MixinNetworkCraftingProviders",
+    "MixinPatternProviderLogic",
+    "MixinOverloadedPatternProviderLogic",
+    "MixinOverloadedPatternProviderBlockEntity",
+    "MixinPatternProviderMenu",
+    "MixinRestrictedInputSlot",
+    "SlotPosAccessor",
+    "MixinOverloadedPatternProviderBlock",
+    "MixinNeoEcoCraftingCpuLogic"
+  ],
+  "client": [
+    "AEBaseScreenStyleAccessor",
+    "AEBaseScreenInvoker",
+    "MixinAEBaseScreen",
+    "MixinPatternEncodingTermScreenUpload",
+    "MixinProviderSelectScreen",
+    "ProviderSelectScreenInvoker",
+    "MixinRecipeLayout",
+    "MixinRecipeSlotEncodeShiftPin",
+    "RecipeGuiLayoutsAccessor",
+    "RecipeGuiLogicAccessor",
+    "RecipesGuiAccessor",
+    "MixinRecipeOptionButtons",
+    "ScreenRenderableAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
   },
-  "client": [
-    "eaep.ProviderSelectScreenAccessor",
-    "eaep.ProviderSelectScreenMixin",
-    "jei.RecipeOptionButtonsMixin",
-    "jei.RecipeSlotPinMixin"
-  ]
+  "refmap": "ae2utility.refmap.json",
+  "plugin": "com.lhy.ae2utility.mixin.Ae2UtilityMixinPlugin"
 }

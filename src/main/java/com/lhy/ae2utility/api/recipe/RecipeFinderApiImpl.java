@@ -41,23 +41,12 @@ final class RecipeFinderApiImpl implements RecipeFinderApi {
 
     @Override
     public String primaryFeature(Set<String> features) {
-        if (features == null || features.isEmpty()) {
-            return "other";
-        }
-        String[] priority = {"wood", "log", "plank", "dust", "ingot", "nugget", "gear", "rod",
-                "plate", "ore", "gem", "glass", "component", "machine", "stone", "fluid", "water",
-                "lava", "acid", "chemical", "special", "other"};
-        for (String candidate : priority) {
-            if (features.contains(candidate)) {
-                return candidate;
-            }
-        }
-        return features.stream().sorted().findFirst().orElse("other");
+        return RecipeFinderFeatureClassifier.primaryFeature(features == null ? Set.of() : features);
     }
 
     private synchronized List<RegisteredClassifier> orderedClassifiers() {
         List<RegisteredClassifier> ordered = new ArrayList<>(classifiers.values());
-        ordered.sort(Comparator.comparingInt((RegisteredClassifier entry) -> entry.priority()).reversed()
+        ordered.sort(Comparator.comparingInt(RegisteredClassifier::priority).reversed()
                 .thenComparing(entry -> entry.id().toString()));
         return List.copyOf(ordered);
     }

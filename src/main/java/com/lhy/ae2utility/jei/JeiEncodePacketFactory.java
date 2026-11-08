@@ -4,75 +4,54 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.Nullable;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.crafting.Recipe;
 
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.registries.ForgeRegistries;
 
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
-import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
-import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 
-import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.network.EncodePatternPacket;
+import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
+import com.lhy.ae2utility.integration.eaep.EaepReflection;
+import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 
-/**
- * 1.20.1 forge：从 JEI {@link IRecipeLayoutDrawable} 构造 {@link EncodePatternPacket}。
- *
- * <p>1.20.1 中 {@code recipe} 即 {@link Recipe} 本身，{@link Recipe#getId()} 返回 id，
- * {@link Recipe#getType()} 返回 {@link net.minecraft.world.item.crafting.RecipeType}。
- * EAEP 搜索关键字直接调用 {@link com.extendedae_plus.util.uploadPattern.RecipeTypeNameConfig}（compileOnly）。</p>
- */
 public final class JeiEncodePacketFactory {
     private JeiEncodePacketFactory() {
     }
 
-    public static Optional<EncodePatternPacket> tryCreate(IRecipeLayoutDrawable<?> recipeLayout, boolean shiftUpload) {
-        return tryCreate(recipeLayout, recipeLayout.getRecipe(), recipeLayout.getRecipeSlotsView(), shiftUpload);
-    }
-
-    /**
-     * 由 {@link #tryCreate(IRecipeLayoutDrawable, boolean)} 拆出 recipe 与 slotsView 后调用。
-     */
-    public static Optional<EncodePatternPacket> tryCreate(Object recipe, IRecipeSlotsView slotsView, boolean shiftUpload) {
-        return tryCreate(null, recipe, slotsView, shiftUpload);
-    }
-
-    private static Optional<EncodePatternPacket> tryCreate(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
-            Object recipe, IRecipeSlotsView slotsView, boolean shiftUpload) {
+    public static Optional<EncodePatternPacket> tryCreate(IRecipeLayoutDrawable<?> recipeLayout, boolean shiftUpload,
+            boolean jeiFullCategoryBatch, int bulkEncodeSessionId) {
+        IRecipeSlotsView slotsView = recipeLayout.getRecipeSlotsView();
+        Object recipe = recipeLayout.getRecipe();
         List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipe, slotsView);
-        boolean multiblockDraft = MultiblockStructurePatternCompat.isSupportedRecipe(
+        boolean multiblockStructureDraft = MultiblockStructurePatternCompat.isSupportedRecipe(
                 recipe, hasStructureInputs(slotsView), hasActualOutputs(slotsView));
-        if (multiblockDraft) {
+        if (multiblockStructureDraft) {
             GenericStack draftOutput = MultiblockStructurePatternCompat.createDraftOutput(recipe);
             if (draftOutput == null) {
                 return Optional.empty();
             }
             outputs = List.of(draftOutput);
         }
-        Set<AEKey> outputKeys = outputs.stream()
+        java.util.Set<appeng.api.stacks.AEKey> outputKeys = outputs.stream()
                 .filter(Objects::nonNull)
                 .map(GenericStack::what)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toUnmodifiableSet());
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
                 slotsView, RecipeIngredientRole.INPUT, outputKeys);
-        if (multiblockDraft) {
-            inputs = filterMultiblockHatchSlots(slotsView, inputs);
+        if (multiblockStructureDraft) {
+            inputs = filterMultiblockStructureInputs(slotsView, inputs);
             if (!hasMeaningfulInputs(inputs)) {
                 inputs = MultiblockStructurePatternCompat.extractStructureInputs(recipe).stream()
                         .map(List::of)
@@ -86,53 +65,66 @@ public final class JeiEncodePacketFactory {
         boolean hasUnsupportedOutput = outputs.stream().anyMatch(Objects::isNull);
 
         if (!hasInput || !hasOutput || hasUnsupportedInput || hasUnsupportedOutput) {
+            String recipeDesc = recipe instanceof Recipe<?> h && h.getId() != null ? h.getId().toString()
+                : (recipe != null ? recipe.getClass().getName() : "<null>");
+            JeiEncodeQueueDebugLog.info(
+                "JeiEncodePacketFactory.tryCreate rejected recipe={} hasInput={} hasOutput={} unsupportedIn={} unsupportedOut={} inputsSlots={} outputsCount={}",
+                recipeDesc, hasInput, hasOutput, hasUnsupportedInput, hasUnsupportedOutput, inputs.size(), outputs.size());
             return Optional.empty();
         }
 
         ResourceLocation recipeId = null;
-        if (!multiblockDraft && recipe instanceof Recipe<?> r) {
-            recipeId = r.getId();
+        if (!multiblockStructureDraft && recipe instanceof Recipe<?> holder) {
+            recipeId = holder.getId();
         }
         String patternName = derivePatternName(recipeId, outputs);
 
-        String providerSearchKey = computeEaepProviderSearchKey(recipeLayout, recipe, shiftUpload);
-        boolean craftingCategoryHint = !multiblockDraft && isCraftingCategory(recipeLayout, recipe, inputs);
+        String providerSearchKey = computeEaepProviderSearchKey(recipe, shiftUpload);
 
-        return Optional.of(new EncodePatternPacket(
+        boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipeLayout, recipe, inputs);
+
+        EncodePatternPacket packet = new EncodePatternPacket(
                 inputs,
                 outputs,
                 recipeId,
                 patternName,
                 providerSearchKey,
+                providerSearchKey,
                 shiftUpload,
                 JeiPatternSubstitutionUi.isItemSubstituteOn(),
                 JeiPatternSubstitutionUi.isFluidSubstituteOn(),
                 false,
-                craftingCategoryHint));
+                false,
+                jeiFullCategoryBatch,
+                bulkEncodeSessionId,
+                craftingCategoryHint);
+        return Optional.of(com.lhy.ae2utility.compat.SomeUselessThingsCompat.attachIdentity(packet, recipe));
     }
 
     private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
         return inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
     }
 
-    public static boolean hasStructureInputs(IRecipeSlotsView slotsView) {
+    private static boolean hasStructureInputs(IRecipeSlotsView slotsView) {
         return slotsView.getSlotViews(RecipeIngredientRole.INPUT).stream()
                 .anyMatch(slot -> slot.getItemStacks().anyMatch(stack -> !stack.isEmpty()));
     }
 
-    public static boolean hasActualOutputs(IRecipeSlotsView slotsView) {
+    private static boolean hasActualOutputs(IRecipeSlotsView slotsView) {
         return slotsView.getSlotViews(RecipeIngredientRole.OUTPUT).stream()
                 .anyMatch(slot -> slot.getAllIngredients().findAny().isPresent());
     }
 
-    private static List<List<GenericStack>> filterMultiblockHatchSlots(IRecipeSlotsView slotsView,
+    private static List<List<GenericStack>> filterMultiblockStructureInputs(IRecipeSlotsView slotsView,
             List<List<GenericStack>> inputs) {
-        List<IRecipeSlotView> inputSlots = slotsView.getSlotViews(RecipeIngredientRole.INPUT);
+        List<mezz.jei.api.gui.ingredient.IRecipeSlotView> inputSlots =
+                slotsView.getSlotViews(RecipeIngredientRole.INPUT);
         List<List<GenericStack>> filtered = new ArrayList<>(inputs.size());
         for (int index = 0; index < inputs.size(); index++) {
             if (index < inputSlots.size()) {
-                List<ItemStack> alternatives = inputSlots.get(index).getItemStacks()
+                List<net.minecraft.world.item.ItemStack> alternatives = inputSlots.get(index).getItemStacks()
                         .filter(stack -> !stack.isEmpty())
+                        .map(net.minecraft.world.item.ItemStack::copy)
                         .toList();
                 if (MultiblockStructurePatternCompat.isFilteredHatchSlot(alternatives)) {
                     continue;
@@ -143,7 +135,11 @@ public final class JeiEncodePacketFactory {
         return filtered;
     }
 
-    private static boolean isCraftingCategory(@Nullable IRecipeLayoutDrawable<?> recipeLayout, Object recipe,
+    /**
+     * 是否应按「工作台合成」处理：与原版 AE2 的判断保持同一边界，只有能放进 3x3 的配方才提示服务端做
+     * 合成 fallback。Create 动力合成器这类超过 3x3 的 JEI 页面即使长得像合成网格，也应保持处理样板路径。
+     */
+    private static boolean isCraftingCategory(IRecipeLayoutDrawable<?> recipeLayout, Object recipe,
             List<List<GenericStack>> inputs) {
         long meaningfulInputs = inputs.stream()
                 .filter(slot -> slot != null && !slot.isEmpty())
@@ -151,11 +147,12 @@ public final class JeiEncodePacketFactory {
         if (meaningfulInputs > 9) {
             return false;
         }
-        if (recipe instanceof CraftingRecipe) {
+        if (recipe instanceof Recipe<?> holder
+                && holder instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
             return true;
         }
         try {
-            return recipeLayout != null && recipeLayout.getRecipeCategory().getRecipeType().equals(RecipeTypes.CRAFTING);
+            return recipeLayout.getRecipeCategory().getRecipeType().equals(mezz.jei.api.constants.RecipeTypes.CRAFTING);
         } catch (Throwable ignored) {
             return false;
         }
@@ -166,7 +163,7 @@ public final class JeiEncodePacketFactory {
             if (output == null || output.what() == null) {
                 continue;
             }
-            var name = output.what().getDisplayName();
+            Component name = output.what().getDisplayName();
             if (name != null) {
                 String text = name.getString();
                 if (text != null && !text.isBlank()) {
@@ -178,68 +175,27 @@ public final class JeiEncodePacketFactory {
     }
 
     /**
-     * 仅计算写入数据包的字符串，不修改 EAEP 全局静态。
+     * 仅计算写入数据包的字符串，不修改 EAEP 全局静态（批量时会覆盖导致供应器界面过滤错误；服务端会通过
+     * {@link com.lhy.ae2utility.network.SyncEaepProviderSearchKeyPacket} 同步客户端）。
      */
-    private static String computeEaepProviderSearchKey(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
-            Object recipe, boolean shiftUpload) {
+    private static String computeEaepProviderSearchKey(Object recipe, boolean shiftUpload) {
+        String providerSearchKey = "";
         if (!shiftUpload || !ModList.get().isLoaded("extendedae_plus")) {
-            return "";
+            return providerSearchKey;
         }
-        Recipe<?> vanillaRecipe = recipe instanceof Recipe<?> r ? r : null;
-        ResourceLocation typeId = recipeTypeId(recipeLayout, vanillaRecipe);
-
-        if (vanillaRecipe instanceof CraftingRecipe) {
-            // 合成类使用 EAEP 预置关键字
-            return "crafting";
-        }
-        String mapped = vanillaRecipe != null ? mapRecipeTypeToSearchKey(vanillaRecipe) : null;
-        if (typeId != null && isAdvancedAeReaction(typeId)) {
-            if (mapped != null && !mapped.isEmpty() && !mapped.equalsIgnoreCase(typeId.getPath())) {
-                return mapped;
+        if (recipe instanceof Recipe<?> holder && holder instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
+            providerSearchKey = EaepReflection.defaultCraftingSearchKey();
+        } else {
+            String name = null;
+            if (recipe instanceof Recipe<?> h) {
+                name = EaepReflection.mapRecipeTypeToSearchKey(h);
+            } else {
+                name = EaepReflection.deriveSearchKeyFromUnknownRecipe(recipe);
             }
-            return "reaction_chamber";
-        }
-        if (mapped != null && !mapped.isEmpty()) {
-            return mapped;
-        }
-        // JEI 分类可能使用不实现原版 Recipe 的包装对象，退回分类 UID 的 path。
-        return typeId != null ? typeId.getPath() : "";
-    }
-
-    private static @Nullable ResourceLocation recipeTypeId(@Nullable IRecipeLayoutDrawable<?> recipeLayout,
-            @Nullable Recipe<?> recipe) {
-        if (recipe != null) {
-            ResourceLocation typeId = ForgeRegistries.RECIPE_TYPES.getKey(recipe.getType());
-            if (typeId != null) {
-                return typeId;
+            if (name != null && !name.isEmpty()) {
+                providerSearchKey = name;
             }
         }
-        if (recipeLayout == null) {
-            return null;
-        }
-        try {
-            return recipeLayout.getRecipeCategory().getRecipeType().getUid();
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
-    private static boolean isAdvancedAeReaction(@Nullable ResourceLocation typeId) {
-        return typeId != null
-                && typeId.getNamespace().equals("advanced_ae")
-                && typeId.getPath().equals("reaction");
-    }
-
-    private static @Nullable String mapRecipeTypeToSearchKey(Recipe<?> recipe) {
-        if (!ModList.get().isLoaded("extendedae_plus")) {
-            return null;
-        }
-        try {
-            // 直接引用 EAEP 公开 API（compileOnly 依赖）
-            String value = com.extendedae_plus.util.uploadPattern.RecipeTypeNameConfig.mapRecipeTypeToSearchKey(recipe);
-            return value != null && !value.isEmpty() ? value : null;
-        } catch (Throwable ignored) {
-            return null;
-        }
+        return providerSearchKey == null ? "" : providerSearchKey;
     }
 }

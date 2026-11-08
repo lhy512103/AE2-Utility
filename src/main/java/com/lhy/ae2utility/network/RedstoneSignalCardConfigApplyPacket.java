@@ -1,21 +1,47 @@
 package com.lhy.ae2utility.network;
 
+import net.minecraft.network.FriendlyByteBuf;
+import com.lhy.ae2utility.network.codec.ByteBufCodecs;
+import com.lhy.ae2utility.network.codec.StreamCodec;
+import com.lhy.ae2utility.network.codec.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+
+import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.card.RedstoneSignalCardMode;
 import com.lhy.ae2utility.item.RedstoneSignalCardItem;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.server.level.ServerPlayer;
 
-/** Client -> server card settings update. Register in ModNetworking (PLAY_TO_SERVER). */
-public record RedstoneSignalCardConfigApplyPacket(boolean mainHand, int modeOrdinal, int holdTicks) {
-    public static void encode(RedstoneSignalCardConfigApplyPacket msg, FriendlyByteBuf buf) { buf.writeBoolean(msg.mainHand); buf.writeVarInt(msg.modeOrdinal); buf.writeVarInt(msg.holdTicks); }
-    public static RedstoneSignalCardConfigApplyPacket decode(FriendlyByteBuf buf) { return new RedstoneSignalCardConfigApplyPacket(buf.readBoolean(), buf.readVarInt(), buf.readVarInt()); }
-    public static void applyOnServer(ServerPlayer player, RedstoneSignalCardConfigApplyPacket packet) {
-        ItemStack stack=player.getItemInHand(packet.mainHand ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
-        if (!(stack.getItem() instanceof RedstoneSignalCardItem)) return;
-        RedstoneSignalCardMode[] modes=RedstoneSignalCardMode.values();
-        int ordinal=Math.max(0, Math.min(packet.modeOrdinal, modes.length-1));
-        RedstoneSignalCardItem.setMode(stack, modes[ordinal]); RedstoneSignalCardItem.setHoldTicks(stack, packet.holdTicks);
+public record RedstoneSignalCardConfigApplyPacket(boolean mainHand, int modeOrdinal, int holdTicks) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<RedstoneSignalCardConfigApplyPacket> TYPE =
+            new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "redstone_signal_card_cfg"));
+
+    public static final StreamCodec<FriendlyByteBuf, RedstoneSignalCardConfigApplyPacket> STREAM_CODEC =
+            StreamCodec.composite(ByteBufCodecs.BOOL,
+                    RedstoneSignalCardConfigApplyPacket::mainHand,
+                    ByteBufCodecs.VAR_INT,
+                    RedstoneSignalCardConfigApplyPacket::modeOrdinal,
+                    ByteBufCodecs.VAR_INT,
+                    RedstoneSignalCardConfigApplyPacket::holdTicks,
+                    RedstoneSignalCardConfigApplyPacket::new);
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+
+    public static void applyOnServer(Player player, RedstoneSignalCardConfigApplyPacket packet) {
+        InteractionHand hand = packet.mainHand() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+        ItemStack stack = player.getItemInHand(hand);
+        if (!(stack.getItem() instanceof RedstoneSignalCardItem)) {
+            return;
+        }
+        RedstoneSignalCardMode[] modes = RedstoneSignalCardMode.values();
+        int mi = Mth.clamp(packet.modeOrdinal(), 0, modes.length - 1);
+        com.lhy.ae2utility.item.RedstoneSignalCardItem.setMode(stack, modes[mi]);
+        int ticks = RedstoneSignalCardItem.clampHoldTicks(packet.holdTicks());
+        com.lhy.ae2utility.item.RedstoneSignalCardItem.setHoldTicks(stack, ticks);
     }
 }

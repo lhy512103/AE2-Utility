@@ -1,40 +1,159 @@
 package com.lhy.ae2utility.api.card;
 
-import com.lhy.ae2utility.card.RedstoneSignalCardMode;
-import com.lhy.ae2utility.card.NbtTearFilter;
-import com.lhy.ae2utility.item.RedstoneSignalCardItem;
-import com.lhy.ae2utility.item.NbtTearCardItem;
+import java.util.List;
 import java.util.Set;
+
+import com.lhy.ae2utility.card.NbtTearFilter;
+import com.lhy.ae2utility.card.RedstoneSignalCardMode;
+import com.lhy.ae2utility.item.NbtTearCardItem;
+import com.lhy.ae2utility.item.RedstoneSignalCardItem;
+
+import appeng.api.stacks.AEKey;
 import net.minecraft.world.item.ItemStack;
 
 final class CardApiImpl implements CardApi {
-    public boolean isNbtTearCard(ItemStack stack) { return stack != null && stack.getItem() instanceof NbtTearCardItem; }
-    public NbtTearRule getNbtTearRule(ItemStack stack) { if (!isNbtTearCard(stack)) return NbtTearRule.ALL_ITEMS; return new NbtTearRule(Set.copyOf(NbtTearCardItem.getFilter(stack).itemIds())); }
-    public void setNbtTearRule(ItemStack stack, NbtTearRule rule) { if (!isNbtTearCard(stack) || rule == null) throw new IllegalArgumentException("NBT tear card and rule are required"); NbtTearCardItem.setFilter(stack, new NbtTearFilter(java.util.List.copyOf(rule.itemIds()))); }
-    public boolean isRedstoneSignalCard(ItemStack stack) { return stack != null && stack.getItem() instanceof RedstoneSignalCardItem; }
-    public RedstoneSignalMode getRedstoneMode(ItemStack stack) { require(stack); return toPublic(RedstoneSignalCardItem.getMode(stack)); }
-    public void setRedstoneMode(ItemStack stack, RedstoneSignalMode mode) { require(stack); if (mode == null) throw new IllegalArgumentException("mode is required"); RedstoneSignalCardItem.setMode(stack, toInternal(mode)); }
-    public int getSignalDurationTicks(ItemStack stack) { require(stack); return RedstoneSignalCardItem.resolveOutputDurationTicks(stack); }
-    public void setSignalDurationTicks(ItemStack stack, int ticks) { require(stack); RedstoneSignalCardItem.setHoldTicks(stack, ticks); }
-    public void updateRedstoneSignal(RedstoneSignalHost host, boolean busy, boolean returnPending, boolean allowCraftOnFallingEdge) {
-        if (host == null) throw new IllegalArgumentException("host is required");
-        boolean active = busy || returnPending;
-        if (active == host.lastActive()) return;
-        host.setLastActive(active);
-        RedstoneSignalMode mode = modeOf(host.signalCard());
-        if (active) { if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) host.setContinuousSignal(true); else if (mode == RedstoneSignalMode.ORDER) host.triggerPulse(duration(host.signalCard())); }
-        else { if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) host.setContinuousSignal(false); else if (allowCraftOnFallingEdge && mode == RedstoneSignalMode.CRAFT) host.triggerPulse(duration(host.signalCard())); }
+    @Override
+    public boolean isNbtTearCard(ItemStack stack) {
+        return stack != null && stack.getItem() instanceof NbtTearCardItem;
     }
+
+    @Override
+    public NbtTearRule getNbtTearRule(ItemStack stack) {
+        if (!isNbtTearCard(stack)) {
+            return NbtTearRule.ALL_ITEMS;
+        }
+        NbtTearFilter filter = com.lhy.ae2utility.item.NbtTearCardItem.getFilter(stack);
+        return new NbtTearRule(Set.copyOf(filter.itemIds()));
+    }
+
+    @Override
+    public void setNbtTearRule(ItemStack stack, NbtTearRule rule) {
+        requireNbtTearCard(stack);
+        if (rule == null) {
+            throw new IllegalArgumentException("rule is required");
+        }
+        com.lhy.ae2utility.item.NbtTearCardItem.setFilter(stack, new NbtTearFilter(List.copyOf(rule.itemIds())));
+    }
+
+    @Override
+    public boolean matchesNbtTear(AEKey expected, AEKey returned, NbtTearRule rule) {
+        if (rule == null) {
+            throw new IllegalArgumentException("rule is required");
+        }
+        return NbtTearFilter.matchesUnlockExpected(expected, returned,
+                new NbtTearFilter(List.copyOf(rule.itemIds())));
+    }
+
+    @Override
+    public boolean isRedstoneSignalCard(ItemStack stack) {
+        return stack != null && stack.getItem() instanceof RedstoneSignalCardItem;
+    }
+
+    @Override
+    public RedstoneSignalMode getRedstoneMode(ItemStack stack) {
+        requireRedstoneCard(stack);
+        return toPublic(com.lhy.ae2utility.item.RedstoneSignalCardItem.getMode(stack));
+    }
+
+    @Override
+    public void setRedstoneMode(ItemStack stack, RedstoneSignalMode mode) {
+        requireRedstoneCard(stack);
+        if (mode == null) {
+            throw new IllegalArgumentException("mode is required");
+        }
+        com.lhy.ae2utility.item.RedstoneSignalCardItem.setMode(stack, toInternal(mode));
+    }
+
+    @Override
+    public int getSignalDurationTicks(ItemStack stack) {
+        requireRedstoneCard(stack);
+        return RedstoneSignalCardItem.resolveOutputDurationTicks(stack);
+    }
+
+    @Override
+    public void setSignalDurationTicks(ItemStack stack, int ticks) {
+        requireRedstoneCard(stack);
+        com.lhy.ae2utility.item.RedstoneSignalCardItem.setHoldTicks(stack, Math.max(1, Math.min(ticks, RedstoneSignalCardItem.MAX_HOLD_TICKS)));
+    }
+
+    @Override
+    public void updateRedstoneSignal(RedstoneSignalHost host, boolean busy, boolean returnPending,
+            boolean allowCraftOnFallingEdge) {
+        if (host == null) {
+            throw new IllegalArgumentException("host is required");
+        }
+        boolean active = busy || returnPending;
+        if (active == host.lastActive()) {
+            return;
+        }
+        host.setLastActive(active);
+        ItemStack signalCard = host.signalCard();
+        RedstoneSignalMode mode = modeOf(signalCard);
+        if (active) {
+            if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
+                host.setContinuousSignal(true);
+            } else if (mode == RedstoneSignalMode.ORDER) {
+                host.triggerPulse(durationOrDefault(signalCard));
+            }
+        } else if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
+            host.setContinuousSignal(false);
+        } else if (allowCraftOnFallingEdge && mode == RedstoneSignalMode.CRAFT) {
+            host.triggerPulse(durationOrDefault(signalCard));
+        }
+    }
+
+    @Override
     public void onSuccessfulPatternPush(RedstoneSignalHost host, boolean busy, boolean returnPending) {
-        if (host == null) throw new IllegalArgumentException("host is required");
-        RedstoneSignalMode mode = modeOf(host.signalCard());
-        if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) host.setContinuousSignal(true); else if (mode == RedstoneSignalMode.ORDER) host.triggerPulse(duration(host.signalCard()));
+        if (host == null) {
+            throw new IllegalArgumentException("host is required");
+        }
+        ItemStack signalCard = host.signalCard();
+        RedstoneSignalMode mode = modeOf(signalCard);
+        if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
+            host.setContinuousSignal(true);
+        } else if (mode == RedstoneSignalMode.ORDER) {
+            host.triggerPulse(durationOrDefault(signalCard));
+        }
         host.setLastActive(mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE || busy || returnPending);
     }
-    private static RedstoneSignalMode modeOf(ItemStack s) { return s != null && s.getItem() instanceof RedstoneSignalCardItem ? toPublic(RedstoneSignalCardItem.getMode(s)) : null; }
-    private static int duration(ItemStack s) { return s != null && s.getItem() instanceof RedstoneSignalCardItem ? RedstoneSignalCardItem.resolveOutputDurationTicks(s) : 1; }
-    private static void require(ItemStack s) { if (!isCard(s)) throw new IllegalArgumentException("stack is not an AE2 Utility redstone signal card"); }
-    private static boolean isCard(ItemStack s) { return s != null && s.getItem() instanceof RedstoneSignalCardItem; }
-    private static RedstoneSignalMode toPublic(RedstoneSignalCardMode m) { return RedstoneSignalMode.valueOf(m.name()); }
-    private static RedstoneSignalCardMode toInternal(RedstoneSignalMode m) { return RedstoneSignalCardMode.valueOf(m.name()); }
+
+    private static RedstoneSignalMode modeOf(ItemStack stack) {
+        return stack != null && stack.getItem() instanceof RedstoneSignalCardItem
+                ? toPublic(com.lhy.ae2utility.item.RedstoneSignalCardItem.getMode(stack))
+                : null;
+    }
+
+    private static int durationOrDefault(ItemStack stack) {
+        return stack != null && stack.getItem() instanceof RedstoneSignalCardItem
+                ? RedstoneSignalCardItem.resolveOutputDurationTicks(stack)
+                : 1;
+    }
+
+    private static void requireNbtTearCard(ItemStack stack) {
+        if (stack == null || !(stack.getItem() instanceof NbtTearCardItem)) {
+            throw new IllegalArgumentException("stack is not an AE2: Utility NBT tear card");
+        }
+    }
+
+    private static void requireRedstoneCard(ItemStack stack) {
+        if (stack == null || !(stack.getItem() instanceof RedstoneSignalCardItem)) {
+            throw new IllegalArgumentException("stack is not an AE2: Utility redstone signal card");
+        }
+    }
+
+    private static RedstoneSignalMode toPublic(RedstoneSignalCardMode mode) {
+        return switch (mode) {
+            case ORDER -> RedstoneSignalMode.ORDER;
+            case CRAFT -> RedstoneSignalMode.CRAFT;
+            case UNTIL_RECIPE_COMPLETE -> RedstoneSignalMode.UNTIL_RECIPE_COMPLETE;
+        };
+    }
+
+    private static RedstoneSignalCardMode toInternal(RedstoneSignalMode mode) {
+        return switch (mode) {
+            case ORDER -> RedstoneSignalCardMode.ORDER;
+            case CRAFT -> RedstoneSignalCardMode.CRAFT;
+            case UNTIL_RECIPE_COMPLETE -> RedstoneSignalCardMode.UNTIL_RECIPE_COMPLETE;
+        };
+    }
 }

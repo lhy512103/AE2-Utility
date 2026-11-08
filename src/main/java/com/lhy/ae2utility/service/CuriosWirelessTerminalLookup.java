@@ -69,7 +69,7 @@ public final class CuriosWirelessTerminalLookup {
 
     public static @Nullable WirelessTerminalMenuHost locate(Player player, Candidate candidate) {
         MenuLocator locator;
-        if (isWcwtLoaded() && WirelessEncodeTerminalItems.isWcwt(candidate.stack())) {
+        if (isWcwtLoaded() && candidate.stack().getItem().getClass().getName().startsWith("com.lhy.wcwt.")) {
             locator = new WcwtCurioLocator(candidate.slotId(), candidate.slotIndex());
         } else {
             locator = new CurioLocator(candidate.slotId(), candidate.slotIndex());
@@ -91,5 +91,11 @@ public final class CuriosWirelessTerminalLookup {
     }
 
     public record Candidate(String slotId, int slotIndex, ItemStack stack) {
+    }
+
+    public static net.minecraftforge.items.IItemHandler items(Player player) {
+        if (!isCuriosLoaded()) return null;
+        var inventory = CuriosApi.getCuriosInventory(player).resolve().orElse(null);
+        return inventory == null ? null : inventory.getEquippedCurios();
     }
 }

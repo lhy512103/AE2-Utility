@@ -5,25 +5,23 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
-
-import com.lhy.ae2utility.Ae2UtilityMod;
+import com.mojang.logging.LogUtils;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
-import com.lhy.ae2utility.jei.BlankPatternClientPrecheck;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
+import com.lhy.ae2utility.client.jei.BlankPatternClientPrecheck;
 import com.lhy.ae2utility.jei.BulkEncodeSessions;
 import com.lhy.ae2utility.jei.CraftableStateCache;
-import com.lhy.ae2utility.jei.JeiBatchEncodeQueue;
 import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
 import com.lhy.ae2utility.network.EncodePatternPacket;
-import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
-
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
+import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -32,18 +30,16 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.SmithingRecipe;
-import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraftforge.fml.ModList;
+import com.lhy.ae2utility.network.ModNetworking;
 
 /**
- * JEI Crafting Tree（jeict）可选桥接：全部通过反射调用，未安装时不影响其它功能。
+ * Optional bridge to JEI Crafting Tree.
+ *
+ * <p>All calls are reflective so AE2 Utility can still build and run without JEICT.
  */
 public final class JeictCompat {
-    private static final int MAX_DRAFT_INPUTS = 81;
-    private static final int MAX_DRAFT_OUTPUTS = 27;
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static volatile boolean backendRegistrationAttempted;
 
     private JeictCompat() {
@@ -58,12 +54,36 @@ public final class JeictCompat {
             return false;
         }
         try {
-            Class.forName("com.lhy.jeict.api.JeiCraftingTreeApi")
-                    .getMethod("openFromLayout", IRecipeLayoutDrawable.class, Screen.class)
+            LOGGER.info("[AE2U-JEICT] openFromLayout requested current={} return={} thread={}",
+                    screenName(Minecraft.getInstance().screen), screenName(returnScreen), Thread.currentThread().getName());
+            Class<?> api = Class.forName("com.lhy.jeict.api.JeiCraftingTreeApi");
+            api.getMethod("openFromLayout", IRecipeLayoutDrawable.class, Screen.class)
                     .invoke(null, recipeLayout, returnScreen);
+            LOGGER.info("[AE2U-JEICT] openFromLayout invocation completed current={}",
+                    screenName(Minecraft.getInstance().screen));
             return true;
-        } catch (ReflectiveOperationException | LinkageError e) {
-            Ae2UtilityMod.LOGGER.error("Failed to open JEI Crafting Tree", e);
+        } catch (Throwable failure) {
+            LOGGER.error("[AE2U-JEICT] openFromLayout failed", failure);
+            return false;
+        }
+    }
+
+    public static boolean open(Object recipe, IRecipeSlotsView recipeSlots, Screen returnScreen) {
+        if (!isLoaded()) {
+            return false;
+        }
+        try {
+            LOGGER.info("[AE2U-JEICT] open requested current={} return={} recipeClass={} thread={}",
+                    screenName(Minecraft.getInstance().screen), screenName(returnScreen),
+                    recipe == null ? "<null>" : recipe.getClass().getName(), Thread.currentThread().getName());
+            Class<?> api = Class.forName("com.lhy.jeict.api.JeiCraftingTreeApi");
+            api.getMethod("open", Object.class, IRecipeSlotsView.class, Screen.class)
+                    .invoke(null, recipe, recipeSlots, returnScreen);
+            LOGGER.info("[AE2U-JEICT] open invocation completed current={}",
+                    screenName(Minecraft.getInstance().screen));
+            return true;
+        } catch (Throwable failure) {
+            LOGGER.error("[AE2U-JEICT] open failed", failure);
             return false;
         }
     }
@@ -76,11 +96,12 @@ public final class JeictCompat {
         try {
             Class<?> backendInterface = Class.forName("com.lhy.jeict.api.CraftingTreeBackend");
             Class<?> registry = Class.forName("com.lhy.jeict.api.CraftingTreeBackends");
-            Object backend = Proxy.newProxyInstance(backendInterface.getClassLoader(),
-                    new Class<?>[] { backendInterface }, new BackendInvocationHandler());
+            Object backend = Proxy.newProxyInstance(
+                    backendInterface.getClassLoader(),
+                    new Class<?>[] { backendInterface },
+                    new BackendInvocationHandler());
             registry.getMethod("register", backendInterface).invoke(null, backend);
-        } catch (ReflectiveOperationException | LinkageError e) {
-            Ae2UtilityMod.LOGGER.warn("Failed to register AE2 Utility as JEI Crafting Tree backend", e);
+        } catch (Throwable ignored) {
         }
     }
 
@@ -90,19 +111,19 @@ public final class JeictCompat {
             return switch (method.getName()) {
                 case "supportsExistingPatternHints", "supportsEncode", "supportsSubstitution",
                         "supportsEditablePatternDrafts" -> true;
-                case "supportsUpload" -> ModList.get().isLoaded("extendedae_plus");
+                case "supportsUpload" -> EaepCompat.isExtendedAePlusLoaded();
                 case "patternMode" -> patternMode(method.getReturnType(), args[0]);
                 case "isCraftable", "isOutputCraftable" -> isCraftable(args == null ? null : args[0]);
                 case "hasExactPattern" -> isRecipeOutputCraftable(args[0]);
                 case "exactPatternFingerprint" -> String.valueOf(JeictCompat.invoke(args[0], "stableIdentity"));
                 case "pollExistingPatternCachesStale" -> CraftableStateCache.pollExistingPatternCachesStale();
-                case "isStrictEncodable" -> toEncodePacket(args[0], false) != null;
-                case "encodePatterns" -> encodePatterns(castList(args[0]), false);
-                case "uploadPatterns" -> encodePatterns(castList(args[0]), true);
+                case "isStrictEncodable" -> toEncodePacket(args[0], false, 0) != null;
+                case "encodePatterns" -> encodePatterns(castRecipeList(args[0]), false);
+                case "uploadPatterns" -> encodePatterns(castRecipeList(args[0]), true);
                 case "validatePatternDraft" -> validatePatternDraft(args[0]);
                 case "hasExactPatternDraft" -> hasExactPatternDraft(args[0]);
-                case "encodePatternDrafts" -> encodePatternDrafts(castList(args[0]), false);
-                case "uploadPatternDrafts" -> encodePatternDrafts(castList(args[0]), true);
+                case "encodePatternDrafts" -> encodePatternDrafts(castRecipeList(args[0]), false);
+                case "uploadPatternDrafts" -> encodePatternDrafts(castRecipeList(args[0]), true);
                 case "itemSubstituteOn" -> JeiPatternSubstitutionUi.isItemSubstituteOn();
                 case "fluidSubstituteOn" -> JeiPatternSubstitutionUi.isFluidSubstituteOn();
                 case "toggleItemSubstitute" -> {
@@ -119,11 +140,6 @@ public final class JeictCompat {
                     yield null;
                 }
                 case "substitutionTooltip" -> substitutionTooltip((Boolean) args[0]);
-                case "machineId" -> componentString(JeictCompat.invoke(args[0], "subtitle"), "crafting");
-                case "isReusableInput" -> false;
-                case "toString" -> "AE2 Utility JEI Crafting Tree backend";
-                case "hashCode" -> System.identityHashCode(proxy);
-                case "equals" -> proxy == args[0];
                 default -> defaultValue(method.getReturnType());
             };
         }
@@ -131,97 +147,43 @@ public final class JeictCompat {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static Object patternMode(Class<?> returnType, Object recipe) {
-        return returnType.isEnum() ? Enum.valueOf((Class<? extends Enum>) returnType, patternModeName(recipe)) : null;
+        String mode = patternModeName(recipe);
+        return returnType.isEnum() ? Enum.valueOf((Class<? extends Enum>) returnType, mode) : null;
     }
 
     private static String patternModeName(Object recipe) {
-        Recipe<?> resolved = resolveRecipe(recipe);
-        if (resolved instanceof SmithingRecipe) {
-            return "SMITHING_TABLE";
-        }
-        if (resolved instanceof StonecutterRecipe) {
-            return "STONECUTTING";
-        }
-        if (resolved instanceof CraftingRecipe) {
-            return "CRAFTING";
-        }
+        Object recipeId = invoke(recipe, "recipeId");
+        if (!(recipeId instanceof ResourceLocation id) || Minecraft.getInstance().level == null) return "PROCESSING";
+        var holder = Minecraft.getInstance().level.getRecipeManager().byKey(id).orElse(null);
+        if (holder == null) return "PROCESSING";
+        if (holder instanceof net.minecraft.world.item.crafting.SmithingRecipe) return "SMITHING_TABLE";
+        if (holder instanceof net.minecraft.world.item.crafting.StonecutterRecipe) return "STONECUTTING";
+        if (holder instanceof net.minecraft.world.item.crafting.CraftingRecipe) return "CRAFTING";
         return "PROCESSING";
     }
 
-    private static @Nullable Recipe<?> resolveRecipe(Object recipe) {
-        var level = Minecraft.getInstance().level;
-        if (!(invoke(recipe, "recipeId") instanceof ResourceLocation id) || level == null) {
-            return null;
-        }
-        return level.getRecipeManager().byKey(id).orElse(null);
-    }
-
     private static List<Component> validatePatternDraft(Object request) {
-        if (invoke(request, "draft") == null) {
-            return List.of(Component.literal("Missing pattern draft"));
-        }
-        return toEncodePacketFromDraft(request, false) == null
-                ? List.of(Component.translatable("message.ae2utility.jeict_pattern_draft_invalid"))
-                : List.of();
+        Object draft = invoke(request, "draft");
+        if (draft == null) return List.of(Component.literal("Missing pattern draft"));
+        EncodePatternPacket packet = toEncodePacketFromDraft(request, false, 0);
+        return packet == null ? List.of(Component.translatable("message.ae2utility.jeict_pattern_draft_invalid")) : List.of();
     }
 
     private static boolean hasExactPatternDraft(Object request) {
-        if (Boolean.TRUE.equals(invoke(invoke(request, "draft"), "isDirty"))) {
-            return false;
-        }
+        Object draft = invoke(request, "draft");
+        if (Boolean.TRUE.equals(invoke(draft, "isDirty"))) return false;
         Object recipe = invoke(request, "recipe");
         return recipe != null && isRecipeOutputCraftable(recipe);
     }
 
     private static boolean encodePatternDrafts(List<Object> requests, boolean uploadMode) {
+        int bulkSid = BulkEncodeSessions.next();
         List<EncodePatternPacket> packets = new ArrayList<>();
         for (Object request : requests) {
-            EncodePatternPacket packet = toEncodePacketFromDraft(request, uploadMode);
-            if (packet != null) {
-                packets.add(packet);
-            }
+            EncodePatternPacket packet = toEncodePacketFromDraft(request, uploadMode, bulkSid);
+            if (packet != null) packets.add(packet);
         }
         return dispatchPackets(packets, uploadMode);
-    }
-
-    private static boolean encodePatterns(List<Object> recipes, boolean uploadMode) {
-        List<EncodePatternPacket> packets = new ArrayList<>();
-        for (Object recipe : recipes) {
-            EncodePatternPacket packet = toEncodePacket(recipe, uploadMode);
-            if (packet != null && !isRecipeOutputCraftable(recipe)) {
-                packets.add(packet);
-            }
-        }
-        return dispatchPackets(packets, uploadMode);
-    }
-
-    private static boolean dispatchPackets(List<EncodePatternPacket> source, boolean uploadMode) {
-        var player = Minecraft.getInstance().player;
-        List<EncodePatternPacket> fitting = source.stream()
-                .filter(packet -> packet.fitsNetworkLimits())
-                .toList();
-        if (fitting.isEmpty() || player == null) {
-            return false;
-        }
-        List<EncodePatternPacket> capped = RemoteEncodeRules.capToSessionLimit(fitting);
-        if (capped.size() < fitting.size()) {
-            player.displayClientMessage(Objects.requireNonNull(
-                    Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice",
-                            fitting.size(), capped.size()).withStyle(ChatFormatting.GOLD)), false);
-        }
-        if (BlankPatternClientPrecheck.lacksAnyDetectableBlankPattern(player)) {
-            player.displayClientMessage(Objects.requireNonNull(
-                    Component.translatable("message.ae2utility.batch_encode_precheck_no_blank")
-                            .withStyle(ChatFormatting.GOLD)), false);
-            return false;
-        }
-        int sessionId = BulkEncodeSessions.next();
-        List<EncodePatternPacket> tagged = capped.stream().map(packet -> packet.withBatch(false, sessionId)).toList();
-        if (uploadMode) {
-            return JeiBatchEncodeQueue.start(tagged, "");
-        }
-        tagged.forEach(ModNetworking::sendToServer);
-        return true;
     }
 
     private static boolean isCraftable(@Nullable Object rawIngredient) {
@@ -229,94 +191,153 @@ public final class JeictCompat {
         return key != null && CraftableStateCache.isCraftable(key);
     }
 
-    private static boolean isRecipeOutputCraftable(Object recipe) {
-        return invoke(recipe, "primaryOutputIngredient") instanceof ITypedIngredient<?> ingredient
-                && isCraftable(ingredient.getIngredient());
+    @SuppressWarnings("unchecked")
+    private static List<Object> castRecipeList(Object value) {
+        return value instanceof List<?> list ? (List<Object>) list : List.of();
     }
 
-    private static @Nullable EncodePatternPacket toEncodePacketFromDraft(Object request, boolean uploadMode) {
+    private static boolean encodePatterns(List<Object> recipes, boolean uploadMode) {
+        int bulkSid = BulkEncodeSessions.next();
+        List<EncodePatternPacket> packets = new ArrayList<>();
+        for (Object recipe : recipes) {
+            EncodePatternPacket packet = toEncodePacket(recipe, uploadMode, bulkSid);
+            if (packet != null && !isRecipeOutputCraftable(recipe)) {
+                packets.add(packet);
+            }
+        }
+        return dispatchPackets(packets, uploadMode);
+    }
+
+    private static boolean dispatchPackets(List<EncodePatternPacket> sourcePackets, boolean uploadMode) {
+        if (sourcePackets.isEmpty()) return false;
+        int originalCount = sourcePackets.size();
+        List<EncodePatternPacket> packets = new ArrayList<>(RemoteEncodeRules.capPacketsToServerBulkLimit(sourcePackets));
+        if (packets.size() < originalCount && Minecraft.getInstance().player != null) {
+            Minecraft.getInstance().player.displayClientMessage(
+                    Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice", originalCount, packets.size())
+                            .withStyle(ChatFormatting.GOLD), false);
+        }
+        if (stopBatchEncodeIfLocallyNoDetectableBlank()) return false;
+        if (uploadMode) SequentialUploadQueue.startReplacing(packets);
+        else for (EncodePatternPacket packet : packets) ModNetworking.sendToServer(packet);
+        return true;
+    }
+
+    private static boolean stopBatchEncodeIfLocallyNoDetectableBlank() {
+        var player = Minecraft.getInstance().player;
+        if (player == null) {
+            return false;
+        }
+        if (BlankPatternClientPrecheck.lacksAnyDetectableBlankPattern(player)) {
+            player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_precheck_no_blank")
+                    .withStyle(ChatFormatting.GOLD), false);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isRecipeOutputCraftable(Object recipe) {
+        Object typed = invoke(recipe, "primaryOutputIngredient");
+        if (typed instanceof ITypedIngredient<?> ingredient) {
+            return isCraftable(ingredient.getIngredient());
+        }
+        return false;
+    }
+
+    private static @Nullable EncodePatternPacket toEncodePacketFromDraft(Object request, boolean uploadMode, int bulkSid) {
         Object recipe = invoke(request, "recipe");
         Object draft = invoke(request, "draft");
-        if (recipe == null || draft == null) {
-            return null;
-        }
+        if (recipe == null || draft == null) return null;
+
         List<List<GenericStack>> inputs = new ArrayList<>();
-        if (invoke(draft, "inputs") instanceof List<?> slots) {
-            if (slots.size() > MAX_DRAFT_INPUTS) {
-                return null;
-            }
+        Object rawInputs = invoke(draft, "inputs");
+        if (rawInputs instanceof List<?> slots) {
+            if (slots.size() > 81) return null;
             for (Object slot : slots) {
                 inputs.add(slot == null ? null : collectDraftAlternatives(slot));
             }
         }
+
         List<GenericStack> outputs = new ArrayList<>();
-        if (invoke(draft, "outputs") instanceof List<?> slots) {
-            if (slots.size() > MAX_DRAFT_OUTPUTS) {
-                return null;
-            }
+        Object rawOutputs = invoke(draft, "outputs");
+        if (rawOutputs instanceof List<?> slots) {
+            if (slots.size() > 27) return null;
             for (Object slot : slots) {
-                outputs.add(slot != null && invoke(slot, "ingredient") instanceof ITypedIngredient<?> typed
-                        ? GenericIngredientUtil.toGenericStackExact(typed.getIngredient(),
-                                longValue(invoke(slot, "amount"), 1L))
-                        : null);
+                if (slot == null) {
+                    outputs.add(null);
+                    continue;
+                }
+                Object ingredient = invoke(slot, "ingredient");
+                long amount = longValue(invoke(slot, "amount"), 1L);
+                GenericStack stack = ingredient instanceof ITypedIngredient<?> typed
+                        ? GenericIngredientUtil.toGenericStackExact(typed, amount) : null;
+                outputs.add(stack);
             }
         }
         boolean hasInput = inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
-        if (!hasInput || outputs.isEmpty() || outputs.get(0) == null) {
-            return null;
-        }
+        if (!hasInput || outputs.isEmpty() || outputs.get(0) == null) return null;
+
         ResourceLocation recipeId = invoke(draft, "recipeId") instanceof ResourceLocation id ? id : null;
         String patternName = stringValue(invoke(draft, "patternName"), componentString(invoke(recipe, "title"), "-"));
+        String providerKey = deriveProviderSearchKey(recipe);
+        boolean substitute = booleanValue(invoke(draft, "substituteItems"));
+        boolean substituteFluids = booleanValue(invoke(draft, "substituteFluids"));
+        boolean preserveInputOrder = !Boolean.FALSE.equals(invoke(draft, "preserveInputOrder"));
         boolean crafting = !"PROCESSING".equals(String.valueOf(invoke(draft, "mode")));
-        return new EncodePatternPacket(inputs, outputs, recipeId, patternName, deriveProviderSearchKey(recipe),
-                uploadMode, booleanValue(invoke(draft, "substituteItems")),
-                booleanValue(invoke(draft, "substituteFluids")),
-                !Boolean.FALSE.equals(invoke(draft, "preserveInputOrder")), crafting);
+        return new EncodePatternPacket(inputs, outputs, recipeId, patternName, providerKey, providerKey,
+                uploadMode, substitute, substituteFluids, preserveInputOrder, uploadMode, false, bulkSid, crafting);
     }
 
     private static List<GenericStack> collectDraftAlternatives(Object slot) {
         List<GenericStack> converted = new ArrayList<>();
+        Object raw = invoke(slot, "alternatives");
         long amount = longValue(invoke(slot, "amount"), 1L);
         int selected = intValue(invoke(slot, "selectedAlternative"), 0);
-        if (invoke(slot, "alternatives") instanceof List<?> alternatives && !alternatives.isEmpty()) {
+        if (raw instanceof List<?> alternatives && !alternatives.isEmpty()) {
             for (int i = 0; i < alternatives.size(); i++) {
-                if (alternatives.get(Math.floorMod(selected + i, alternatives.size())) instanceof ITypedIngredient<?> typed) {
-                    GenericStack stack = GenericIngredientUtil.toGenericStackExact(typed.getIngredient(), amount);
-                    if (stack != null) {
-                        converted.add(stack);
-                    }
+                Object candidate = alternatives.get(Math.floorMod(selected + i, alternatives.size()));
+                if (candidate instanceof ITypedIngredient<?> typed) {
+                    GenericStack stack = GenericIngredientUtil.toGenericStackExact(typed, amount);
+                    if (stack != null) converted.add(stack);
                 }
             }
         }
+        // Older/newer JEICT slot implementations may not expose their alternative list with the
+        // exact reflective shape expected above. The selected ingredient is sufficient for a valid
+        // processing pattern and keeps editable drafts compatible across bridge versions.
         if (converted.isEmpty() && invoke(slot, "ingredient") instanceof ITypedIngredient<?> selectedIngredient) {
-            GenericStack stack = GenericIngredientUtil.toGenericStackExact(selectedIngredient.getIngredient(), amount);
-            if (stack != null) {
-                converted.add(stack);
-            }
+            GenericStack stack = GenericIngredientUtil.toGenericStackExact(selectedIngredient, amount);
+            if (stack != null) converted.add(stack);
         }
         return converted;
     }
 
-    private static @Nullable EncodePatternPacket toEncodePacket(Object recipe, boolean uploadMode) {
-        if (!(invoke(recipe, "primaryOutputIngredient") instanceof ITypedIngredient<?> typedOutput)) {
+    private static @Nullable EncodePatternPacket toEncodePacket(Object recipe, boolean uploadMode, int bulkSid) {
+        Object outputIngredient = invoke(recipe, "primaryOutputIngredient");
+        if (!(outputIngredient instanceof ITypedIngredient<?> typedOutput)) {
             return null;
         }
-        GenericStack output = GenericIngredientUtil.toGenericStack(typedOutput,
-                intValue(invoke(recipe, "primaryOutputCount"), 1));
+        int outputCount = intValue(invoke(recipe, "primaryOutputCount"), 1);
+        GenericStack output = GenericIngredientUtil.toGenericStack(typedOutput, outputCount);
         if (output == null) {
             return null;
         }
+
         List<List<GenericStack>> inputs = new ArrayList<>();
-        if (invoke(recipe, "inputs") instanceof List<?> inputList) {
+        Object rawInputs = invoke(recipe, "inputs");
+        if (rawInputs instanceof List<?> inputList) {
             for (Object input : inputList) {
                 List<GenericStack> alternatives = collectInputAlternatives(input);
                 inputs.add(alternatives.isEmpty() ? null : alternatives);
             }
         }
+
         ResourceLocation recipeId = invoke(recipe, "recipeId") instanceof ResourceLocation id ? id : null;
-        return new EncodePatternPacket(inputs, List.of(output), recipeId, componentString(invoke(recipe, "title"), "-"),
-                deriveProviderSearchKey(recipe), uploadMode, JeiPatternSubstitutionUi.isItemSubstituteOn(),
-                JeiPatternSubstitutionUi.isFluidSubstituteOn(), true, false);
+        String patternName = componentString(invoke(recipe, "title"), "-");
+        String providerKey = deriveProviderSearchKey(recipe);
+        return new EncodePatternPacket(inputs, List.of(output), recipeId, patternName, providerKey, providerKey,
+                uploadMode, JeiPatternSubstitutionUi.isItemSubstituteOn(), JeiPatternSubstitutionUi.isFluidSubstituteOn(),
+                true, uploadMode, false, bulkSid);
     }
 
     private static List<GenericStack> collectInputAlternatives(Object input) {
@@ -324,7 +345,8 @@ public final class JeictCompat {
         Object requested = invoke(input, "selectedRequestedIngredient");
         if (requested != null) {
             int count = intValue(invoke(requested, "count"), 1);
-            if (invoke(requested, "alternatives") instanceof List<?> stacks) {
+            Object rawAlternatives = invoke(requested, "alternatives");
+            if (rawAlternatives instanceof List<?> stacks) {
                 for (Object raw : stacks) {
                     if (raw instanceof ItemStack stack && !stack.isEmpty()) {
                         alternatives.add(GenericStack.fromItemStack(stack.copyWithCount(Math.max(1, count))));
@@ -333,10 +355,13 @@ public final class JeictCompat {
             }
             return alternatives;
         }
+
         int amount = intValue(invoke(input, "amount"), 1);
-        if (invoke(input, "orderedDisplayOptions") instanceof List<?> options) {
+        Object displayOptions = invoke(input, "orderedDisplayOptions");
+        if (displayOptions instanceof List<?> options) {
             for (Object option : options) {
-                if (invoke(option, "typedIngredient") instanceof ITypedIngredient<?> ingredient) {
+                Object typed = invoke(option, "typedIngredient");
+                if (typed instanceof ITypedIngredient<?> ingredient) {
                     GenericStack stack = GenericIngredientUtil.toGenericStack(ingredient, amount);
                     if (stack != null) {
                         alternatives.add(stack);
@@ -348,33 +373,36 @@ public final class JeictCompat {
     }
 
     private static String deriveProviderSearchKey(Object recipe) {
-        if (!ModList.get().isLoaded("extendedae_plus")) {
+        if (!EaepCompat.isExtendedAePlusLoaded()) {
             return "";
         }
-        Recipe<?> resolved = resolveRecipe(recipe);
-        if (resolved instanceof CraftingRecipe) {
-            return "crafting";
-        }
-        if (resolved != null) {
-            try {
-                String key = com.extendedae_plus.util.uploadPattern.RecipeTypeNameConfig.mapRecipeTypeToSearchKey(resolved);
+        Object recipeId = invoke(recipe, "recipeId");
+        if (recipeId instanceof ResourceLocation id && Minecraft.getInstance().level != null) {
+            var holder = Minecraft.getInstance().level.getRecipeManager().byKey(id).orElse(null);
+            if (holder != null) {
+                if (holder instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
+                    String def = com.lhy.ae2utility.integration.eaep.EaepReflection.defaultCraftingSearchKey();
+                    return def != null ? def : "crafting";
+                }
+                String key = com.lhy.ae2utility.integration.eaep.EaepReflection.mapRecipeTypeToSearchKey(holder);
                 if (key != null && !key.isBlank()) {
                     return key;
                 }
-            } catch (LinkageError ignored) {
             }
         }
         return componentString(invoke(recipe, "subtitle"), "");
     }
 
-    private static void renderSubstitutionIcon(GuiGraphics graphics, int x, int y, int srcSize, int dstSize,
-            boolean fluid) {
+    private static void renderSubstitutionIcon(GuiGraphics graphics, int x, int y, int srcSize, int dstSize, boolean fluid) {
+        float scale = dstSize / (float) srcSize;
         Icon icon = fluid
-                ? (JeiPatternSubstitutionUi.isFluidSubstituteOn() ? Icon.FLUID_SUBSTITUTION_ENABLED
-                        : Icon.FLUID_SUBSTITUTION_DISABLED)
-                : (JeiPatternSubstitutionUi.isItemSubstituteOn() ? Icon.SUBSTITUTION_ENABLED
-                        : Icon.SUBSTITUTION_DISABLED);
-        icon.getBlitter().dest(x, y, dstSize, dstSize).blit(graphics);
+                ? (JeiPatternSubstitutionUi.isFluidSubstituteOn() ? Icon.FLUID_SUBSTITUTION_ENABLED : Icon.FLUID_SUBSTITUTION_DISABLED)
+                : (JeiPatternSubstitutionUi.isItemSubstituteOn() ? Icon.SUBSTITUTION_ENABLED : Icon.SUBSTITUTION_DISABLED);
+        graphics.pose().pushPose();
+        graphics.pose().translate(x, y, 0.0F);
+        graphics.pose().scale(scale, scale, 1.0F);
+        icon.getBlitter().dest(0, 0, srcSize, srcSize).blit(graphics);
+        graphics.pose().popPose();
     }
 
     private static List<Component> substitutionTooltip(boolean fluid) {
@@ -391,43 +419,43 @@ public final class JeictCompat {
             lines.add(Component.translatable("gui.tooltips.ae2.SubstitutionsOff"));
             lines.add(Component.translatable("gui.tooltips.ae2.SubstitutionsDescDisabled").withStyle(ChatFormatting.GRAY));
         }
-        lines.add(Component.translatable("gui.ae2utility.bulk_encode.substitution_hint").withStyle(ChatFormatting.DARK_AQUA));
+        lines.add(Component.translatable("gui.ae2utility.bulk_encode.substitution_hint")
+                .withStyle(ChatFormatting.DARK_AQUA));
         return lines;
     }
 
-    @SuppressWarnings("unchecked")
-    private static List<Object> castList(Object value) {
-        return value instanceof List<?> list ? (List<Object>) list : List.of();
+    private static String screenName(@Nullable Screen screen) {
+        return screen == null ? "<null>" : screen.getClass().getName();
     }
 
-    private static @Nullable Object invoke(@Nullable Object target, String methodName) {
+    private static @Nullable Object invoke(Object target, String methodName) {
         if (target == null) {
             return null;
         }
         try {
             return target.getClass().getMethod(methodName).invoke(target);
-        } catch (ReflectiveOperationException | RuntimeException e) {
+        } catch (Throwable ignored) {
             return null;
         }
     }
 
-    private static int intValue(@Nullable Object value, int fallback) {
+    private static int intValue(Object value, int fallback) {
         return value instanceof Number number ? number.intValue() : fallback;
     }
 
-    private static long longValue(@Nullable Object value, long fallback) {
+    private static long longValue(Object value, long fallback) {
         return value instanceof Number number ? number.longValue() : fallback;
     }
 
-    private static boolean booleanValue(@Nullable Object value) {
+    private static boolean booleanValue(Object value) {
         return value instanceof Boolean bool && bool;
     }
 
-    private static String stringValue(@Nullable Object value, String fallback) {
+    private static String stringValue(Object value, String fallback) {
         return value instanceof String string && !string.isBlank() ? string : fallback;
     }
 
-    private static String componentString(@Nullable Object value, String fallback) {
+    private static String componentString(Object value, String fallback) {
         return value instanceof Component component && !component.getString().isBlank()
                 ? component.getString()
                 : fallback;
@@ -439,12 +467,6 @@ public final class JeictCompat {
         }
         if (returnType == int.class) {
             return 0;
-        }
-        if (returnType == long.class) {
-            return 0L;
-        }
-        if (List.class.isAssignableFrom(returnType)) {
-            return List.of();
         }
         return null;
     }

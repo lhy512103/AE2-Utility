@@ -6,6 +6,9 @@ import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
 
+import appeng.client.gui.Icon;
+import dev.emi.emi.EmiPort;
+import dev.emi.emi.EmiRenderHelper;
 import dev.emi.emi.api.widget.Bounds;
 import dev.emi.emi.runtime.EmiDrawContext;
 import dev.emi.emi.screen.RecipeScreen;
@@ -18,14 +21,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraftforge.client.event.ScreenEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 /**
  * Adds AE2 Utility's global recipe-screen controls to a visual extension of the EMI
  * recipe panel. The controls remain left-aligned in 18-pixel workstation slots, with
  * the JEI-style icons scaled to fit inside those slots.
  *
- * <p>Rendering and input use Forge screen events. The layout does not require a mixin
+ * <p>Rendering and input use NeoForge screen events. The layout does not require a mixin
  * or reflection because the toolbar is an independent extension below EMI's public bounds.</p>
  */
 public final class EmiBatchScreenButtons {
@@ -37,13 +39,11 @@ public final class EmiBatchScreenButtons {
     private static final int BATCH_ICON_SOURCE_SIZE = 8;
 
     private static final ResourceLocation EMI_BACKGROUND =
-            ResourceLocation.fromNamespaceAndPath("emi", "textures/gui/background.png");
+            EmiPort.id("emi", "textures/gui/background.png");
     private static final ResourceLocation TEX_BATCH_PAGE =
             ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_page.png");
     private static final ResourceLocation TEX_BATCH_CATEGORY =
             ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "textures/gui/batch_encode_category.png");
-    private static final ResourceLocation EMI_WIDGETS =
-            ResourceLocation.fromNamespaceAndPath("emi", "textures/gui/widgets.png");
 
     private enum Button {
         ITEM_SUBSTITUTION,
@@ -65,14 +65,18 @@ public final class EmiBatchScreenButtons {
     private EmiBatchScreenButtons() {
     }
 
-    @SubscribeEvent
-    public static void onRenderPost(ScreenEvent.Render.Post event) {
+    public static void register(net.minecraftforge.eventbus.api.IEventBus eventBus) {
+        eventBus.addListener(EmiBatchScreenButtons::onRender);
+        eventBus.addListener(EmiBatchScreenButtons::onMouseClick);
+    }
+
+    private static void onRender(ScreenEvent.Render.Post event) {
         clearLayout();
         if (!(event.getScreen() instanceof RecipeScreen recipeScreen)) {
             return;
         }
 
-        substitutionContext = true;
+        substitutionContext = JeiPatternSubstitutionUi.isSubstitutionContextActive();
         if (substitutionContext) {
             addButton(Button.ITEM_SUBSTITUTION);
             addButton(Button.FLUID_SUBSTITUTION);
@@ -154,28 +158,25 @@ public final class EmiBatchScreenButtons {
     private static void drawButton(GuiGraphics graphics, Button button, int x, int y, int mouseX, int mouseY) {
         boolean hovered = contains(x, y, mouseX, mouseY);
         EmiDrawContext context = EmiDrawContext.wrap(graphics);
-        context.drawTexture(EMI_WIDGETS, x, y, SLOT_SIZE, SLOT_SIZE,
+        context.drawTexture(EmiRenderHelper.WIDGETS, x, y, SLOT_SIZE, SLOT_SIZE,
                 0, 0, SLOT_SIZE, SLOT_SIZE, 256, 256);
 
         int iconX = x + (SLOT_SIZE - ICON_SIZE) / 2;
         int iconY = y + (SLOT_SIZE - ICON_SIZE) / 2;
         switch (button) {
-            case ITEM_SUBSTITUTION -> drawToggleIcon(graphics, iconX, iconY,
-                    JeiPatternSubstitutionUi.isItemSubstituteOn(), 0xFF55AAFF);
-            case FLUID_SUBSTITUTION -> drawToggleIcon(graphics, iconX, iconY,
-                    JeiPatternSubstitutionUi.isFluidSubstituteOn(), 0xFF55FFAA);
+            case ITEM_SUBSTITUTION -> (JeiPatternSubstitutionUi.isItemSubstituteOn()
+                    ? Icon.SUBSTITUTION_ENABLED : Icon.SUBSTITUTION_DISABLED)
+                    .getBlitter().dest(iconX, iconY, ICON_SIZE, ICON_SIZE).blit(graphics);
+            case FLUID_SUBSTITUTION -> (JeiPatternSubstitutionUi.isFluidSubstituteOn()
+                    ? Icon.FLUID_SUBSTITUTION_ENABLED : Icon.FLUID_SUBSTITUTION_DISABLED)
+                    .getBlitter().dest(iconX, iconY, ICON_SIZE, ICON_SIZE).blit(graphics);
             case BATCH_PAGE -> drawJeiBatchIcon(graphics, TEX_BATCH_PAGE, iconX, iconY, hovered);
             case BATCH_CATEGORY -> drawJeiBatchIcon(graphics, TEX_BATCH_CATEGORY, iconX, iconY, hovered);
         }
         if (hovered) {
-            graphics.fill(x + 1, y + 1, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, 0x80FFFFFF);
+            EmiRenderHelper.drawSlotHightlight(context,
+                    x + 1, y + 1, SLOT_SIZE - 2, SLOT_SIZE - 2, 200);
         }
-    }
-
-    private static void drawToggleIcon(GuiGraphics graphics, int x, int y, boolean enabled, int color) {
-        int fill = enabled ? color : 0xFF666666;
-        graphics.fill(x + 3, y + 3, x + 13, y + 13, fill);
-        graphics.fill(x + 5, y + 5, x + 11, y + 11, 0xFF202020);
     }
 
     private static void drawJeiBatchIcon(GuiGraphics graphics, ResourceLocation texture,
@@ -219,8 +220,7 @@ public final class EmiBatchScreenButtons {
         return null;
     }
 
-    @SubscribeEvent
-    public static void onMouseClick(ScreenEvent.MouseButtonPressed.Pre event) {
+    private static void onMouseClick(ScreenEvent.MouseButtonPressed.Pre event) {
         if (event.getButton() != 0 || !(event.getScreen() instanceof RecipeScreen)) {
             return;
         }

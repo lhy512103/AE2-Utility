@@ -1,29 +1,56 @@
 package com.lhy.ae2utility.network;
 
 import java.util.List;
+
 import net.minecraft.network.FriendlyByteBuf;
+import com.lhy.ae2utility.network.codec.StreamCodec;
+import com.lhy.ae2utility.network.codec.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
-public final class PullRecipeInputsPacket {
-    private final boolean maxTransfer;
-    private final boolean craftMissing;
-    private final List<RequestedIngredient> requestedIngredients;
+import com.lhy.ae2utility.Ae2UtilityMod;
+
+public record PullRecipeInputsPacket(boolean maxTransfer, boolean craftMissing,
+        List<RequestedIngredient> requestedIngredients)
+        implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<PullRecipeInputsPacket> TYPE =
+            new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "pull_recipe_inputs"));
+
+    public static final StreamCodec<FriendlyByteBuf, PullRecipeInputsPacket> STREAM_CODEC =
+            StreamCodec.ofMember(PullRecipeInputsPacket::write, PullRecipeInputsPacket::decode);
+
     public PullRecipeInputsPacket(boolean maxTransfer, boolean craftMissing, List<RequestedIngredient> requestedIngredients) {
         this.maxTransfer = maxTransfer;
         this.craftMissing = craftMissing;
-        this.requestedIngredients = requestedIngredients == null ? List.of() : requestedIngredients.stream().map(RequestedIngredient::copy).toList();
+        this.requestedIngredients = requestedIngredients.stream().map(RequestedIngredient::copy).toList();
     }
-    public boolean maxTransfer(){ return maxTransfer; }
-    public boolean craftMissing(){ return craftMissing; }
-    public List<RequestedIngredient> requestedIngredients(){ return requestedIngredients; }
-    public static PullRecipeInputsPacket decode(FriendlyByteBuf buffer){ return new PullRecipeInputsPacket(buffer.readBoolean(),buffer.readBoolean(),RecipeTransferPacketHelper.readRequestedIngredients(buffer)); }
-    public static void encode(PullRecipeInputsPacket packet,FriendlyByteBuf buffer){ buffer.writeBoolean(packet.maxTransfer); buffer.writeBoolean(packet.craftMissing); RecipeTransferPacketHelper.writeRequestedIngredients(buffer,packet.requestedIngredients); }
-    public static final class RequestedIngredient {
-        private final List<ItemStack> alternatives;
-        private final int count;
-        public RequestedIngredient(List<ItemStack> alternatives,int count){ this.alternatives=alternatives==null?List.of():alternatives.stream().map(ItemStack::copy).toList(); this.count=count; }
-        public List<ItemStack> alternatives(){return alternatives;}
-        public int count(){return count;}
-        public RequestedIngredient copy(){return new RequestedIngredient(alternatives,count);}
+
+    private static PullRecipeInputsPacket decode(FriendlyByteBuf buffer) {
+        boolean maxTransfer = buffer.readBoolean();
+        boolean craftMissing = buffer.readBoolean();
+        return new PullRecipeInputsPacket(maxTransfer, craftMissing,
+                RecipeTransferPacketHelper.readRequestedIngredients(buffer));
+    }
+
+    private void write(FriendlyByteBuf buffer) {
+        buffer.writeBoolean(maxTransfer);
+        buffer.writeBoolean(craftMissing);
+        RecipeTransferPacketHelper.writeRequestedIngredients(buffer, requestedIngredients);
+    }
+
+    @Override
+    public Type<PullRecipeInputsPacket> type() {
+        return TYPE;
+    }
+
+    public record RequestedIngredient(List<ItemStack> alternatives, int count) {
+        public RequestedIngredient(List<ItemStack> alternatives, int count) {
+            this.alternatives = alternatives.stream().map(ItemStack::copy).toList();
+            this.count = count;
+        }
+
+        public RequestedIngredient copy() {
+            return new RequestedIngredient(alternatives, count);
+        }
     }
 }

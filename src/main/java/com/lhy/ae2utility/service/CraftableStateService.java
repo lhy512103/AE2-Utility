@@ -5,18 +5,16 @@ import java.util.List;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import com.lhy.ae2utility.network.ModNetworking;
 
 import appeng.api.networking.IGrid;
-import appeng.api.networking.security.IActionHost;
 import appeng.api.stacks.AEKey;
-import appeng.api.storage.ITerminalHost;
 import appeng.helpers.WirelessTerminalMenuHost;
+import appeng.api.networking.security.IActionHost;
+import appeng.api.storage.ITerminalHost;
 import appeng.menu.me.common.MEStorageMenu;
 
-import com.lhy.ae2utility.compat.WcwtCompat;
-import com.lhy.ae2utility.util.ActionHosts;
 import com.lhy.ae2utility.network.CraftableStatePacket;
-import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.QueryCraftableStatePacket;
 
 public final class CraftableStateService {
@@ -29,18 +27,22 @@ public final class CraftableStateService {
 
         IGrid grid = null;
 
+        // 1. Try to resolve from open menu
         if (serverPlayer.containerMenu instanceof MEStorageMenu storageMenu) {
-            ITerminalHost host = WcwtCompat.extractTerminalHost(storageMenu);
-            if (host instanceof IActionHost actionHost) {
-                grid = ActionHosts.gridOf(actionHost);
+            ITerminalHost host = storageMenu.getHost();
+            if (host instanceof IActionHost ah && ah.getActionableNode() != null) {
+                grid = ah.getActionableNode().getGrid();
             }
         }
 
+        // 2. Try wireless terminal
         if (grid == null) {
             var resolution = WirelessTerminalContextResolver.resolve(serverPlayer);
-            WirelessTerminalMenuHost host = resolution.host();
-            if (resolution.isReady() && host != null) {
-                grid = ActionHosts.gridOf(host);
+            if (resolution.status() == WirelessTerminalContextResolver.Status.READY && resolution.host() != null) {
+                WirelessTerminalMenuHost host = resolution.host();
+                if (host.getActionableNode() != null) {
+                    grid = host.getActionableNode().getGrid();
+                }
             }
         }
 
@@ -57,6 +59,7 @@ public final class CraftableStateService {
                 }
             }
         } else {
+            // No grid available, all are uncraftable
             uncraftableKeys.addAll(payload.keys());
         }
 

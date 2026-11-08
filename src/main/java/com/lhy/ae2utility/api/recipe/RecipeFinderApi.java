@@ -4,7 +4,7 @@ import java.util.Set;
 
 import net.minecraft.resources.ResourceLocation;
 
-/** Public extension point for recipe-finder ingredient classification. */
+/** Recipe-finder classification extension point. */
 public interface RecipeFinderApi {
     RecipeFinderApi INSTANCE = new RecipeFinderApiImpl();
 

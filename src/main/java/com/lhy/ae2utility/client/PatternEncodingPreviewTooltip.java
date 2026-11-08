@@ -1,7 +1,5 @@
 package com.lhy.ae2utility.client;
 
-import javax.annotation.Nonnull;
-
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
@@ -22,12 +20,12 @@ public final class PatternEncodingPreviewTooltip implements ClientTooltipCompone
     }
 
     @Override
-    public int getWidth(@Nonnull Font font) {
+    public int getWidth(Font font) {
         return PatternEncodingPreviewRenderer.PANEL_WIDTH;
     }
 
     @Override
-    public void renderImage(@Nonnull Font font, int x, int y, @Nonnull GuiGraphics graphics) {
+    public void renderImage(Font font, int x, int y, GuiGraphics graphics) {
         PatternEncodingPreviewRenderer.render(graphics, font, x, y + 2, preview);
     }
 }

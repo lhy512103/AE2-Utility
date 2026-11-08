@@ -5,15 +5,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
-
-import com.lhy.ae2utility.util.ItemIds;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.fluids.FluidStack;
 
-/** 按注册名关键字给配方查找器的材料/产物打特征标签。 */
 public final class RecipeFinderFeatureClassifier {
     private static final List<String> WOOD_SPECIES = List.of(
             "oak",
@@ -47,7 +43,7 @@ public final class RecipeFinderFeatureClassifier {
             return Set.of();
         }
 
-        String path = ItemIds.of(stack).getPath().toLowerCase(Locale.ROOT);
+        String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath().toLowerCase(Locale.ROOT);
         Set<String> features = new LinkedHashSet<>();
 
         if (isWoodLike(path)) {
@@ -108,11 +104,7 @@ public final class RecipeFinderFeatureClassifier {
             return Set.of();
         }
 
-        ResourceLocation id = ForgeRegistries.FLUIDS.getKey(stack.getFluid());
-        if (id == null) {
-            return Set.of("fluid");
-        }
-        String path = id.getPath().toLowerCase(Locale.ROOT);
+        String path = BuiltInRegistries.FLUID.getKey(stack.getFluid()).getPath().toLowerCase(Locale.ROOT);
         Set<String> features = new LinkedHashSet<>();
         features.add("fluid");
 
@@ -130,6 +122,58 @@ public final class RecipeFinderFeatureClassifier {
         }
 
         return Set.copyOf(features);
+    }
+
+    public static String primaryFeature(Set<String> features) {
+        if (features.contains("wood")) {
+            return "wood";
+        }
+        if (features.contains("plank")) {
+            return "plank";
+        }
+        if (features.contains("dust")) {
+            return "dust";
+        }
+        if (features.contains("ingot")) {
+            return "ingot";
+        }
+        if (features.contains("gear")) {
+            return "gear";
+        }
+        if (features.contains("component")) {
+            return "component";
+        }
+        if (features.contains("fluid")) {
+            return "fluid";
+        }
+        return features.stream().findFirst().orElse("other");
+    }
+
+    public static String featureLabel(String key) {
+        return switch (key) {
+            case "wood" -> "Wood";
+            case "log" -> "Log";
+            case "plank" -> "Plank";
+            case "dust" -> "Dust";
+            case "ingot" -> "Ingot";
+            case "nugget" -> "Nugget";
+            case "gear" -> "Gear";
+            case "rod" -> "Rod";
+            case "plate" -> "Plate";
+            case "ore" -> "Ore";
+            case "gem" -> "Gem";
+            case "glass" -> "Glass";
+            case "component" -> "Component";
+            case "machine" -> "Machine";
+            case "stone" -> "Stone";
+            case "fluid" -> "Fluid";
+            case "water" -> "Water";
+            case "lava" -> "Lava";
+            case "acid" -> "Acid";
+            case "chemical" -> "Chemical";
+            case "special" -> "Special";
+            default -> "Other";
+        };
     }
 
     public static String modDisplayName(String modId) {

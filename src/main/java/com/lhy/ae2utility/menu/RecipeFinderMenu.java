@@ -30,7 +30,7 @@ public class RecipeFinderMenu extends AbstractContainerMenu {
         super(type, windowId);
         this.hand = hand;
 
-        addSlot(new SampleSlot(sampleContainer, SAMPLE_SLOT_INDEX, 8, 19));
+        addSlot(new MarkFilterSlot(sampleContainer, SAMPLE_SLOT_INDEX, 8, 19));
 
         int invStartY = 212;
         for (int r = 0; r < 3; ++r) {
@@ -64,7 +64,8 @@ public class RecipeFinderMenu extends AbstractContainerMenu {
                 return;
             }
             if (clickType == ClickType.SWAP && button >= 0 && button < Inventory.getSelectionSize()) {
-                applySample(player.getInventory().getItem(button));
+                ItemStack fromHotbar = player.getInventory().getItem(button);
+                applySample(fromHotbar);
                 return;
             }
         }
@@ -82,11 +83,11 @@ public class RecipeFinderMenu extends AbstractContainerMenu {
         if (index == SAMPLE_SLOT_INDEX) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = ItemStack.EMPTY;
+        ItemStack itemstack = ItemStack.EMPTY;
         Slot slot = this.slots.get(index);
         if (slot != null && slot.hasItem()) {
             ItemStack stack = slot.getItem();
-            result = stack.copy();
+            itemstack = stack.copy();
             if (!this.moveItemStackTo(stack, 1, this.slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
@@ -95,33 +96,16 @@ public class RecipeFinderMenu extends AbstractContainerMenu {
             } else {
                 slot.setChanged();
             }
-            if (stack.getCount() == result.getCount()) {
+            if (stack.getCount() == itemstack.getCount()) {
                 return ItemStack.EMPTY;
             }
             slot.onTake(player, stack);
         }
-        return result;
+        return itemstack;
     }
 
-    /** 样本格只记录物品种类，不能放入或取出实体物品。 */
-    private static final class SampleSlot extends Slot {
-        SampleSlot(SimpleContainer container, int slot, int x, int y) {
-            super(container, slot, x, y);
-        }
-
-        @Override
-        public boolean mayPlace(ItemStack stack) {
-            return false;
-        }
-
-        @Override
-        public boolean mayPickup(Player player) {
-            return false;
-        }
-
-        @Override
-        public int getMaxStackSize() {
-            return 1;
-        }
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
     }
 }

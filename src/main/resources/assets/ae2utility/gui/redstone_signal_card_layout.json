@@ -1,0 +1,98 @@
+{
+  "_readMe": "坐标：面板纹理 redstone_signal_card_gui 左上角为原点 (0,0)。侧栏在面板矩形之外向左延伸；详见 aeSidebarStrip、modeCycleButton。",
+
+  "panelBackground": {
+    "_note": "主面板在主纹理中的切片尺寸与画面上大小。",
+    "texture": "ae2utility:textures/gui/redstone_signal_card_gui.png",
+    "textureWidth": 256,
+    "textureHeight": 256,
+    "u": 0,
+    "v": 0,
+    "panelWidth": 219,
+    "panelHeight": 88
+  },
+
+  "sliderKnobs": {
+    "_note": "自定义PNG上的滑柄 UV。",
+    "inactiveUvU": 243,
+    "inactiveUvV": 0,
+    "activeUvU": 243,
+    "activeUvV": 7,
+    "width": 13,
+    "height": 7,
+    "trackHitHeight": 14
+  },
+
+  "sliders": {
+    "_note": "三条轨几何；拖动手柄逻辑见代码。",
+    "milestoneStep": 10,
+    "maxColumnInclusive": 60,
+    "firstTrackCenterXFromPanelLeft": 52,
+    "firstTrackCenterYFromPanelTop": 52,
+    "trackLengthPx": 153,
+    "rowGapPx": 10
+  },
+
+  "tickSecondMinuteLabelsFromPanelLeftTop": [
+    {
+      "_note": "tick/秒/分 的文字 X；Y 会以轨中心为基准垂直居中绘制。",
+      "x": 13,
+      "y": 48,
+      "unit": "ticks"
+    },
+    { "_note": "秒文字相对 tick 向下偏移 5px", "dxFromTickRow": 0, "dyFromTickRow": 10 },
+    { "_note": "分文字相对 tick 向下偏移 10px", "dxFromTickRow": 0, "dyFromTickRow": 20 }
+  ],
+
+  "title": {
+    "_note": "标题在主面板内侧左上角。",
+    "x": 7,
+    "y": 5,
+    "translationKey": "gui.ae2utility.redstone_signal_card",
+    "textColorRgb": "#413F54",
+    "modeYOffsetBelowTitleBaselinePx": 4,
+    "hintYOffsetBelowTitleBaselinePx": 4,
+    "hintYOffsetBelowModeBaselinePx": 4,
+    "hintMaxWidth": 205
+  },
+
+  "modeHints": [
+    { "_note": "模式 1 说明", "translationKey": "gui.ae2utility.redstone_signal_card.hint_order", "textColorRgb": "#413F54" },
+    { "_note": "模式 2 说明", "translationKey": "gui.ae2utility.redstone_signal_card.hint_craft", "textColorRgb": "#413F54" },
+    { "_note": "模式 3 说明", "translationKey": "gui.ae2utility.redstone_signal_card.hint_until", "textColorRgb": "#413F54" }
+  ],
+
+  "aeSidebarStrip": {
+    "_note": "与 Icon/states.png 一致：必须用带 .png 的纹理路径（backgroundTexture）；勿用无前缀后缀的 Gui blitSprite 精灵 id。也可只写 sprite=ae2:…（无后缀）加载器会自动补 .png。竖向按 AE mcmeta 九切片(top2/bot4)。",
+
+    "backgroundTexture": "ae2:textures/gui/sprites/vertical_buttons_bg.png",
+    "outerWidthPx": 20,
+    "outerHeightPx": 26,
+    "rightOverlapPanelLeftPx": 3,
+    "topOffsetFromPanelTopPx": 2
+  },
+
+  "modeCycleButton": {
+    "_note": "图标 16×16 左上角相对 **面板左上角** 偏移（X 为负表示在面板外左侧侧栏内）。也可用旧字段 panelX/panelY 代替偏移名。",
+
+    "offsetXFromPanelLeft": -15,
+    "offsetYFromPanelTop": 5
+  },
+
+  "toolbarButtonPx": {
+    "_note": "AE Toolbar 图标底图 18×20。",
+    "width": 18,
+    "height": 20,
+    "innerIconPx": 16
+  },
+
+  "closeButton": {
+    "_note": "AE 原版 Crafting Status 那种 BOX 返回按钮。",
+    "offsetXFromPanelLeft": 207,
+    "offsetYFromPanelTop": -5,
+    "width": 20,
+    "height": 20,
+    "iconOffsetX": 2,
+    "iconOffsetY": 1
+  }
+}

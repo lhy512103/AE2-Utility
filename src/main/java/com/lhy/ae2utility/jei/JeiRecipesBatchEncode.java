@@ -1,134 +1,155 @@
 package com.lhy.ae2utility.jei;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.client.RemoteEncodeRules;
-import com.lhy.ae2utility.network.EncodePatternPacket;
-import com.lhy.ae2utility.network.ModNetworking;
+import com.lhy.ae2utility.client.SequentialUploadQueue;
+import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 
-import appeng.api.stacks.GenericStack;
-import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import com.lhy.ae2utility.network.ModNetworking;
+
+import mezz.jei.api.gui.IRecipeLayoutDrawable;
+import mezz.jei.api.recipe.category.IRecipeCategory;
+import mezz.jei.api.runtime.IJeiRuntime;
+import mezz.jei.gui.recipes.IRecipeLayoutWithButtons;
+import mezz.jei.gui.recipes.RecipeGuiLayouts;
+import mezz.jei.gui.recipes.RecipesGui;
+import mezz.jei.gui.recipes.lookups.IFocusedRecipes;
+import mezz.jei.gui.recipes.lookups.ILookupState;
+
+import com.lhy.ae2utility.client.jei.BlankPatternClientPrecheck;
+import com.lhy.ae2utility.mixin.RecipeGuiLayoutsAccessor;
+import com.lhy.ae2utility.mixin.RecipeGuiLogicAccessor;
+import com.lhy.ae2utility.mixin.RecipesGuiAccessor;
+import com.lhy.ae2utility.network.EncodePatternPacket;
 
 public final class JeiRecipesBatchEncode {
     private JeiRecipesBatchEncode() {
     }
 
     public static void run(boolean currentPageOnly, boolean shiftUpload) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.screen == null || minecraft.player == null) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || !(mc.screen instanceof RecipesGui recipesGui)) {
             return;
         }
-
-        Screen screen = minecraft.screen;
-        LocalPlayer player = minecraft.player;
+        LocalPlayer player = mc.player;
         if (!EncodePatternButtonController.playerMayEncodePatterns(player)) {
-            message(player, "message.ae2utility.batch_encode_no_terminal", ChatFormatting.RED);
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.batch_encode_no_terminal").withStyle(ChatFormatting.RED),
+                    false);
             return;
         }
         if (!currentPageOnly && !Ae2UtilityClientConfig.showJeiBatchEncodeFullCategoryButton()) {
-            message(player, "message.ae2utility.batch_encode_category_disabled_config", ChatFormatting.GOLD);
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.batch_encode_category_disabled_config").withStyle(ChatFormatting.GOLD),
+                    false);
             return;
         }
-        if (!currentPageOnly && RemoteEncodeRules.blocksFullCategoryBatch()) {
-            message(player, "message.ae2utility.encode_rejected_full_category_blocked_server", ChatFormatting.RED);
+        if (!currentPageOnly && RemoteEncodeRules.remoteBlocksJeFullCategoryBatch()) {
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.encode_rejected_full_category_blocked_server").withStyle(ChatFormatting.RED),
+                    false);
             return;
         }
 
-        List<IRecipeLayoutDrawable<?>> layouts = currentPageOnly
-                ? JeiRecipesGuiAccess.getVisibleRecipeLayouts(screen)
-                : JeiRecipesGuiAccess.createSelectedCategoryRecipeLayouts(screen);
-        encode(player, layouts, !currentPageOnly, shiftUpload);
-    }
+        int bulkSid = BulkEncodeSessions.next();
+        List<EncodePatternPacket> packets = currentPageOnly
+                ? collectCurrentPage(recipesGui, shiftUpload, bulkSid, false)
+                : collectFullCategory(recipesGui, shiftUpload, bulkSid, true);
 
-    /** 批量编码任意 JEI 配方（如配方查找器所选），不属于整类批量。 */
-    public static void run(List<IRecipeLayoutDrawable<?>> layouts, boolean shiftUpload) {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            return;
-        }
-        if (!EncodePatternButtonController.playerMayEncodePatterns(player)) {
-            message(player, "message.ae2utility.batch_encode_no_terminal", ChatFormatting.RED);
-            return;
-        }
-        encode(player, layouts, false, shiftUpload);
-    }
+        packets = filterExistingPatterns(packets);
 
-    private static void encode(LocalPlayer player, List<IRecipeLayoutDrawable<?>> layouts, boolean fullCategory,
-            boolean shiftUpload) {
-        int sessionId = BulkEncodeSessions.next();
-        Map<EncodePatternPacket, String> machines = new IdentityHashMap<>();
-        List<EncodePatternPacket> packets = filterExistingPatterns(collect(layouts, shiftUpload, machines));
+        JeiEncodeQueueDebugLog.info("JeiRecipesBatchEncode.run collected {} packets (currentPageOnly={} shiftUpload={})",
+            packets.size(), currentPageOnly, shiftUpload);
 
-        int collected = packets.size();
-        packets = RemoteEncodeRules.capToSessionLimit(packets);
-        if (packets.size() < collected) {
-            player.displayClientMessage(Component.translatable(
-                    "message.ae2utility.bulk_encode_truncated_client_notice", collected, packets.size())
-                    .withStyle(ChatFormatting.GOLD), false);
+        int origCount = packets.size();
+        packets = RemoteEncodeRules.capPacketsToServerBulkLimit(packets);
+        if (packets.size() < origCount) {
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice", origCount, packets.size())
+                            .withStyle(ChatFormatting.GOLD),
+                    false);
         }
 
         if (packets.isEmpty()) {
-            message(player, "message.ae2utility.batch_encode_none", ChatFormatting.GRAY);
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.batch_encode_none").withStyle(ChatFormatting.GRAY),
+                    false);
             return;
         }
 
         if (BlankPatternClientPrecheck.lacksAnyDetectableBlankPattern(player)) {
-            message(player, "message.ae2utility.batch_encode_precheck_no_blank", ChatFormatting.GOLD);
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.batch_encode_precheck_no_blank").withStyle(ChatFormatting.GOLD),
+                    false);
             return;
-        }
-
-        List<EncodePatternPacket> tagged = new ArrayList<>(packets.size());
-        List<JeiBatchEncodeQueue.Entry> entries = new ArrayList<>(packets.size());
-        for (EncodePatternPacket packet : packets) {
-            EncodePatternPacket batchPacket = packet.withBatch(fullCategory, sessionId);
-            tagged.add(batchPacket);
-            entries.add(new JeiBatchEncodeQueue.Entry(batchPacket, batchPacket.patternName(),
-                    machines.getOrDefault(packet, ""), null));
         }
 
         if (shiftUpload) {
-            if (!JeiBatchEncodeQueue.startEntries(entries)) {
-                message(player, "message.ae2utility.batch_encode_session_busy", ChatFormatting.GOLD);
+            List<EncodePatternPacket> queued = new ArrayList<>(packets.size());
+            for (EncodePatternPacket p : packets) {
+                queued.add(p.withSequentialUpload(true));
+            }
+            if (!SequentialUploadQueue.start(queued)) {
+                player.displayClientMessage(
+                        Component.translatable("message.ae2utility.batch_encode_session_busy").withStyle(ChatFormatting.GOLD),
+                        false);
                 return;
             }
-            player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_queued", tagged.size())
-                    .withStyle(ChatFormatting.GREEN), false);
-            return;
+        } else {
+            for (EncodePatternPacket packet : packets) {
+                ModNetworking.sendToServer(packet);
+            }
         }
-
-        for (EncodePatternPacket packet : tagged) {
-            ModNetworking.sendToServer(packet);
+        if (!shiftUpload) {
+            player.displayClientMessage(
+                    Component.translatable("message.ae2utility.batch_encode_sent", packets.size()).withStyle(ChatFormatting.GREEN),
+                    false);
         }
-        player.displayClientMessage(Component.translatable("message.ae2utility.batch_encode_sent", tagged.size())
-                .withStyle(ChatFormatting.GREEN), false);
     }
 
-    private static void message(LocalPlayer player, String key, ChatFormatting color) {
-        player.displayClientMessage(Component.translatable(key).withStyle(color), false);
-    }
-
-    private static List<EncodePatternPacket> collect(List<IRecipeLayoutDrawable<?>> layouts, boolean shiftUpload,
-            Map<EncodePatternPacket, String> machines) {
+    private static List<EncodePatternPacket> collectCurrentPage(RecipesGui gui, boolean shiftUpload, int bulkEncodeSessionId,
+            boolean jeiFullCategoryBatch) {
         List<EncodePatternPacket> out = new ArrayList<>();
-        for (IRecipeLayoutDrawable<?> layout : layouts) {
-            if (!JeiRecipePageKinds.isEncodableRecipeLayout(layout)) {
+        RecipeGuiLayouts layouts = ((RecipesGuiAccessor) (Object) gui).ae2utility$layouts();
+        List<?> rows = ((RecipeGuiLayoutsAccessor) (Object) layouts).ae2utility$recipeLayoutsWithButtons();
+        for (Object rowObj : rows) {
+            if (!(rowObj instanceof IRecipeLayoutWithButtons<?> row)) {
                 continue;
             }
-            JeiEncodePacketFactory.tryCreate(layout, shiftUpload)
-                    .filter(EncodePatternPacket::fitsNetworkLimits)
-                    .ifPresent(packet -> {
-                        out.add(packet);
-                        machines.put(packet, EncodePatternButtonController.categoryTitle(layout));
-                    });
+            JeiEncodePacketFactory.tryCreate(row.getRecipeLayout(), shiftUpload, jeiFullCategoryBatch, bulkEncodeSessionId).ifPresent(out::add);
+        }
+        return out;
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private static List<EncodePatternPacket> collectFullCategory(RecipesGui gui, boolean shiftUpload, int bulkEncodeSessionId,
+            boolean jeiFullCategoryBatch) {
+        List<EncodePatternPacket> out = new ArrayList<>();
+        IJeiRuntime runtime = Ae2UtilityJeiPlugin.getJeiRuntime();
+        if (runtime == null) {
+            return out;
+        }
+
+        ILookupState state = ((RecipeGuiLogicAccessor) (Object) ((RecipesGuiAccessor) (Object) gui).ae2utility$recipeLogic()).ae2utility$lookupState();
+        IFocusedRecipes<?> focused = state.getFocusedRecipes();
+        IRecipeCategory<?> category = focused.getRecipeCategory();
+        List<?> recipes = focused.getRecipes();
+
+        var emptyFocus = runtime.getJeiHelpers().getFocusFactory().createFocusGroup(List.of());
+
+        for (Object recipe : recipes) {
+            Optional<IRecipeLayoutDrawable<?>> layoutOpt =
+                    (Optional) runtime.getRecipeManager().createRecipeLayoutDrawable((IRecipeCategory) category, recipe, emptyFocus);
+            layoutOpt.flatMap(layout -> JeiEncodePacketFactory.tryCreate(layout, shiftUpload, jeiFullCategoryBatch, bulkEncodeSessionId))
+                    .ifPresent(out::add);
         }
         return out;
     }
@@ -136,11 +157,12 @@ public final class JeiRecipesBatchEncode {
     private static List<EncodePatternPacket> filterExistingPatterns(List<EncodePatternPacket> packets) {
         List<EncodePatternPacket> filtered = new ArrayList<>(packets.size());
         for (EncodePatternPacket packet : packets) {
-            if (packet == null || packet.outputs().isEmpty()) {
+            if (packet == null || packet.outputs().isEmpty() || packet.outputs().get(0) == null
+                    || packet.outputs().get(0).what() == null) {
                 continue;
             }
-            GenericStack output = packet.outputs().get(0);
-            if (output != null && output.what() != null && CraftableStateCache.isCraftable(output.what())) {
+            if (CraftableStateCache.isCraftable(packet.outputs().get(0).what())) {
+                JeiEncodeQueueDebugLog.info("JeiRecipesBatchEncode.skip existing recipeId={}", packet.recipeId());
                 continue;
             }
             filtered.add(packet);

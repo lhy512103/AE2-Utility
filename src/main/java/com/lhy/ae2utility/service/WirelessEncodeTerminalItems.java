@@ -1,28 +1,20 @@
 package com.lhy.ae2utility.service;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.registries.ForgeRegistries;
 
 import appeng.items.tools.powered.WirelessTerminalItem;
 
 /**
- * 与 {@link WirelessTerminalContextResolver} / JEI 编码按钮一致：
- * 背包中可作为「无线编码候选」的物品（WCWT 综合终端命名空间兜底）。
- *
- * <p>1.20.1 forge 版本：去掉 Curios 分支（Curios 为可选依赖，无线编码主要走背包物品）。</p>
+ * 与 {@link com.lhy.ae2utility.service.WirelessTerminalContextResolver} / JEI 编码按钮一致：
+ * 背包/Curios 中可作为「无线编码候选」的物品（实际是否启用还要看主机 {@link appeng.helpers.WirelessTerminalMenuHost#getLinkStatus()} 是否联网）。
  */
 public final class WirelessEncodeTerminalItems {
-    public static final String WCWT_NAMESPACE = "wcwt";
-    private static final String LEGACY_WCWT_NAMESPACE = "wireless_comprehensive_work_terminal";
+    /** ME 综合无线工作终端（WCWT）；{@link WirelessTerminalItem} 已覆盖其子类，命名空间用于额外兜底与其它分支物品。 */
+    public static final String WCWT_NAMESPACE = "wireless_comprehensive_work_terminal";
 
     private WirelessEncodeTerminalItems() {
-    }
-
-    public static boolean isWcwt(ItemStack stack) {
-        ResourceLocation key = stack.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(stack.getItem());
-        return key != null && (WCWT_NAMESPACE.equals(key.getNamespace())
-                || LEGACY_WCWT_NAMESPACE.equals(key.getNamespace()));
     }
 
     public static boolean mayProvideWirelessEncoding(ItemStack stack) {
@@ -32,11 +24,8 @@ public final class WirelessEncodeTerminalItems {
         if (stack.getItem() instanceof WirelessTerminalItem) {
             return true;
         }
-        ResourceLocation key = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        if (key == null) {
-            return false;
-        }
-        if (isWcwt(stack)) {
+        ResourceLocation key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (WCWT_NAMESPACE.equals(key.getNamespace())) {
             return true;
         }
         String id = key.toString();

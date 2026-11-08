@@ -22,8 +22,10 @@ public final class Ae2UtilityClientSetup {
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> MenuScreens.register(Objects.requireNonNull(ModMenus.RECIPE_FINDER.get()),
-                RecipeFinderScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(Objects.requireNonNull(ModMenus.RECIPE_FINDER.get()), RecipeFinderScreen::new);
+            MenuScreens.register(Objects.requireNonNull(ModMenus.NBT_TEAR_CARD.get()), NbtTearCardScreen::new);
+        });
     }
 
     private static void registerTooltipComponents(RegisterClientTooltipComponentFactoriesEvent event) {

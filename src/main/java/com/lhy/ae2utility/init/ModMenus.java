@@ -7,12 +7,15 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.menu.NbtTearCardMenu;
 import com.lhy.ae2utility.menu.RecipeFinderMenu;
 
 public final class ModMenus {
     public static final DeferredRegister<MenuType<?>> REG = DeferredRegister.create(ForgeRegistries.MENU_TYPES,
             Ae2UtilityMod.MOD_ID);
 
+    public static final RegistryObject<MenuType<NbtTearCardMenu>> NBT_TEAR_CARD = REG.register("nbt_tear_card",
+            () -> IForgeMenuType.create(NbtTearCardMenu::fromNetwork));
     public static final RegistryObject<MenuType<RecipeFinderMenu>> RECIPE_FINDER = REG.register("recipe_finder",
             () -> IForgeMenuType.create(RecipeFinderMenu::fromNetwork));
 

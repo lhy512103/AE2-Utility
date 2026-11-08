@@ -7,34 +7,42 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.loading.FMLEnvironment;
+import com.lhy.ae2utility.network.ModNetworking;
 
 import org.jetbrains.annotations.Nullable;
 
 import appeng.api.stacks.AEKey;
 import com.lhy.ae2utility.compat.WcwtCompat;
 import com.lhy.ae2utility.network.CraftableStatePacket;
-import com.lhy.ae2utility.network.ModNetworking;
-import com.lhy.ae2utility.network.NetworkValidation;
 import com.lhy.ae2utility.network.QueryCraftableStatePacket;
 
 import appeng.menu.me.common.MEStorageMenu;
 
-import io.netty.buffer.Unpooled;
-
 /**
- * 客户端缓存 ME 网络「是否可合成/是否有样板」的查询结果，批量向服务器请求以降低负载。
+ * 客户端缓存 ME 网络中“是否可合成/是否有样板”的查询结果，批量向服务器请求以降低负载。
+ * <p>若当前已打开 {@link WcwtCompat#isPatternEncodingLikeMenu 样板编码类} {@link MEStorageMenu} 且存在 {@link MEStorageMenu#getClientRepo()}，
+ * 则 {@link #isCraftable(AEKey)} 与 AE2 JEI 拉配方预览同源，经由 {@link ClientRepoCraftableIndex} 读取终端 crafting 快照（同 tick 内共享一次快照，避免重复扫表）；不再对该键走发包查询。</p>
  */
 public final class CraftableStateCache {
     private static final long BATCH_SEND_INTERVAL_MS = 50L;
     private static final long CACHE_TTL_MS = 5000L;
 
-    private static volatile long cacheVersion;
+    /**
+     * 样板可合成快照更新后置位；JEICT 等界面在 tick 中消费并刷新已有样板缓存。
+     */
     private static volatile boolean existingPatternCachesStale;
+
+    /**
+     * 每当可合成快照发生变化（收到回包 / 主动失效）即自增。供多个只读消费者（如 JEI 编码箭头按钮）
+     * 判断自身缓存是否需要重算，而无需像 {@link #pollExistingPatternCachesStale()} 那样「消费一次即清零」。
+     */
+    private static volatile long cacheVersion;
 
     private static final Map<AEKey, CacheEntry> CACHE = new HashMap<>();
     private static final Set<AEKey> PENDING_REQUESTS = new HashSet<>();
@@ -44,6 +52,9 @@ public final class CraftableStateCache {
 
     public static boolean isCraftable(AEKey key) {
         if (key == null) {
+            return false;
+        }
+        if (!isKeySafeForNetworkQuery(key)) {
             return false;
         }
 
@@ -59,21 +70,26 @@ public final class CraftableStateCache {
 
         if (entry != null) {
             if (now - entry.timestamp > CACHE_TTL_MS) {
-                requestKey(key, entry.craftable);
+                requestKey(key);
             }
             return entry.craftable;
         }
 
-        requestKey(key, false);
+        requestKey(key);
         return false;
     }
 
+    /**
+     * 与 AE2 {@link Ae2TerminalRecipeTransferHandler} 拉配方预览、{@link ClientRepoCraftableIndex} 同源：终端 crafting 快照中已标记可合成的输出键。
+     *
+     * @return 已打开样板 {@link MEStorageMenu} 且能取得 {@code clientRepo} 时为确定值；否则 {@code null}（走 {@link #CACHE} / 发包）。
+     */
     private static @Nullable Boolean lookupCraftableFromPatternTerminalClientRepo(AEKey key) {
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null || !(player.containerMenu instanceof MEStorageMenu menu)) {
             return null;
         }
-        if (!WcwtCompat.isStorageMenu(menu)) {
+        if (!WcwtCompat.isPatternEncodingLikeMenu(menu)) {
             return null;
         }
         if (menu.getClientRepo() == null) {
@@ -82,14 +98,13 @@ public final class CraftableStateCache {
         return ClientRepoCraftableIndex.isCraftableOutput(menu, key);
     }
 
-    // 刷新期间保留旧值，避免高亮在等待回包时闪烁；无法序列化的键永久记为不可合成，不再重复检查。
-    private static void requestKey(AEKey key, boolean lastKnown) {
+    private static void requestKey(AEKey key) {
         if (!isKeySafeForNetworkQuery(key)) {
-            CACHE.put(key, new CacheEntry(false, Long.MAX_VALUE));
             return;
         }
+        long now = System.currentTimeMillis();
         PENDING_REQUESTS.add(key);
-        CACHE.put(key, new CacheEntry(lastKnown, System.currentTimeMillis()));
+        CACHE.put(key, new CacheEntry(false, now));
     }
 
     public static void tick() {
@@ -99,28 +114,18 @@ public final class CraftableStateCache {
 
         long now = System.currentTimeMillis();
         if (now - lastRequestTime >= BATCH_SEND_INTERVAL_MS) {
-            List<AEKey> batch = new ArrayList<>();
-            int batchBytes = 5;
+            List<AEKey> keysToRequest = new ArrayList<>(PENDING_REQUESTS.size());
             for (AEKey key : PENDING_REQUESTS) {
-                int keyBytes = networkSize(key);
-                if (keyBytes < 0) {
-                    continue;
+                if (isKeySafeForNetworkQuery(key)) {
+                    keysToRequest.add(key);
                 }
-                if (!batch.isEmpty() && (batchBytes + keyBytes > NetworkValidation.MAX_SERVERBOUND_PAYLOAD_BYTES
-                        || batch.size() >= NetworkValidation.MAX_CRAFTABLE_KEYS)) {
-                    ModNetworking.sendToServer(new QueryCraftableStatePacket(batch));
-                    batch = new ArrayList<>();
-                    batchBytes = 5;
-                }
-                batch.add(key);
-                batchBytes += keyBytes;
             }
             PENDING_REQUESTS.clear();
-            if (batch.isEmpty()) {
+            if (keysToRequest.isEmpty()) {
                 return;
             }
             lastRequestTime = now;
-            ModNetworking.sendToServer(new QueryCraftableStatePacket(batch));
+            ModNetworking.sendToServer(new QueryCraftableStatePacket(keysToRequest));
         }
     }
 
@@ -132,10 +137,11 @@ public final class CraftableStateCache {
         for (AEKey key : packet.uncraftableKeys()) {
             CACHE.put(key, new CacheEntry(false, now));
         }
-        cacheVersion++;
         existingPatternCachesStale = true;
+        cacheVersion++;
     }
 
+    /** 丢弃缓存与待发队列中的条目，使下一帧起重新向服务器查询（用于样板写入网络后刷新 JEI 按钮状态）。 */
     public static void invalidateKeys(Iterable<AEKey> keys) {
         ClientRepoCraftableIndex.invalidate();
         for (AEKey key : keys) {
@@ -145,11 +151,16 @@ public final class CraftableStateCache {
             CACHE.remove(key);
             PENDING_REQUESTS.remove(key);
         }
-        cacheVersion++;
         existingPatternCachesStale = true;
+        cacheVersion++;
     }
 
-    /** 供 JEI Crafting Tree 轮询：自上次调用以来可合成状态是否有变化（读取即清零）。 */
+    /** 可合成快照版本号，仅在内容变化时自增；只读，不清零，可多消费者共用。 */
+    public static long cacheVersion() {
+        return cacheVersion;
+    }
+
+    /** @return true 并已清除标记（每帧至多消费一次）。 */
     public static boolean pollExistingPatternCachesStale() {
         if (!existingPatternCachesStale) {
             return false;
@@ -158,32 +169,17 @@ public final class CraftableStateCache {
         return true;
     }
 
-    public static void clear() {
-        CACHE.clear();
-        PENDING_REQUESTS.clear();
-        cacheVersion++;
-    }
-
-    public static long cacheVersion() {
-        return cacheVersion;
-    }
-
     private static boolean isKeySafeForNetworkQuery(AEKey key) {
-        return networkSize(key) >= 0;
-    }
-
-    private static int networkSize(AEKey key) {
         if (key == null || Minecraft.getInstance().level == null) {
-            return -1;
+            return false;
         }
         FriendlyByteBuf buffer = null;
         try {
             buffer = new FriendlyByteBuf(Unpooled.buffer());
             AEKey.writeKey(buffer, key);
-            int size = buffer.readableBytes();
-            return size > NetworkValidation.MAX_SERVERBOUND_PAYLOAD_BYTES / 2 ? -1 : size;
+            return true;
         } catch (RuntimeException ex) {
-            return -1;
+            return false;
         } finally {
             if (buffer != null) {
                 buffer.release();

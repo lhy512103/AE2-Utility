@@ -12,58 +12,104 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
-/** 服务端按「玩家 + 批量会话 id」限制整类批量与单次批量条数，并对提示去重。 */
+/** 服务端：整类分页拒绝聊天去重；同一会话 bulk id 下一次操作内最大样板编码数（单条 EncodePatternPacket）。 */
 public final class EncodeBulkSessionLimiter {
+
     private static final ConcurrentMap<String, AtomicInteger> SESSION_COUNTS = new ConcurrentHashMap<>();
-    private static final ConcurrentMap<String, Boolean> ANNOUNCED = new ConcurrentHashMap<>();
+    /** key uuid|bulkId|fullcat_chat */
+    private static final ConcurrentMap<String, Boolean> FULL_CAT_CHAT_DONE = new ConcurrentHashMap<>();
+    /** key uuid|bulkId|over_chat */
+    private static final ConcurrentMap<String, Boolean> OVER_LIMIT_CHAT_DONE = new ConcurrentHashMap<>();
+
+    /** bulkSessionId == 0 且仍伪造整类标记时按 UUID 防抖 */
+    private static final ConcurrentMap<UUID, Long> PLAIN_FULLCAT_LAST_CHAT_MS = new ConcurrentHashMap<>();
+    private static final long PLAIN_FULLCAT_CHAT_GAP_MS = 2500L;
 
     private EncodeBulkSessionLimiter() {
     }
 
     public static void clearFor(UUID playerId) {
-        String prefix = playerId.toString() + '|';
-        SESSION_COUNTS.keySet().removeIf(k -> k.startsWith(prefix));
-        ANNOUNCED.keySet().removeIf(k -> k.startsWith(prefix));
+        String needle = playerId.toString() + '|';
+        SESSION_COUNTS.keySet().removeIf(k -> k.startsWith(needle));
+        FULL_CAT_CHAT_DONE.keySet().removeIf(k -> k.startsWith(needle));
+        OVER_LIMIT_CHAT_DONE.keySet().removeIf(k -> k.startsWith(needle));
+        PLAIN_FULLCAT_LAST_CHAT_MS.remove(playerId);
     }
 
-    /** @return {@code true} 表示本条请求应被拒绝 */
+    /**
+     * 在已通过终端上下文等基本校验之后调用；若命中限制则已向客户端发过一条（或静默）并完成顺序队列回执。
+     *
+     * @return {@code true} 应当立刻中止本条编码且不继续编码逻辑
+     */
     public static boolean rejectIfLimited(ServerPlayer player, EncodePatternPacket payload) {
-        if (!payload.isBatch()) {
-            return false;
-        }
         UUID uuid = player.getUUID();
-        int sessionId = payload.bulkSessionId();
-        if (ANNOUNCED.containsKey(uuid + "|" + sessionId + "|aborted")) {
-            return true;
-        }
+        int bulkId = payload.bulkEncodeSessionId();
 
-        if (payload.fullCategoryBatch() && Ae2UtilityServerConfig.blockJeiFullCategoryBatchEncode()) {
-            announceOnce(player, sessionId, "fullcat",
-                    Component.translatable("message.ae2utility.encode_rejected_full_category_blocked_server")
-                            .withStyle(ChatFormatting.RED));
+        if (Ae2UtilityServerConfig.blockJeiFullCategoryBatchEncode() && payload.jeiFullCategoryBatch()) {
+            if (shouldAnnounceFullCategoryChat(uuid, bulkId)) {
+                player.sendSystemMessage(Component.translatable("message.ae2utility.encode_rejected_full_category_blocked_server")
+                        .withStyle(ChatFormatting.RED));
+            }
+            sendSequentialUploadFailureEcho(player, payload);
             return true;
         }
 
         int max = Ae2UtilityServerConfig.jeiBulkEncodeMaxPatternsPerSession();
-        if (max > 0) {
-            int n = SESSION_COUNTS.computeIfAbsent(uuid + "|" + sessionId, k -> new AtomicInteger()).incrementAndGet();
+        if (bulkId != 0 && max > 0) {
+            String ckey = sessionCountKey(uuid, bulkId);
+            int n = SESSION_COUNTS.computeIfAbsent(ckey, k -> new AtomicInteger()).incrementAndGet();
             if (n > max) {
-                announceOnce(player, sessionId, "over",
-                        Component.translatable("message.ae2utility.bulk_encode_exceeds_server_limit", max)
-                                .withStyle(ChatFormatting.GOLD));
+                String wkey = overLimitAnnounceKey(uuid, bulkId);
+                if (OVER_LIMIT_CHAT_DONE.putIfAbsent(wkey, Boolean.TRUE) == null) {
+                    player.sendSystemMessage(Component.translatable("message.ae2utility.bulk_encode_exceeds_server_limit", max)
+                            .withStyle(ChatFormatting.GOLD));
+                }
+                sendSequentialUploadFailureEcho(player, payload);
                 return true;
             }
         }
         return false;
     }
 
-    public static void abortSession(ServerPlayer player, int sessionId) {
-        ANNOUNCED.put(player.getUUID() + "|" + sessionId + "|aborted", Boolean.TRUE);
+    private static void sendSequentialUploadFailureEcho(ServerPlayer player, EncodePatternPacket payload) {
+        if (payload.jeiSequentialQueue()) {
+            SequentialUploadResultBridge.sendImmediateResult(player, sequentialLabel(payload), false);
+        } else {
+            SequentialUploadResultBridge.sendImmediateResult(player,
+                    payload.patternName().isBlank() ? sequentialLabel(payload) : payload.patternName(), false);
+        }
     }
 
-    public static void announceOnce(ServerPlayer player, int sessionId, String topic, Component message) {
-        if (ANNOUNCED.putIfAbsent(player.getUUID() + "|" + sessionId + "|" + topic, Boolean.TRUE) == null) {
-            player.sendSystemMessage(message);
+    private static String sequentialLabel(EncodePatternPacket payload) {
+        if (!payload.patternName().isBlank()) {
+            return payload.patternName();
         }
+        return payload.recipeId() != null ? payload.recipeId().toString() : "-";
+    }
+
+    private static boolean shouldAnnounceFullCategoryChat(UUID uuid, int bulkId) {
+        if (bulkId != 0) {
+            String key = uuid + "|" + bulkId + "|fullcat_chat";
+            return FULL_CAT_CHAT_DONE.putIfAbsent(key, Boolean.TRUE) == null;
+        }
+        long now = System.currentTimeMillis();
+        Long prev = PLAIN_FULLCAT_LAST_CHAT_MS.put(uuid, now);
+        return prev == null || now - prev.longValue() >= PLAIN_FULLCAT_CHAT_GAP_MS;
+    }
+
+    /** 用于 {@link com.lhy.ae2utility.service.EncodePatternService#handleBatch} 等整包被拒时只播报一次聊天。*/
+    public static void notifyBlockedFullJeCategoryBatch(ServerPlayer player, int bulkSessionHint) {
+        if (shouldAnnounceFullCategoryChat(player.getUUID(), bulkSessionHint)) {
+            player.sendSystemMessage(Component.translatable("message.ae2utility.encode_rejected_full_category_blocked_server")
+                    .withStyle(ChatFormatting.RED));
+        }
+    }
+
+    private static String sessionCountKey(UUID uuid, int bulkId) {
+        return uuid + "|" + bulkId;
+    }
+
+    private static String overLimitAnnounceKey(UUID uuid, int bulkId) {
+        return uuid + "|" + bulkId + "|over_chat";
     }
 }

@@ -1,20 +1,23 @@
 package com.lhy.ae2utility.network;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 import net.minecraft.network.FriendlyByteBuf;
+import com.lhy.ae2utility.network.codec.StreamCodec;
+import com.lhy.ae2utility.network.codec.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 
 import appeng.api.stacks.GenericStack;
 
-import com.lhy.ae2utility.jei.EncodePreviewCache;
+import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.client.EncodePreviewClientDispatch;
 import com.lhy.ae2utility.util.PatternEncodingPreview;
 import com.lhy.ae2utility.util.PatternEncodingPreviewMode;
 
-/** 服务端编码预览结果：按 JEI 输入槽顺序的实际编码材料 + 编码终端面板布局。 */
+/**
+ * Server-side encode preview: JEI slot-order inputs plus the AE2 encoding-terminal layout.
+ */
 public record EncodePreviewResultPacket(
         int requestId,
         List<GenericStack> inputs,
@@ -24,29 +27,25 @@ public record EncodePreviewResultPacket(
         boolean substituteItems,
         boolean substituteFluids,
         int extraInputs,
-        int extraOutputs) {
-    private static final int MAX_PANEL_OUTPUTS = 27;
-    private static final List<Consumer<EncodePreviewResultPacket>> CLIENT_LISTENERS = new CopyOnWriteArrayList<>();
+        int extraOutputs) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<EncodePreviewResultPacket> TYPE =
+            new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "encode_preview_result"));
 
-    public static void addListener(Consumer<EncodePreviewResultPacket> listener) {
-        CLIENT_LISTENERS.add(listener);
-    }
-
-    public EncodePreviewResultPacket {
-        inputs = copyStacks(inputs);
-        panelInputs = copyStacks(panelInputs);
-        panelOutputs = copyStacks(panelOutputs);
-        mode = mode == null ? PatternEncodingPreviewMode.PROCESSING : mode;
-    }
+    public static final StreamCodec<FriendlyByteBuf, EncodePreviewResultPacket> STREAM_CODEC =
+            StreamCodec.ofMember(EncodePreviewResultPacket::write, EncodePreviewResultPacket::decode);
 
     public static EncodePreviewResultPacket empty(int requestId) {
         return new EncodePreviewResultPacket(requestId, List.of(), PatternEncodingPreviewMode.PROCESSING,
                 List.of(), List.of(), false, false, 0, 0);
     }
 
-    public static EncodePreviewResultPacket of(int requestId, List<GenericStack> inputs, PatternEncodingPreview panel) {
-        return new EncodePreviewResultPacket(requestId, inputs, panel.mode(), panel.inputs(), panel.outputs(),
-                panel.substituteItems(), panel.substituteFluids(), panel.extraInputs(), panel.extraOutputs());
+    public EncodePreviewResultPacket {
+        inputs = copyStacks(inputs);
+        panelInputs = copyStacks(panelInputs);
+        panelOutputs = copyStacks(panelOutputs);
+        extraInputs = Math.max(0, extraInputs);
+        extraOutputs = Math.max(0, extraOutputs);
+        mode = mode == null ? PatternEncodingPreviewMode.PROCESSING : mode;
     }
 
     public boolean hasPanel() {
@@ -59,24 +58,13 @@ public record EncodePreviewResultPacket(
                 extraInputs, extraOutputs);
     }
 
-    public static void encode(EncodePreviewResultPacket msg, FriendlyByteBuf buffer) {
-        buffer.writeVarInt(msg.requestId);
-        writeStacks(buffer, msg.inputs, NetworkValidation.MAX_RECIPE_INPUT_SLOTS);
-        buffer.writeByte(msg.mode.ordinal());
-        writeStacks(buffer, msg.panelInputs, NetworkValidation.MAX_RECIPE_INPUT_SLOTS);
-        writeStacks(buffer, msg.panelOutputs, MAX_PANEL_OUTPUTS);
-        buffer.writeBoolean(msg.substituteItems);
-        buffer.writeBoolean(msg.substituteFluids);
-        buffer.writeVarInt(msg.extraInputs);
-        buffer.writeVarInt(msg.extraOutputs);
-    }
-
-    public static EncodePreviewResultPacket decode(FriendlyByteBuf buffer) {
+    private static EncodePreviewResultPacket decode(FriendlyByteBuf buffer) {
         int requestId = buffer.readVarInt();
         List<GenericStack> inputs = readStacks(buffer, NetworkValidation.MAX_RECIPE_INPUT_SLOTS, "preview inputs");
         PatternEncodingPreviewMode mode = PatternEncodingPreviewMode.byOrdinal(buffer.readByte());
         List<GenericStack> panelInputs = readStacks(buffer, NetworkValidation.MAX_RECIPE_INPUT_SLOTS, "preview panel inputs");
-        List<GenericStack> panelOutputs = readStacks(buffer, MAX_PANEL_OUTPUTS, "preview panel outputs");
+        List<GenericStack> panelOutputs = readStacks(buffer, PatternEncodingPreview.VISIBLE_OUTPUTS + 24,
+                "preview panel outputs");
         boolean substituteItems = buffer.readBoolean();
         boolean substituteFluids = buffer.readBoolean();
         int extraInputs = Math.max(0, buffer.readVarInt());
@@ -85,16 +73,27 @@ public record EncodePreviewResultPacket(
                 substituteItems, substituteFluids, extraInputs, extraOutputs);
     }
 
-    public static void handle(EncodePreviewResultPacket msg) {
-        EncodePreviewCache.handleResult(msg);
-        CLIENT_LISTENERS.forEach(listener -> listener.accept(msg));
+    private void write(FriendlyByteBuf buffer) {
+        buffer.writeVarInt(requestId);
+        writeStacks(buffer, inputs, NetworkValidation.MAX_RECIPE_INPUT_SLOTS);
+        buffer.writeByte(mode.ordinal());
+        writeStacks(buffer, panelInputs, NetworkValidation.MAX_RECIPE_INPUT_SLOTS);
+        writeStacks(buffer, panelOutputs, PatternEncodingPreview.VISIBLE_OUTPUTS + 24);
+        buffer.writeBoolean(substituteItems);
+        buffer.writeBoolean(substituteFluids);
+        buffer.writeVarInt(extraInputs);
+        buffer.writeVarInt(extraOutputs);
     }
 
     private static List<GenericStack> readStacks(FriendlyByteBuf buffer, int max, String field) {
         int size = NetworkValidation.readListSize(buffer, max, field);
         List<GenericStack> stacks = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            stacks.add(buffer.readBoolean() ? GenericStack.readBuffer(buffer) : null);
+            if (buffer.readBoolean()) {
+                stacks.add(com.lhy.ae2utility.network.codec.ForgeCodecs.GENERIC_STACK.decode(buffer));
+            } else {
+                stacks.add(null);
+            }
         }
         return stacks;
     }
@@ -107,12 +106,21 @@ public record EncodePreviewResultPacket(
             boolean present = stack != null && stack.what() != null;
             buffer.writeBoolean(present);
             if (present) {
-                GenericStack.writeBuffer(stack, buffer);
+                com.lhy.ae2utility.network.codec.ForgeCodecs.GENERIC_STACK.encode(buffer, stack);
             }
         }
     }
 
     private static List<GenericStack> copyStacks(List<GenericStack> stacks) {
-        return stacks == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(stacks));
+        return stacks == null ? List.of() : java.util.Collections.unmodifiableList(new ArrayList<>(stacks));
+    }
+
+    @Override
+    public Type<EncodePreviewResultPacket> type() {
+        return TYPE;
+    }
+
+    public static void handle(EncodePreviewResultPacket payload) {
+        EncodePreviewClientDispatch.handle(payload);
     }
 }

@@ -5,16 +5,14 @@ import java.util.List;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.annotation.Nonnull;
-
 import org.jetbrains.annotations.Nullable;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.client.EncodePreviewClientDispatch;
 import com.lhy.ae2utility.client.PatternEncodingPreviewTooltip;
 import com.lhy.ae2utility.jei.CraftableStateCache;
 import com.lhy.ae2utility.jei.EncodePatternButtonController;
 import com.lhy.ae2utility.network.EncodePreviewResultPacket;
-import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.QueryEncodePreviewPacket;
 import com.lhy.ae2utility.util.PatternEncodingPreview;
 
@@ -34,6 +32,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
+import com.lhy.ae2utility.network.ModNetworking;
 
 /**
  * Standalone EMI recipe action button. Left-click encodes, Shift+left-click uploads.
@@ -52,11 +51,11 @@ public class EmiEncodePatternButtonWidget extends Widget {
     private static final int AE_ORANGE_BUTTON_HIGHLIGHT_COLOR = 0x80FFA500;
     private static final int AE_BLUE_SLOT_HIGHLIGHT_COLOR = 0x400000FF;
     private static final int AE_RED_SLOT_HIGHLIGHT_COLOR = 0x66FF0000;
-    private static final AtomicInteger NEXT_PREVIEW_REQUEST_ID = new AtomicInteger(-1);
+    private static final AtomicInteger NEXT_PREVIEW_REQUEST_ID = new AtomicInteger(1);
     private static final WeakHashMap<EmiEncodePatternButtonWidget, Boolean> PREVIEW_WIDGETS = new WeakHashMap<>();
 
     static {
-        EncodePreviewResultPacket.addListener(EmiEncodePatternButtonWidget::handlePreviewResult);
+        EncodePreviewClientDispatch.addListener(EmiEncodePatternButtonWidget::handlePreviewResult);
     }
 
     private final int x;
@@ -83,7 +82,7 @@ public class EmiEncodePatternButtonWidget extends Widget {
     }
 
     @Override
-    public void render(@Nonnull GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         boolean hovered = getBounds().contains(mouseX, mouseY);
         int v = hovered ? SIZE : 0;
         graphics.blit(EMI_BUTTONS, x, y, SIZE, SIZE, (float) BLANK_BUTTON_U, (float) v, SIZE, SIZE, 256, 256);
@@ -100,10 +99,6 @@ public class EmiEncodePatternButtonWidget extends Widget {
                 ensureServerEncodedPreview();
             }
         }
-    }
-
-    public void m_88315_(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        render(graphics, mouseX, mouseY, delta);
     }
 
     @Override
@@ -139,7 +134,7 @@ public class EmiEncodePatternButtonWidget extends Widget {
         }
         boolean upload = Screen.hasShiftDown();
         EmiEncodePacketFactory.tryCreate(recipe, upload)
-                .ifPresent(ModNetworking::sendToServer);
+                .ifPresent(packet -> ModNetworking.sendToServer(packet));
         Minecraft.getInstance().getSoundManager()
                 .play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
         return true;
@@ -156,12 +151,8 @@ public class EmiEncodePatternButtonWidget extends Widget {
             return;
         }
         for (Widget widget : group.widgets) {
-            if (!(widget instanceof SlotWidget)) {
-                continue;
-            }
-            SlotWidget slot = (SlotWidget) widget;
-            if (slot.getRecipe() != null) {
-                continue; // skip logical output slots
+            if (!(widget instanceof SlotWidget slot) || slot.getRecipe() != null) {
+                continue; // skip non-slots and logical output slots
             }
             var ingredient = slot.getStack();
             if (ingredient == null || ingredient.isEmpty()) {
@@ -223,12 +214,14 @@ public class EmiEncodePatternButtonWidget extends Widget {
             return null;
         }
         cachedLocalTerminalPreview = EmiEncodePacketFactory.tryCreate(recipe, false)
-                .map(packet -> PatternEncodingPreview.guess(packet, mc.level, CraftableStateCache::isCraftable))
+                .map(packet -> PatternEncodingPreview.guess(packet, mc.level,
+                        CraftableStateCache::isCraftable,
+                        mc.player == null ? null : mc.player.getInventory().items))
                 .orElse(null);
         return cachedLocalTerminalPreview;
     }
 
-    private static void handlePreviewResult(EncodePreviewResultPacket payload) {
+    static void handlePreviewResult(EncodePreviewResultPacket payload) {
         if (payload == null) {
             return;
         }

@@ -1,76 +1,198 @@
 package com.lhy.ae2utility.compat;
 
-import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Optional;
 
+import org.jetbrains.annotations.Nullable;
+
+import appeng.api.crafting.IPatternDetails;
+import appeng.api.crafting.PatternDetailsHelper;
+import appeng.menu.me.items.PatternEncodingTermMenu;
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
+import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.ModList;
 
-/** Optional bridge for Some Useless Things' omniversal pattern encoder.
- *
- * <p>The Forge 1.20.1 build does not compile against the optional mod. Reflection
- * keeps the bridge safe when the mod is absent while allowing compatible releases
- * to handle their own pattern format.</p>
+import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.network.EncodePatternPacket;
+
+/**
+ * Isolated reflective bridge for Some Useless Things omniversal patterns.
+ * Direct class references would fail to load when the optional mod is absent.
  */
 public final class SomeUselessThingsCompat {
-    private static final String MOD_ID = "useless_mod";
-    private static final String HANDLER = "com.sorrowmist.useless.compat.jei.OmniversalPatternJeiTransferHandler";
-    private static final String RECIPE = "com.sorrowmist.useless.content.recipe.AlloyFurnaceRecipeCatalog$Entry";
+    private static final String ENTRY_CLASS = "com.sorrowmist.useless.content.recipe.AlloyFurnaceRecipeCatalog$Entry";
+    private static final String IDENTITY_CLASS = "com.sorrowmist.useless.content.recipe.AlloyFurnaceRecipeIdentity";
+    private static final String CATALOG_CLASS = "com.sorrowmist.useless.content.recipe.AlloyFurnaceRecipeCatalog";
+    private static final String RECIPE_CLASS = "com.sorrowmist.useless.content.recipe.AdvancedAlloyFurnaceRecipe";
+    private static final String ENCODING_CLASS =
+            "com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.OmniversalPatternEncoding";
+    private static final String HANDLER_CLASS = "com.sorrowmist.useless.compat.jei.OmniversalPatternJeiTransferHandler";
+
     private static IRecipeTransferHandlerHelper transferHelper;
-    private static Method transferMethod;
+
+    public record OmniversalIdentity(ResourceLocation recipeId, String fingerprint, String sourceId) {
+        public boolean isComplete() {
+            return recipeId != null && fingerprint != null && !fingerprint.isBlank();
+        }
+    }
 
     private SomeUselessThingsCompat() {
     }
 
     public static boolean isLoaded() {
-        return ModList.get().isLoaded(MOD_ID);
+        return ModList.get().isLoaded("useless_mod");
     }
 
     public static void prepare(IRecipeTransferHandlerHelper helper) {
-        transferHelper = helper;
-        transferMethod = null;
-        if (!isLoaded() || helper == null) {
+        if (!isLoaded()) {
             return;
         }
+        transferHelper = helper;
+    }
+
+    public static boolean isOmniversalRecipe(Object recipe) {
+        if (!isLoaded() || recipe == null) {
+            return false;
+        }
         try {
-            Class<?> handler = Class.forName(HANDLER);
-            Class<?> recipe = Class.forName(RECIPE);
-            for (Method method : handler.getMethods()) {
-                if (!"transferOmniversalRecipe".equals(method.getName()) || method.getParameterCount() != 7) {
-                    continue;
-                }
-                if (method.getParameterTypes()[1].isAssignableFrom(recipe)) {
-                    transferMethod = method;
-                    break;
-                }
+            return Class.forName(ENTRY_CLASS, false, recipe.getClass().getClassLoader()).isInstance(recipe);
+        } catch (ClassNotFoundException ignored) {
+            return false;
+        }
+    }
+
+    public static @Nullable OmniversalIdentity identityOf(Object recipe) {
+        if (!isOmniversalRecipe(recipe)) {
+            return null;
+        }
+        try {
+            Object identity = recipe.getClass().getMethod("identity").invoke(recipe);
+            ResourceLocation recipeId = (ResourceLocation) identity.getClass().getMethod("recipeId").invoke(identity);
+            String fingerprint = (String) identity.getClass().getMethod("fingerprint").invoke(identity);
+            String sourceId = (String) recipe.getClass().getMethod("sourceId").invoke(recipe);
+            OmniversalIdentity result = new OmniversalIdentity(recipeId, fingerprint, sourceId == null ? "" : sourceId);
+            return result.isComplete() ? result : null;
+        } catch (ReflectiveOperationException | LinkageError | ClassCastException ignored) {
+            return null;
+        }
+    }
+
+    public static EncodePatternPacket attachIdentity(EncodePatternPacket packet, Object recipe) {
+        OmniversalIdentity identity = identityOf(recipe);
+        if (packet == null || identity == null) {
+            return packet;
+        }
+        return packet.withOmniversalIdentity(identity.recipeId(), identity.fingerprint(), identity.sourceId());
+    }
+
+    public static ItemStack encodePattern(ItemStack processingPattern, EncodePatternPacket payload, Level level) {
+        if (!isLoaded() || level == null || payload == null) {
+            return processingPattern;
+        }
+        try {
+            Object entry = resolveEntry(level, payload);
+            if (entry == null) {
+                entry = findEntryFromPattern(processingPattern, level);
             }
-        } catch (ReflectiveOperationException | LinkageError ignored) {
-            // Optional compatibility must never prevent JEI from loading.
+            if (entry == null) {
+                return processingPattern;
+            }
+            ClassLoader loader = entry.getClass().getClassLoader();
+            Class<?> entryClass = Class.forName(ENTRY_CLASS, false, loader);
+            Class<?> recipeClass = Class.forName(RECIPE_CLASS, false, loader);
+            Class<?> encodingClass = Class.forName(ENCODING_CLASS, false, loader);
+            Object recipe = entryClass.getMethod("recipe").invoke(entry);
+            ItemStack officialProcessing = (ItemStack) encodingClass
+                    .getMethod("createProcessingPattern", recipeClass)
+                    .invoke(null, recipe);
+            ItemStack source = officialProcessing != null && !officialProcessing.isEmpty()
+                    ? officialProcessing
+                    : processingPattern;
+            if (source == null || source.isEmpty()) {
+                return processingPattern;
+            }
+            ItemStack encoded = (ItemStack) encodingClass
+                    .getMethod("encode", ItemStack.class, entryClass, Level.class)
+                    .invoke(null, source, entry, level);
+            return encoded == null || encoded.isEmpty() ? processingPattern : encoded;
+        } catch (ReflectiveOperationException | LinkageError | ClassCastException t) {
+            Ae2UtilityMod.LOGGER.debug("Omniversal pattern encoding failed", t);
+            return processingPattern;
         }
     }
 
     public static boolean transfer(IRecipeLayoutDrawable<?> layout, boolean doTransfer) {
-        if (layout == null || transferHelper == null || transferMethod == null || !isLoaded()) {
+        if (transferHelper == null || !isOmniversalRecipe(layout.getRecipe())) {
             return false;
         }
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null || player.containerMenu == null
-                || !"appeng.menu.me.items.PatternEncodingTermMenu".equals(player.containerMenu.getClass().getName())) {
+        if (player == null || !(player.containerMenu instanceof PatternEncodingTermMenu menu)) {
             return false;
         }
-        Object recipe = layout.getRecipe();
-        if (recipe == null || !RECIPE.equals(recipe.getClass().getName())) {
-            return false;
-        }
+        IRecipeSlotsView slots = layout.getRecipeSlotsView();
         try {
-            transferMethod.invoke(null, player.containerMenu, recipe, layout.getRecipeSlotsView(), player,
-                    doTransfer, false, transferHelper);
+            ClassLoader loader = layout.getRecipe().getClass().getClassLoader();
+            Class<?> entryClass = Class.forName(ENTRY_CLASS, false, loader);
+            Class<?> handlerClass = Class.forName(HANDLER_CLASS, false, loader);
+            handlerClass.getMethod("transferOmniversalRecipe", PatternEncodingTermMenu.class,
+                    entryClass, IRecipeSlotsView.class, Player.class, boolean.class, boolean.class,
+                    IRecipeTransferHandlerHelper.class)
+                    .invoke(null, menu, layout.getRecipe(), slots, player, doTransfer, false, transferHelper);
             return true;
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
+        } catch (ReflectiveOperationException | LinkageError ignored) {
             return false;
         }
     }
-}
 
+    private static @Nullable Object resolveEntry(Level level, EncodePatternPacket payload) throws ReflectiveOperationException {
+        if (!payload.hasOmniversalIdentity()) {
+            return null;
+        }
+        ClassLoader loader = level.getClass().getClassLoader();
+        Class<?> identityClass = Class.forName(IDENTITY_CLASS, false, loader);
+        Class<?> catalogClass = Class.forName(CATALOG_CLASS, false, loader);
+        Object identity = identityClass.getConstructor(ResourceLocation.class, String.class)
+                .newInstance(payload.omniversalRecipeId(), payload.omniversalFingerprint());
+        Optional<?> resolved;
+        if (!payload.omniversalSourceId().isBlank()) {
+            resolved = (Optional<?>) catalogClass
+                    .getMethod("resolve", Level.class, String.class, identityClass)
+                    .invoke(null, level, payload.omniversalSourceId(), identity);
+        } else {
+            resolved = (Optional<?>) catalogClass
+                    .getMethod("resolve", Level.class, identityClass)
+                    .invoke(null, level, identity);
+        }
+        return resolved == null ? null : resolved.orElse(null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static @Nullable Object findEntryFromPattern(ItemStack processingPattern, Level level)
+            throws ReflectiveOperationException {
+        if (processingPattern == null || processingPattern.isEmpty()) {
+            return null;
+        }
+        IPatternDetails details = PatternDetailsHelper.decodePattern(processingPattern, level);
+        if (details == null) {
+            return null;
+        }
+        Class<?> catalogClass = Class.forName(CATALOG_CLASS, false, level.getClass().getClassLoader());
+        List<?> candidates = (List<?>) catalogClass
+                .getMethod("findPatternCandidates", Level.class, IPatternDetails.class)
+                .invoke(null, level, details);
+        if (candidates != null && candidates.size() == 1) {
+            return candidates.get(0);
+        }
+        Optional<?> unique = (Optional<?>) catalogClass
+                .getMethod("findUniqueMoldPatternCandidate", Level.class, IPatternDetails.class)
+                .invoke(null, level, details);
+        return unique == null ? null : unique.orElse(null);
+    }
+}

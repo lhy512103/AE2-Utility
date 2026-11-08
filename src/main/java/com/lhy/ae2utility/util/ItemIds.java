@@ -20,4 +20,7 @@ public final class ItemIds {
     public static ResourceLocation of(ItemStack stack) {
         return of(stack.getItem());
     }
+    public static int stackHash(net.minecraft.world.item.ItemStack stack) {
+        return java.util.Objects.hash(stack.getItem(), stack.getTag());
+    }
 }

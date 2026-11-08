@@ -8,6 +8,9 @@ public enum PatternEncodingPreviewMode {
 
     public static PatternEncodingPreviewMode byOrdinal(int ordinal) {
         PatternEncodingPreviewMode[] values = values();
-        return ordinal < 0 || ordinal >= values.length ? PROCESSING : values[ordinal];
+        if (ordinal < 0 || ordinal >= values.length) {
+            return PROCESSING;
+        }
+        return values[ordinal];
     }
 }

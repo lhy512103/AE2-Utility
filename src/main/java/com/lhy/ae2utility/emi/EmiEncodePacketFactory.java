@@ -13,6 +13,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
+import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
 import com.lhy.ae2utility.network.EncodePatternPacket;
@@ -58,9 +59,9 @@ public final class EmiEncodePacketFactory {
             outputs = List.of(draftOutput);
         }
         java.util.Set<AEKey> outputKeys = outputs.stream()
-                .filter(stack -> stack != null)
-                .map(stack -> stack.what())
-                .filter(key -> key != null)
+                .filter(Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<EmiIngredient> encodingInputs = multiblockStructureDraft
                 ? recipe.getInputs().stream()
@@ -87,17 +88,23 @@ public final class EmiEncodePacketFactory {
         String providerSearchKey = computeEaepProviderSearchKey(recipe, backingRecipe, upload);
         boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipe, backingRecipe, inputs);
 
-        return Optional.of(new EncodePatternPacket(
+        EncodePatternPacket packet = new EncodePatternPacket(
                 inputs,
                 outputs,
                 recipeId,
                 patternName,
                 providerSearchKey,
+                providerSearchKey,
                 upload,
                 JeiPatternSubstitutionUi.isItemSubstituteOn(),
                 JeiPatternSubstitutionUi.isFluidSubstituteOn(),
                 false,
-                craftingCategoryHint));
+                false,
+                false,
+                0,
+                craftingCategoryHint);
+        Object omniversalRecipe = backingRecipe != null ? backingRecipe : structureRecipe;
+        return Optional.of(com.lhy.ae2utility.compat.SomeUselessThingsCompat.attachIdentity(packet, omniversalRecipe));
     }
 
     private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
@@ -126,9 +133,9 @@ public final class EmiEncodePacketFactory {
             return false;
         }
         List<ItemStack> alternatives = ingredient.getEmiStacks().stream()
-                .map(stack -> stack.getItemStack())
+                .map(EmiStack::getItemStack)
                 .filter(stack -> stack != null && !stack.isEmpty())
-                .map(stack -> stack.copy())
+                .map(ItemStack::copy)
                 .toList();
         return MultiblockStructurePatternCompat.isFilteredHatchSlot(alternatives);
     }
@@ -238,8 +245,7 @@ public final class EmiEncodePacketFactory {
         }
         long amount = Math.max(1L, stack.getAmount() > 0 ? stack.getAmount() : fallbackAmount);
         Object key = stack.getKey();
-        if (key instanceof Item) {
-            Item item = (Item) key;
+        if (key instanceof Item item) {
             ItemStack itemStack = stack.getItemStack();
             if (itemStack.isEmpty()) {
                 itemStack = item.getDefaultInstance();
@@ -247,8 +253,7 @@ public final class EmiEncodePacketFactory {
             itemStack.setCount((int) Math.min(Integer.MAX_VALUE, amount));
             return new GenericStack(AEItemKey.of(itemStack), amount);
         }
-        if (key instanceof Fluid) {
-            Fluid fluid = (Fluid) key;
+        if (key instanceof Fluid fluid) {
             return new GenericStack(AEFluidKey.of(fluid), amount);
         }
         return tryMekanismChemical(stack, amount);
@@ -298,33 +303,45 @@ public final class EmiEncodePacketFactory {
             return "";
         }
 
-        Recipe<?> mcRecipe = resolveMcRecipe(recipe, backingRecipe);
+        // Resolve the actual Minecraft recipe object. JEI-bridged EMI recipes carry the
+        // raw JEI recipe in JemiRecipe.recipe; native EMI recipes expose it via getBackingRecipe().
+        net.minecraft.world.item.crafting.Recipe<?> mcRecipe = resolveMcRecipe(recipe, backingRecipe);
         if (mcRecipe instanceof CraftingRecipe) {
-            return "crafting";
-        }
-        if (mcRecipe != null) {
-            try {
-                String key = com.extendedae_plus.util.uploadPattern.RecipeTypeNameConfig
-                        .mapRecipeTypeToSearchKey(mcRecipe);
-                if (key != null && !key.isBlank()) {
-                    return key;
-                }
-            } catch (LinkageError ignored) {
+            String key = EaepReflection.defaultCraftingSearchKey();
+            if (key != null && !key.isEmpty()) {
+                return key;
+            }
+        } else if (mcRecipe != null) {
+            String key = EaepReflection.mapRecipeTypeToSearchKey(mcRecipe);
+            if (key != null && !key.isEmpty()) {
+                return key;
             }
         }
+
+        if (backingRecipe != null) {
+            String key = EaepReflection.deriveSearchKeyFromUnknownRecipe(backingRecipe);
+            if (key != null && !key.isEmpty()) {
+                return key;
+            }
+        }
+
+        // Fallback: native EMI recipes (AAE reaction chamber, etc.) often have no
+        // RecipeManager entry, so use the recipe category's display name as the provider
+        // search key — it matches the machine name the providers are named after.
         return categoryName(recipe);
     }
 
-    private static @Nullable Recipe<?> resolveMcRecipe(EmiRecipe recipe, @Nullable Object backingRecipe) {
+    private static net.minecraft.world.item.crafting.@Nullable Recipe<?> resolveMcRecipe(EmiRecipe recipe,
+            @Nullable Object backingRecipe) {
         Object raw = backingRecipe;
-        if (recipe instanceof dev.emi.emi.jemi.JemiRecipe<?>) {
-            dev.emi.emi.jemi.JemiRecipe<?> jemi = (dev.emi.emi.jemi.JemiRecipe<?>) recipe;
-            if (jemi.recipe != null) {
-                raw = jemi.recipe;
-            }
+        if (recipe instanceof dev.emi.emi.jemi.JemiRecipe<?> jemi && jemi.recipe != null) {
+            raw = jemi.recipe;
         }
-        if (raw instanceof Recipe<?>) {
-            return (Recipe<?>) raw;
+        if (raw instanceof Recipe<?> holder) {
+            return holder;
+        }
+        if (raw instanceof net.minecraft.world.item.crafting.Recipe<?> r) {
+            return r;
         }
         return null;
     }
@@ -347,11 +364,8 @@ public final class EmiEncodePacketFactory {
         if (meaningfulInputs > 9) {
             return false;
         }
-        if (backingRecipe instanceof Recipe<?>) {
-            Recipe<?> r = (Recipe<?>) backingRecipe;
-            if (r instanceof CraftingRecipe) {
-                return true;
-            }
+        if (backingRecipe instanceof Recipe<?> holder && holder instanceof CraftingRecipe) {
+            return true;
         }
         return recipe.getCategory() == VanillaEmiRecipeCategories.CRAFTING;
     }

@@ -6,159 +6,180 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
-import mezz.jei.api.gui.IRecipeLayoutDrawable;
+import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.recipe.IFocusGroup;
+import mezz.jei.api.recipe.IFocusFactory;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 
-import com.lhy.ae2utility.jei.EncodePatternButtonState;
-import com.lhy.ae2utility.jei.JeiEncodePacketFactory;
-import com.lhy.ae2utility.jei.JeiRecipePageKinds;
-import com.lhy.ae2utility.jei.JeiRecipesBatchEncode;
+import com.lhy.ae2utility.api.Ae2UtilityApi;
+import com.lhy.ae2utility.jei.Ae2UtilityJeiPlugin;
+import com.lhy.ae2utility.network.EncodePatternPacket;
+import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
+import com.lhy.ae2utility.recipe_finder.RecipeFinderCandidateView;
 import com.lhy.ae2utility.recipe_finder.RecipeFinderFeatureClassifier;
 import com.lhy.ae2utility.util.GenericIngredientUtil;
-import com.lhy.ae2utility.util.ItemIds;
 
-/** 遍历 JEI 全部分类，为配方查找器建立候选索引。 */
 public final class RecipeFinderJeiIndexer {
     private RecipeFinderJeiIndexer() {
     }
 
     public static BuildResult build() {
-        IJeiRuntime runtime = EncodePatternButtonState.getJeiRuntime();
+        IJeiRuntime runtime = Ae2UtilityJeiPlugin.getJeiRuntime();
         if (runtime == null) {
-            return new BuildResult(List.of(), Component.translatable("gui.ae2utility.recipe_finder.jei_unavailable"));
+            return new BuildResult(List.of(), "JEI 未就绪，无法读取全局配方。");
         }
 
-        IFocusGroup emptyFocus = runtime.getJeiHelpers().getFocusFactory().getEmptyFocusGroup();
-        Map<String, RecipeFinderCandidate> unique = new LinkedHashMap<>();
-        List<RecipeType<?>> recipeTypes = new ArrayList<>(runtime.getJeiHelpers().getAllRecipeTypes().toList());
-        recipeTypes.sort(Comparator.comparing(type -> type.getUid().toString()));
-        for (RecipeType<?> recipeType : recipeTypes) {
-            collectType(runtime, recipeType, emptyFocus, unique);
+        Map<String, RecipeFinderCandidateView> unique = new LinkedHashMap<>();
+        for (RecipeType<?> recipeType : getOrderedRecipeTypes(runtime)) {
+            collectType(runtime, recipeType, unique);
         }
 
-        List<RecipeFinderCandidate> recipes = unique.values().stream()
-                .sorted(Comparator.comparing((RecipeFinderCandidate candidate) -> candidate.sourceModName())
-                        .thenComparing(candidate -> candidate.machineLabel())
-                        .thenComparing(candidate -> candidate.displayName()))
+        List<RecipeFinderCandidateView> recipes = unique.values().stream()
+                .sorted(Comparator.comparing(RecipeFinderCandidateView::sourceModName)
+                        .thenComparing(RecipeFinderCandidateView::machineLabel)
+                        .thenComparing(RecipeFinderCandidateView::displayName))
                 .toList();
 
-        Component status = recipes.isEmpty()
-                ? Component.translatable("gui.ae2utility.recipe_finder.index_empty")
-                : Component.translatable("gui.ae2utility.recipe_finder.indexed", recipes.size());
+        String status = recipes.isEmpty()
+                ? "没有从 JEI 中读取到可用配方。"
+                : "已索引 " + recipes.size() + " 条 JEI 配方。";
         return new BuildResult(recipes, status);
     }
 
-    /** 重新为所选候选创建 JEI 布局，走与 JEI 批量编码相同的流程。 */
-    public static void encode(List<RecipeFinderCandidate> selected, boolean shiftUpload) {
-        IJeiRuntime runtime = EncodePatternButtonState.getJeiRuntime();
-        if (runtime == null || selected.isEmpty()) {
-            return;
-        }
-        IFocusGroup emptyFocus = runtime.getJeiHelpers().getFocusFactory().getEmptyFocusGroup();
-        List<IRecipeLayoutDrawable<?>> layouts = new ArrayList<>(selected.size());
-        for (RecipeFinderCandidate candidate : selected) {
-            createLayout(runtime, candidate.category(), candidate.recipe(), emptyFocus).ifPresent(layouts::add);
-        }
-        JeiRecipesBatchEncode.run(layouts, shiftUpload);
-    }
-
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static Optional<IRecipeLayoutDrawable<?>> createLayout(IJeiRuntime runtime, IRecipeCategory<?> category,
-            Object recipe, IFocusGroup focusGroup) {
-        return (Optional) runtime.getRecipeManager().createRecipeLayoutDrawable((IRecipeCategory) category, recipe,
-                focusGroup);
-    }
-
-    private static <T> void collectType(IJeiRuntime runtime, RecipeType<T> recipeType, IFocusGroup emptyFocus,
-            Map<String, RecipeFinderCandidate> unique) {
-        IRecipeCategory<T> category;
-        List<T> recipes;
-        try {
-            category = runtime.getRecipeManager().getRecipeCategory(recipeType);
-            recipes = runtime.getRecipeManager().createRecipeLookup(recipeType).get().toList();
-        } catch (RuntimeException e) {
+    private static void collectType(IJeiRuntime runtime, RecipeType<?> recipeType,
+            Map<String, RecipeFinderCandidateView> unique) {
+        IRecipeCategory category = runtime.getRecipeManager().getRecipeCategory((RecipeType) recipeType);
+        if (category == null) {
             return;
         }
-        for (T recipe : recipes) {
-            try {
-                createCandidate(runtime, category, recipe, emptyFocus)
-                        .ifPresent(view -> unique.putIfAbsent(view.identityKey(), view));
-            } catch (RuntimeException ignored) {
-                // 第三方分类构建布局时可能抛异常，跳过该配方即可
-            }
+
+        List<?> recipes = runtime.getRecipeManager()
+                .createRecipeLookup((RecipeType) recipeType)
+                .get()
+                .toList();
+
+        for (Object recipe : recipes) {
+            java.util.Optional<RecipeFinderCandidateView> candidate = createCandidate(runtime, recipeType, category, recipe);
+            candidate.ifPresent(view -> unique.putIfAbsent(view.identityKey(), view));
         }
     }
 
-    private static <T> Optional<RecipeFinderCandidate> createCandidate(IJeiRuntime runtime, IRecipeCategory<T> category,
-            T recipe, IFocusGroup emptyFocus) {
-        IRecipeLayoutDrawable<T> layout = runtime.getRecipeManager()
-                .createRecipeLayoutDrawable(category, recipe, emptyFocus)
+    private static <T> java.util.Optional<RecipeFinderCandidateView> createCandidate(IJeiRuntime runtime,
+            RecipeType<T> recipeType, IRecipeCategory<T> category, Object rawRecipe) {
+        T recipe;
+        try {
+            @SuppressWarnings("unchecked")
+            T cast = (T) rawRecipe;
+            recipe = cast;
+        } catch (ClassCastException ex) {
+            return java.util.Optional.empty();
+        }
+
+        IFocusFactory focusFactory = runtime.getJeiHelpers().getFocusFactory();
+        var layout = runtime.getRecipeManager()
+                .createRecipeLayoutDrawable(category, recipe, focusFactory.createFocusGroup(List.of()))
                 .orElse(null);
-        if (layout == null || JeiRecipePageKinds.isTagRecipeLayout(layout)) {
-            return Optional.empty();
+        if (layout == null) {
+            return java.util.Optional.empty();
         }
 
         IRecipeSlotsView slotsView = layout.getRecipeSlotsView();
         IIngredientManager ingredientManager = runtime.getIngredientManager();
-        List<IRecipeSlotView> inputSlots = slotsView.getSlotViews(RecipeIngredientRole.INPUT);
         List<IRecipeSlotView> outputSlots = slotsView.getSlotViews(RecipeIngredientRole.OUTPUT);
+        if (outputSlots.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+
         DisplayedIngredient primaryOutput = firstDisplayed(outputSlots, ingredientManager);
         if (primaryOutput == null) {
-            return Optional.empty();
+            return java.util.Optional.empty();
         }
 
         ResourceLocation recipeId = category.getRegistryName(recipe);
         String sourceModId = resolveSourceModId(recipeId, primaryOutput);
+        String sourceModName = RecipeFinderFeatureClassifier.modDisplayName(sourceModId);
+        String machineKey = recipeType.getUid().toString();
         String machineLabel = category.getTitle().getString();
         Set<String> outputItemIds = collectItemIds(outputSlots);
-        Set<String> inputItemIds = collectItemIds(inputSlots);
-        boolean encodable = JeiRecipePageKinds.isEncodableRecipeLayout(layout)
-                && JeiEncodePacketFactory.tryCreate(layout, false).isPresent();
-        String identityKey = signatureOf(recipeId, category.getRecipeType().getUid().toString(),
-                primaryOutput.displayName(), collectSlotNames(inputSlots, ingredientManager),
-                collectSlotNames(outputSlots.subList(1, outputSlots.size()), ingredientManager));
+        Set<String> inputItemIds = collectItemIds(slotsView.getSlotViews(RecipeIngredientRole.INPUT));
+        Set<String> involvedModIds = collectModIds(outputItemIds, inputItemIds);
+        Set<String> inputFeatures = collectFeatures(slotsView.getSlotViews(RecipeIngredientRole.INPUT));
+        Set<String> outputFeatures = collectFeatures(outputSlots);
+        List<String> inputDisplayNames = collectSlotNames(slotsView.getSlotViews(RecipeIngredientRole.INPUT), ingredientManager);
+        List<String> extraOutputDisplayNames = collectExtraOutputNames(outputSlots, ingredientManager);
+        EncodePatternPacket encodePacket = createEncodePacket(recipeId, machineLabel, primaryOutput.displayName(), recipe,
+                slotsView);
+        boolean encodable = encodePacket != null;
+        String identityKey = signatureOf(recipeId, machineKey, primaryOutput.displayName(), inputDisplayNames,
+                extraOutputDisplayNames);
 
-        return Optional.of(new RecipeFinderCandidate(
+        return java.util.Optional.of(new RecipeFinderCandidateView(
                 identityKey,
                 primaryOutput.previewStack(),
                 primaryOutput.displayName(),
                 sourceModId,
-                RecipeFinderFeatureClassifier.modDisplayName(sourceModId),
+                sourceModName,
+                machineKey,
                 machineLabel,
+                recipeId == null ? "" : recipeId.toString(),
                 outputItemIds,
                 inputItemIds,
-                collectModIds(outputItemIds, inputItemIds),
-                collectFeatures(inputSlots),
-                collectFeatures(outputSlots),
+                involvedModIds,
+                inputFeatures,
+                outputFeatures,
+                inputDisplayNames,
+                extraOutputDisplayNames,
                 encodable,
-                category,
-                recipe));
+                encodePacket));
+    }
+
+    private static @Nullable EncodePatternPacket createEncodePacket(@Nullable ResourceLocation recipeId, String machineLabel,
+            String displayName, Object recipe, IRecipeSlotsView slotsView) {
+        List<GenericStack> outputs = RecipeTransferPacketHelper.getEncodingOutputs(recipe, slotsView);
+        Set<appeng.api.stacks.AEKey> outputKeys = outputs.stream()
+                .filter(Objects::nonNull)
+                .map(GenericStack::what)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
+                slotsView, RecipeIngredientRole.INPUT, outputKeys);
+        boolean hasInput = inputs.stream().anyMatch(Objects::nonNull);
+        boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
+        boolean hasUnsupportedInput = inputs.stream().anyMatch(slot -> slot == null);
+        boolean hasUnsupportedOutput = outputs.stream().anyMatch(Objects::isNull);
+
+        if (!hasInput || !hasOutput || hasUnsupportedInput || hasUnsupportedOutput) {
+            return null;
+        }
+
+        return new EncodePatternPacket(inputs, outputs, recipeId, displayName, "", machineLabel, false, false, false, false,
+                false, false, 0, false);
     }
 
     private static Set<String> collectFeatures(List<IRecipeSlotView> slots) {
         Set<String> features = new LinkedHashSet<>();
         for (IRecipeSlotView slot : slots) {
-            slot.getAllIngredients().forEach(ingredient ->
-                    features.addAll(com.lhy.ae2utility.api.Ae2UtilityApi.recipeFinder().classify(ingredient.getIngredient())));
+            for (ITypedIngredient<?> ingredient : slot.getAllIngredients().toList()) {
+                features.addAll(Ae2UtilityApi.recipeFinder().classify(ingredient.getIngredient()));
+            }
         }
         if (features.isEmpty()) {
             features.add("other");
@@ -169,22 +190,24 @@ public final class RecipeFinderJeiIndexer {
     private static Set<String> collectItemIds(List<IRecipeSlotView> slots) {
         Set<String> ids = new LinkedHashSet<>();
         for (IRecipeSlotView slot : slots) {
-            slot.getItemStacks()
-                    .filter(stack -> !stack.isEmpty())
-                    .forEach(stack -> ids.add(ItemIds.of(stack).toString()));
+            for (ItemStack stack : slot.getIngredients(VanillaTypes.ITEM_STACK).toList()) {
+                if (!stack.isEmpty()) {
+                    ids.add(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+                }
+            }
         }
         return Set.copyOf(ids);
     }
 
     private static Set<String> collectModIds(Set<String> outputItemIds, Set<String> inputItemIds) {
         Set<String> mods = new LinkedHashSet<>();
-        for (Set<String> ids : List.of(outputItemIds, inputItemIds)) {
-            for (String id : ids) {
-                int i = id.indexOf(':');
-                if (i > 0) {
-                    mods.add(id.substring(0, i));
-                }
-            }
+        for (String id : outputItemIds) {
+            int i = id.indexOf(':');
+            if (i > 0) mods.add(id.substring(0, i));
+        }
+        for (String id : inputItemIds) {
+            int i = id.indexOf(':');
+            if (i > 0) mods.add(id.substring(0, i));
         }
         return Set.copyOf(mods);
     }
@@ -197,11 +220,21 @@ public final class RecipeFinderJeiIndexer {
                 names.add(displayed.displayName());
             }
         }
-        return names;
+        return List.copyOf(names);
     }
 
-    private static @Nullable DisplayedIngredient firstDisplayed(List<IRecipeSlotView> slots,
-            IIngredientManager ingredientManager) {
+    private static List<String> collectExtraOutputNames(List<IRecipeSlotView> outputSlots, IIngredientManager ingredientManager) {
+        List<String> names = new ArrayList<>();
+        for (int i = 1; i < outputSlots.size(); i++) {
+            DisplayedIngredient displayed = getDisplayed(outputSlots.get(i), ingredientManager);
+            if (displayed != null) {
+                names.add(displayed.displayName());
+            }
+        }
+        return List.copyOf(names);
+    }
+
+    private static @Nullable DisplayedIngredient firstDisplayed(List<IRecipeSlotView> slots, IIngredientManager ingredientManager) {
         for (IRecipeSlotView slot : slots) {
             DisplayedIngredient displayed = getDisplayed(slot, ingredientManager);
             if (displayed != null) {
@@ -217,14 +250,22 @@ public final class RecipeFinderJeiIndexer {
         if (ingredient == null) {
             return null;
         }
-        ItemStack previewStack = ingredient.getItemStack()
-                .map(stack -> stack.copy())
+
+        String displayName = getDisplayName(ingredientManager, ingredient);
+        ItemStack previewStack = ingredient.getIngredient(VanillaTypes.ITEM_STACK)
+                .map(ItemStack::copy)
                 .orElseGet(() -> wrapIngredientPreview(ingredient.getIngredient()));
-        return new DisplayedIngredient(displayName(ingredientManager, ingredient), previewStack);
+        return new DisplayedIngredient(displayName, previewStack);
     }
 
-    private static <T> String displayName(IIngredientManager ingredientManager, ITypedIngredient<T> ingredient) {
-        return ingredientManager.getIngredientHelper(ingredient.getType()).getDisplayName(ingredient.getIngredient());
+    private static String getDisplayName(IIngredientManager ingredientManager, ITypedIngredient<?> ingredient) {
+        return getDisplayNameTyped(ingredientManager, ingredient);
+    }
+
+    private static <T> String getDisplayNameTyped(IIngredientManager ingredientManager, ITypedIngredient<?> ingredient) {
+        @SuppressWarnings("unchecked")
+        ITypedIngredient<T> typed = (ITypedIngredient<T>) ingredient;
+        return ingredientManager.getIngredientHelper(typed.getType()).getDisplayName(typed.getIngredient());
     }
 
     private static ItemStack wrapIngredientPreview(Object ingredient) {
@@ -235,7 +276,8 @@ public final class RecipeFinderJeiIndexer {
         if (generic.what() instanceof AEItemKey itemKey) {
             return itemKey.toStack((int) Math.max(1, generic.amount()));
         }
-        return GenericStack.wrapInItemStack(generic);
+        ItemStack wrapped = GenericStack.wrapInItemStack(generic);
+        return wrapped == null ? ItemStack.EMPTY : wrapped;
     }
 
     private static String resolveSourceModId(@Nullable ResourceLocation recipeId, DisplayedIngredient primaryOutput) {
@@ -243,7 +285,7 @@ public final class RecipeFinderJeiIndexer {
             return recipeId.getNamespace();
         }
         if (!primaryOutput.previewStack().isEmpty()) {
-            return ItemIds.of(primaryOutput.previewStack()).getNamespace();
+            return BuiltInRegistries.ITEM.getKey(primaryOutput.previewStack().getItem()).getNamespace();
         }
         return "unknown";
     }
@@ -265,7 +307,13 @@ public final class RecipeFinderJeiIndexer {
         return builder.toString();
     }
 
-    public record BuildResult(List<RecipeFinderCandidate> recipes, Component status) {
+    private static List<RecipeType<?>> getOrderedRecipeTypes(IJeiRuntime runtime) {
+        List<RecipeType<?>> allTypes = new ArrayList<>(runtime.getJeiHelpers().getAllRecipeTypes().toList());
+        allTypes.sort(Comparator.comparing(type -> type.getUid().toString()));
+        return List.copyOf(allTypes);
+    }
+
+    public record BuildResult(List<RecipeFinderCandidateView> recipes, String statusMessage) {
     }
 
     private record DisplayedIngredient(String displayName, ItemStack previewStack) {

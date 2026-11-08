@@ -3,16 +3,12 @@ package com.lhy.ae2utility.jei;
 import org.jetbrains.annotations.Nullable;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
-import mezz.jei.api.gui.ingredient.IRecipeSlotView;
-import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.vanilla.IJeiIngredientInfoRecipe;
 import net.minecraft.resources.ResourceLocation;
 
-import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
-import com.lhy.ae2utility.util.GenericIngredientUtil;
-
 /**
- * JEI 也用 recipe layout 展示标签目录和物品信息页，它们不是可拉料或编码的配方。
+ * JEI also uses recipe layouts for tag catalogs and ingredient information pages.
+ * Those pages are not recipes that can be pulled into an inventory or encoded.
  */
 public final class JeiRecipePageKinds {
     private JeiRecipePageKinds() {
@@ -26,34 +22,14 @@ public final class JeiRecipePageKinds {
     }
 
     public static boolean isTagRecipeLayout(@Nullable IRecipeLayoutDrawable<?> layout) {
-        if (layout == null) {
+        if (layout == null || layout.getRecipeCategory() == null) {
             return false;
         }
         var recipeType = layout.getRecipeCategory().getRecipeType();
+        if (recipeType == null) {
+            return false;
+        }
         return isTagRecipeType(recipeType.getUid()) || isTagOrInformationRecipe(layout.getRecipe());
-    }
-
-    public static boolean isEncodableRecipeLayout(@Nullable IRecipeLayoutDrawable<?> layout) {
-        if (layout == null || isTagRecipeLayout(layout)) {
-            return false;
-        }
-        var slots = layout.getRecipeSlotsView();
-        if (!hasConvertibleIngredient(slots.getSlotViews(RecipeIngredientRole.INPUT))) {
-            return false;
-        }
-        return hasConvertibleIngredient(slots.getSlotViews(RecipeIngredientRole.OUTPUT))
-                || MultiblockStructurePatternCompat.isSupportedRecipe(layout.getRecipe(), true, false);
-    }
-
-    private static boolean hasConvertibleIngredient(java.util.List<IRecipeSlotView> slots) {
-        for (IRecipeSlotView slot : slots) {
-            for (var typed : slot.getAllIngredients().toList()) {
-                if (GenericIngredientUtil.toAEKey(typed.getIngredient()) != null) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     static boolean isTagOrInformationRecipeClass(String className) {

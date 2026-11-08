@@ -1,7 +1,6 @@
 package com.lhy.ae2utility.integration.multiblock;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +12,8 @@ import org.jetbrains.annotations.Nullable;
 
 import appeng.api.stacks.GenericStack;
 import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.util.ItemIds;
+
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
@@ -22,22 +22,27 @@ import net.minecraft.world.item.Items;
 import net.minecraftforge.fml.ModList;
 
 /**
- * 把没有真实产物的多方块结构信息页（GTCEu/GTL、Neo ECO）转成处理样板草稿：
- * 输入为结构材料，产物为以结构名命名的附魔书。
+ * Adapts multiblock structure information pages without real outputs into processing-pattern drafts.
  */
 public final class MultiblockStructurePatternCompat {
     private static final String GTLCORE_MOD_ID = "gtlcore";
     private static final String GTCEU_MULTIBLOCK_INFO_WRAPPER =
             "com.gregtechceu.gtceu.integration.jei.multipage.MultiblockInfoWrapper";
-    private static final String NEOECO_MULTIBLOCK_RECIPE =
-            "cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiblockInfoRecipe";
-    private static final String NEOECO_DEFINITION_CLASS =
-            "cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition";
-    private static final String NEOECO_REQUIREMENTS_CLASS =
-            "cn.dancingsnow.neoecoae.multiblock.StructureTerminalMaterialRequirements";
+    private static final String NEOECO_JEI_MULTIBLOCK_WRAPPER =
+            "cn.dancingsnow.neoecoae.integration.xei.multiblock.MultiBlockInfoWrapper";
+    private static final String NEOECO_EMI_MULTIBLOCK_RECIPE =
+            "cn.dancingsnow.neoecoae.integration.emi.recipe.MultiblockEmiRecipe";
+    private static final String LIGHTNING_MULTIBLOCK_RECIPE =
+            "com.moakiee.ae2lt.integration.recipeviewer.multiblock.MultiblockStructureRecipe";
+    private static final String LIGHTNING_EMI_MULTIBLOCK_RECIPE =
+            "com.moakiee.ae2lt.integration.emi.EmiMultiblockStructureRecipe";
+    private static final String NEOECO_CONTEXT_CLASS =
+            "cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockContext";
+    private static final String NEOECO_DUMMY_WORLD_CLASS =
+            "com.lowdragmc.lowdraglib2.utils.virtuallevel.TrackedDummyWorld";
     private static final String GTL_CONFIG_CLASS = "org.gtlcore.gtlcore.config.ConfigHolder";
     private static final Set<Class<?>> UNSUPPORTED_RECIPE_CLASSES = ConcurrentHashMap.newKeySet();
-    private static volatile String @Nullable [] cachedGtlHatchFilters;
+    private static volatile @Nullable String[] cachedGtlHatchFilters;
 
     private MultiblockStructurePatternCompat() {
     }
@@ -46,7 +51,8 @@ public final class MultiblockStructurePatternCompat {
         if (recipe == null || UNSUPPORTED_RECIPE_CLASSES.contains(recipe.getClass())) {
             return false;
         }
-        boolean knownStructureRecipe = isKnownStructureRecipe(recipe.getClass().getName());
+        String className = recipe.getClass().getName();
+        boolean knownStructureRecipe = isKnownStructureRecipe(className);
         if (!knownStructureRecipe
                 && !recipe.getClass().getSimpleName().toLowerCase(Locale.ROOT).contains("multiblock")) {
             return false;
@@ -58,17 +64,24 @@ public final class MultiblockStructurePatternCompat {
     }
 
     static boolean isKnownStructureRecipe(String className) {
-        return GTCEU_MULTIBLOCK_INFO_WRAPPER.equals(className) || NEOECO_MULTIBLOCK_RECIPE.equals(className);
+        return GTCEU_MULTIBLOCK_INFO_WRAPPER.equals(className)
+                || NEOECO_JEI_MULTIBLOCK_WRAPPER.equals(className)
+                || NEOECO_EMI_MULTIBLOCK_RECIPE.equals(className)
+                || LIGHTNING_MULTIBLOCK_RECIPE.equals(className)
+                || LIGHTNING_EMI_MULTIBLOCK_RECIPE.equals(className);
     }
 
     private static boolean canExtractStructureInputs(Object recipe) {
-        return NEOECO_MULTIBLOCK_RECIPE.equals(recipe.getClass().getName());
+        String className = recipe.getClass().getName();
+        return NEOECO_JEI_MULTIBLOCK_WRAPPER.equals(className)
+                || NEOECO_EMI_MULTIBLOCK_RECIPE.equals(className);
     }
 
     public static boolean isFilteredHatchSlot(List<ItemStack> alternatives) {
         String[] filters = getGtlHatchFilters();
         return filters.length > 0 && !alternatives.isEmpty() && alternatives.stream().allMatch(stack -> {
-            String itemId = ItemIds.of(stack).toString();
+            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            String itemId = id == null ? "" : id.toString();
             return Arrays.stream(filters)
                     .filter(filter -> filter != null && !filter.isBlank())
                     .anyMatch(itemId::contains);
@@ -77,33 +90,77 @@ public final class MultiblockStructurePatternCompat {
 
     public static List<GenericStack> extractStructureInputs(Object recipe) {
         try {
-            Object definition = unwrapStructureMetadata(recipe);
-            if (definition != null && NEOECO_DEFINITION_CLASS.equals(definition.getClass().getName())) {
-                return extractNeoEcoInputs(definition);
+            Object target = unwrapStructureMetadata(recipe);
+            if (target == null) {
+                return List.of();
+            }
+            if ("cn.dancingsnow.neoecoae.multiblock.definition.MultiBlockDefinition"
+                    .equals(target.getClass().getName())) {
+                return extractNeoEcoInputs(target);
+            }
+            if (LIGHTNING_MULTIBLOCK_RECIPE.equals(target.getClass().getName())) {
+                return extractLightningInputs(target);
             }
             return List.of();
         } catch (ReflectiveOperationException | LinkageError e) {
             UNSUPPORTED_RECIPE_CLASSES.add(recipe.getClass());
-            Ae2UtilityMod.LOGGER.warn("Failed to read multiblock structure inputs from {}", recipe.getClass().getName(), e);
+            Ae2UtilityMod.LOGGER.warn("Failed to read multiblock structure inputs from {}",
+                    recipe.getClass().getName(), e);
             return List.of();
         }
     }
 
     private static List<GenericStack> extractNeoEcoInputs(Object definition) throws ReflectiveOperationException {
-        Class<?> definitionClass = Class.forName(NEOECO_DEFINITION_CLASS);
-        int length = definitionClass.getMethod("getExpandMin").invoke(definition) instanceof Number n ? n.intValue() : 1;
-        Method collect = Class.forName(NEOECO_REQUIREMENTS_CLASS)
-                .getMethod("collectRequiredItems", definitionClass, int.class);
-        if (!(collect.invoke(null, definition, length) instanceof List<?> items)) {
+        Class<?> contextClass = Class.forName(NEOECO_CONTEXT_CLASS);
+        Class<?> worldClass = Class.forName(NEOECO_DUMMY_WORLD_CLASS);
+        Object world = worldClass.getConstructor().newInstance();
+        Object context = contextClass.getMethod("dummyDelegated", int.class, worldClass)
+                .invoke(null, 1, world);
+        definition.getClass().getMethod("createLevel", contextClass).invoke(definition, context);
+        Object requiredItems = context.getClass().getMethod("getRequiredItems").invoke(context);
+        return requiredItems instanceof List<?> list ? genericStacksFromRequiredItems(list) : List.of();
+    }
+
+    private static List<GenericStack> genericStacksFromRequiredItems(List<?> requiredItems)
+            throws ReflectiveOperationException {
+        List<GenericStack> inputs = new ArrayList<>(requiredItems.size());
+        for (Object requiredItem : requiredItems) {
+            if (requiredItem == null) {
+                continue;
+            }
+            Object value = tryInvokeNoArg(requiredItem, "stackWithCount", "stack");
+            if (!(value instanceof ItemStack stack) || stack.isEmpty()) {
+                continue;
+            }
+            Object countValue = tryInvokeNoArg(requiredItem, "count");
+            int count = countValue instanceof Number number ? Math.max(1, number.intValue()) : stack.getCount();
+            GenericStack generic = GenericStack.fromItemStack(stack.copyWithCount(count));
+            if (generic != null) {
+                inputs.add(generic);
+            }
+        }
+        return List.copyOf(inputs);
+    }
+
+    private static List<GenericStack> extractLightningInputs(Object structure) throws ReflectiveOperationException {
+        Object materials = tryInvokeNoArg(structure, "materials");
+        if (!(materials instanceof List<?> list)) {
             return List.of();
         }
-        List<GenericStack> inputs = new ArrayList<>(items.size());
-        for (Object item : items) {
-            if (item instanceof ItemStack stack && !stack.isEmpty()) {
-                GenericStack generic = GenericStack.fromItemStack(stack);
-                if (generic != null) {
-                    inputs.add(generic);
-                }
+        List<GenericStack> inputs = new ArrayList<>(list.size());
+        for (Object material : list) {
+            if (material == null) {
+                continue;
+            }
+            Object blockValue = tryInvokeNoArg(material, "block");
+            if (!(blockValue instanceof net.minecraft.world.level.block.Block block)) {
+                continue;
+            }
+            Object countValue = tryInvokeNoArg(material, "count");
+            int count = countValue instanceof Number number ? Math.max(1, number.intValue()) : 1;
+            GenericStack generic = GenericStack.fromItemStack(new ItemStack(block, count));
+            if (generic != null) {
+                inputs.add(generic);
             }
         }
         return List.copyOf(inputs);
@@ -112,11 +169,13 @@ public final class MultiblockStructurePatternCompat {
     public static @Nullable GenericStack createDraftOutput(Object recipe) {
         try {
             ItemStack draft = new ItemStack(Items.ENCHANTED_BOOK);
-            draft.setHoverName(resolveStructureName(recipe).copy().withStyle(Style.EMPTY.withColor(0xFC5AFC)));
+            draft.setHoverName(resolveStructureName(recipe)
+                    .copy().withStyle(Style.EMPTY.withColor(0xFC5AFC)));
             return GenericStack.fromItemStack(draft);
         } catch (ReflectiveOperationException | LinkageError e) {
             UNSUPPORTED_RECIPE_CLASSES.add(recipe.getClass());
-            Ae2UtilityMod.LOGGER.warn("Failed to read multiblock structure metadata from {}", recipe.getClass().getName(), e);
+            Ae2UtilityMod.LOGGER.warn("Failed to read multiblock structure metadata from {}",
+                    recipe.getClass().getName(), e);
             return null;
         }
     }
@@ -126,33 +185,41 @@ public final class MultiblockStructurePatternCompat {
         if (cached != null) {
             return cached;
         }
-        String[] filters = new String[0];
-        if (ModList.get().isLoaded(GTLCORE_MOD_ID)) {
-            try {
-                Class<?> config = Class.forName(GTL_CONFIG_CLASS);
-                Object instance = getField(config, "INSTANCE").get(null);
-                Object value = getField(config, "filterHatch").get(instance);
-                if (value instanceof String[] array) {
-                    filters = array.clone();
-                } else if (value instanceof List<?> list) {
-                    filters = list.stream().filter(String.class::isInstance).map(String.class::cast).toArray(String[]::new);
-                }
-            } catch (ReflectiveOperationException | LinkageError ignored) {
-            }
+        if (!ModList.get().isLoaded(GTLCORE_MOD_ID)) {
+            return cachedGtlHatchFilters = new String[0];
         }
-        cachedGtlHatchFilters = filters;
-        return filters;
+        try {
+            Class<?> config = Class.forName(GTL_CONFIG_CLASS);
+            Object instance = getField(config, "INSTANCE").get(null);
+            Object value = getField(config, "filterHatch").get(instance);
+            if (value instanceof String[] filters) {
+                cachedGtlHatchFilters = filters.clone();
+            } else if (value instanceof List<?> list) {
+                cachedGtlHatchFilters = list.stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .toArray(String[]::new);
+            } else {
+                cachedGtlHatchFilters = new String[0];
+            }
+        } catch (ReflectiveOperationException | LinkageError e) {
+            cachedGtlHatchFilters = new String[0];
+        }
+        return cachedGtlHatchFilters;
     }
 
     static Component resolveStructureName(Object recipe) throws ReflectiveOperationException {
         Object target = unwrapStructureMetadata(recipe);
-        Component component = tryReadComponent(recipe, "title", "getTitle", "getDisplayName", "getName", "name");
+        Component component = tryReadComponent(recipe,
+                "title", "getTitle", "getDisplayName", "getName", "name");
         if (component == null && target != recipe) {
-            component = tryReadComponent(target, "title", "getTitle", "getDisplayName", "getName", "name");
+            component = tryReadComponent(target,
+                    "title", "getTitle", "getDisplayName", "getName", "name");
         }
         if (component != null && !component.getString().isBlank()) {
             return component;
         }
+
         ResourceLocation id = tryReadId(target);
         if (id == null && target != recipe) {
             id = tryReadId(recipe);
@@ -178,27 +245,23 @@ public final class MultiblockStructurePatternCompat {
         return nested != null ? nested : recipe;
     }
 
-    private static @Nullable Object tryInvokeNoArg(Object target, String... names) throws ReflectiveOperationException {
+    private static @Nullable Object tryInvokeNoArg(Object target, String... names)
+            throws ReflectiveOperationException {
         for (String name : names) {
-            Method method = findNoArgMethod(target.getClass(), name);
-            if (method != null) {
+            try {
+                var method = target.getClass().getMethod(name);
                 method.setAccessible(true);
                 return method.invoke(target);
+            } catch (NoSuchMethodException ignored) {
+                try {
+                    var method = target.getClass().getDeclaredMethod(name);
+                    method.setAccessible(true);
+                    return method.invoke(target);
+                } catch (NoSuchMethodException ignoredDeclared) {
+                }
             }
         }
         return null;
-    }
-
-    private static @Nullable Method findNoArgMethod(Class<?> owner, String name) {
-        try {
-            return owner.getMethod(name);
-        } catch (NoSuchMethodException ignored) {
-            try {
-                return owner.getDeclaredMethod(name);
-            } catch (NoSuchMethodException ignoredDeclared) {
-                return null;
-            }
-        }
     }
 
     private static @Nullable ResourceLocation tryReadId(@Nullable Object target) throws ReflectiveOperationException {
@@ -213,8 +276,10 @@ public final class MultiblockStructurePatternCompat {
         return value instanceof ResourceLocation id ? id : null;
     }
 
-    private static @Nullable Component tryReadComponent(Object target, String... names) throws ReflectiveOperationException {
-        return tryInvokeNoArg(target, names) instanceof Component component ? component : null;
+    private static @Nullable Component tryReadComponent(Object target, String... names)
+            throws ReflectiveOperationException {
+        Object value = tryInvokeNoArg(target, names);
+        return value instanceof Component component ? component : null;
     }
 
     private static @Nullable Object tryReadField(Object target, String name) throws IllegalAccessException {

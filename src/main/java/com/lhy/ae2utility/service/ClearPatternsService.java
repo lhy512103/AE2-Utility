@@ -1,62 +1,64 @@
 package com.lhy.ae2utility.service;
 
-import appeng.api.crafting.PatternDetailsHelper;
-import appeng.core.definitions.AEItems;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.ItemHandlerHelper;
+import com.lhy.ae2utility.network.ModNetworking.PayloadContext;
 
+import appeng.api.crafting.PatternDetailsHelper;
+import appeng.core.definitions.AEItems;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
 
-public final class ClearPatternsService {
-    private ClearPatternsService() {
-    }
+public class ClearPatternsService {
 
-    public static void handle(ServerPlayer player, ClearPatternsPacket msg) {
-        Inventory inventory = player.getInventory();
-        int clearedCount = 0;
-
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)) {
-                int count = stack.getCount();
-                inventory.setItem(slot, AEItems.BLANK_PATTERN.stack(count));
-                clearedCount += count;
-            }
-        }
-
-        if (clearedCount > 0) {
-            mergeBlankPatterns(player, inventory);
-            player.containerMenu.broadcastChanges();
-        }
-    }
-
-    private static void mergeBlankPatterns(ServerPlayer player, Inventory inventory) {
+    /**
+     * Consolidates all blank patterns in the player inventory into as few stacks as possible.
+     */
+    private static void mergeBlankPatternsInInventory(ServerPlayer player, Inventory inv) {
         int total = 0;
-        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-            ItemStack stack = inventory.getItem(slot);
-            if (!stack.isEmpty() && stack.is(AEItems.BLANK_PATTERN.asItem())) {
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack stack = inv.getItem(i);
+            if (!stack.isEmpty() && AEItems.BLANK_PATTERN.isSameAs(stack)) {
                 total += stack.getCount();
-                inventory.setItem(slot, ItemStack.EMPTY);
+                inv.setItem(i, ItemStack.EMPTY);
             }
         }
-
         if (total <= 0) {
             return;
         }
-
-        int maxStackSize = AEItems.BLANK_PATTERN.stack().getMaxStackSize();
-        for (int slot = 0; slot < inventory.getContainerSize() && total > 0; slot++) {
-            if (inventory.getItem(slot).isEmpty()) {
-                int amount = Math.min(total, maxStackSize);
-                inventory.setItem(slot, AEItems.BLANK_PATTERN.stack(amount));
-                total -= amount;
+        int maxStack = AEItems.BLANK_PATTERN.stack().getMaxStackSize();
+        for (int i = 0; i < inv.getContainerSize() && total > 0; i++) {
+            if (inv.getItem(i).isEmpty()) {
+                int put = Math.min(total, maxStack);
+                inv.setItem(i, AEItems.BLANK_PATTERN.stack(put));
+                total -= put;
             }
         }
-
         if (total > 0) {
             ItemHandlerHelper.giveItemToPlayer(player, AEItems.BLANK_PATTERN.stack(total));
         }
+    }
+
+    public static void handle(final ClearPatternsPacket msg, final PayloadContext ctx) {
+        ctx.enqueueWork(() -> {
+            if (ctx.player() instanceof ServerPlayer player) {
+                Inventory inv = player.getInventory();
+                int clearedCount = 0;
+                // 遍历玩家背包，将所有已编码的样板替换为空白样板 (Iterate over inventory to clear encoded patterns)
+                for (int i = 0; i < inv.getContainerSize(); i++) {
+                    ItemStack stack = inv.getItem(i);
+                    if (!stack.isEmpty() && PatternDetailsHelper.isEncodedPattern(stack)) {
+                        int count = stack.getCount();
+                        inv.setItem(i, new ItemStack(AEItems.BLANK_PATTERN, count));
+                        clearedCount += count;
+                    }
+                }
+                if (clearedCount > 0) {
+                    mergeBlankPatternsInInventory(player, inv);
+                    player.containerMenu.broadcastChanges();
+                }
+            }
+        });
     }
 }
