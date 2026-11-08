@@ -30,6 +30,7 @@
     "MixinNetworkCraftingProviders",
     "MixinPatternProviderLogic",
     "MixinOverloadedPatternProviderLogic",
+    "OverloadedPatternProviderLogicAccessor",
     "MixinOverloadedPatternProviderBlockEntity",
     "MixinPatternProviderMenu",
     "MixinRestrictedInputSlot"
