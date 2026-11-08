@@ -40,7 +40,9 @@ java {
 
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
-    config "${mod_id}.mixins.json"
+    // Do not pass --mixin.config here: Mixin bootstrap runs on the MC-BOOTSTRAP
+    // layer, which cannot see the project's resources. FML loads mixins.json
+    // from the exploded mod after discovery (see jar Manifest MixinConfigs).
 }
 
 // ── Forge & mappings ───────────────────────────────────────────
@@ -64,19 +66,20 @@ minecraft {
         client {
             workingDirectory project.file('run/client')
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.hasProperty('migrationSmokeTest')) {
+                property 'ae2utility.migrationSmokeTest', 'true'
+            }
         }
         server {
             workingDirectory project.file('run/server')
             property 'forge.enabledGameTestNamespaces', mod_id
-            // args '--nogui'
+            args '--nogui'
         }
     }
 }
 
 // ── 仓库 ──────────────────────────────────────────────────────
 repositories {
-    flatDir { dirs 'libs' }
-
     mavenCentral()
 
     maven {
@@ -90,12 +93,10 @@ repositories {
 
     maven {
         url = 'https://maven.blamejared.com/'
-        content { includeGroup 'mezz.jei' }
-    }
-
-    exclusiveContent {
-        forRepository { maven { url = 'https://cursemaven.com' } }
-        filter { includeGroup 'curse.maven' }
+        content {
+            includeGroup 'mezz.jei'
+            includeGroup 'net.mezzdev.config'
+        }
     }
 
     maven {
@@ -103,11 +104,12 @@ repositories {
         content { includeGroup 'maven.modrinth' }
     }
 
+    // Non-exclusive: ForgeGradle remaps curse artifacts locally. exclusiveContent
+    // made it look for *_mapped_official on CurseMaven and fail.
     maven {
-        url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
-        content { includeGroup 'software.bernie.geckolib' }
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
     }
-
     maven { url = 'https://maven.terraformersmc.com/releases/' }
     maven { url = 'https://maven.shedaniel.me/' }
     maven { url = 'https://maven.theillusivec4.top/' }
@@ -140,6 +142,7 @@ tasks.named('processResources', ProcessResources).configure {
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties + [project: project]
     }
+
 }
 
 // ── JAR manifest ──────────────────────────────────────────────
@@ -152,7 +155,8 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Title'    : project.name,
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
-                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                'MixinConfigs'            : "${mod_id}.mixins.json"
         ])
     }
     finalizedBy 'reobfJar'
@@ -162,10 +166,44 @@ tasks.named('jar', Jar).configure {
 tasks.withType(JavaExec).configureEach {
     if (name == 'runClient') {
         classpath += configurations.clientRuntimeOnly
+        classpath += files(sourceSets.main.output.resourcesDir)
     }
 }
 
 // ── 编译选项 ──────────────────────────────────────────────────
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xmaxerrs', '1000']
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+tasks.named('javadoc', Javadoc).configure {
+    dependsOn tasks.named('classes')
+    source = fileTree('src/main/java') {
+        include 'com/lhy/ae2utility/api/**/*.java'
+        exclude '**/*Impl.java'
+    }
+    classpath = sourceSets.main.output + sourceSets.main.compileClasspath
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    options.docEncoding = 'UTF-8'
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+tasks.register('apiJavadocJar', Jar) {
+    dependsOn tasks.named('javadoc')
+    archiveClassifier = 'api-javadoc'
+    from tasks.named('javadoc').map { it.destinationDir }
+}
+
+tasks.named('assemble').configure {
+    dependsOn tasks.named('apiJavadocJar')
 }

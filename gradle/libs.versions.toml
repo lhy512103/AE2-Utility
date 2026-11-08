@@ -1,42 +1,61 @@
 [versions]
 # ---- Minecraft & Loader ----
 minecraft       = "1.20.1"
-forge           = "47.4.10"
+forge           = "47.4.28"
 # ---- AE2 & addons ----
-ae2             = "15.4.10"
+ae2             = "15.4.12"
 ae2wtlib        = "15.3.3-forge"
-ae2wcwt         = "1.20.1.5"
+ae2wcwt         = "1.20.1.11"
 guideme         = "20.1.15"
-extendedae-plus = "1.5.4.1"            # Modrinth slug: extendedae-plus
-advancedae      = "1.3.5-1.20.1"       # Modrinth slug: advancedae
-geckolib        = "4.7.4"              # software.bernie.geckolib:geckolib-forge-1.20.1
+extendedae-plus = "auasuDQR"           # Forge 1.20.1 1.6.4; version string resolves a Java 21 artifact
+neoecoae        = "eLBVfyxA"           # Forge 1.20.1 20.5.5; pin exact loader/game-version artifact
+ldlib           = "mc1.20.1-1.0.52.a-forge"
+thunderbolt     = "2.0.5-forge.1.20.1"
+ae2lt           = "2.1.4-forge.1.20.1"
+advancedae      = "1.3.6-1.20.1"       # Modrinth slug: advancedae
+geckolib        = "aC5KMoNg"           # Forge 1.20.1 4.8.4 (version id; 4.8.4 alone resolves Fabric)
 glodium         = "1.20-1.5-forge"     # Modrinth slug: glodium
-extendedae-epp  = "1.20-1.4.12-forge"  # Modrinth slug: extended-ae (Ex Pattern Provider)
+extendedae-epp  = "1.20-1.4.18-forge"  # Modrinth slug: extended-ae (Ex Pattern Provider)
 appflux         = "1.20-1.3.7-forge"   # Modrinth slug: appflux
-jecharacters    = "4.6.4"               # Modrinth slug: justenoughcharacters
-ae2cs           = "1.1.4.514-1.20.1-forge"
+jecharacters    = "pdLyf9hN"           # Forge 1.20.1 4.6.12; bare version resolves an incompatible MC jar
+ae2cs           = "1.1.4.514-1.20.1-forge" # Latest compatible routed-input API; 1.2.0 requires a new NBT-tear adapter
 mekanism        = "10.4.16.80"
 applied-mek     = "1.4.3"               # Modrinth slug: applied-mekanistics
 create          = "mc1.20.1-6.0.8"
 mystical-agriculture = "7.0.24"        # Modrinth slug: mystical-agriculture
 cucumber        = "7.0.16"              # Modrinth slug: cucumber
 mystical-agradditions = "7.0.12"        # Modrinth slug: mystical-agradditions
-cosmetic-armor  = "1.20.1-1a"           # 本地 flatDir: libs/cosmetic-armor-reworked-1.20.1-1a.jar
 sound-muffler   = "3.51-1.20.1"         # Modrinth slug: extreme_sound_muffler
-caramel-chat    = "1.2.0"               # 本地 flatDir: libs/caramelChat-mc1.20.1-forge-1.2.0.jar
+caramel-chat    = "1.2.2"               # Modrinth slug: caramel-chat
 modern-ui       = "3.12.0.1"            # Modrinth slug: modern-ui
 mouse-tweaks    = "1.20.1-2.25.1-forge" # Modrinth slug: mouse-tweaks
-searchables     = "1.0.3"               # 本地 flatDir: libs/Searchables-forge-1.20.1-1.0.3.jar
+searchables     = "PM9yAW1G"            # Forge 1.20.1 1.0.3 (version id; 1.0.3 alone resolves Fabric)
 controlling     = "12.0.2"              # Modrinth slug: controlling
+imblocker       = "5.6.2.1"             # Modrinth WMDesFsZ / version nRLlzGpB (imblocker-original)
+codechicken-lib = "4.4.0.528"
+brandons-core   = "3.2.1.302"
+draconic-evolution = "3.1.2.621"
+modonomicon     = "1.20.1-1.79.3"
+occultism       = "1.20.1-1.158.0"
+sophisticated-core = "1.20.1-1.5.29.2459"
+sophisticated-storage = "1.20.1-1.5.15.2220"
+sophisticated-backpacks = "1.20.1-3.26.19.2239"
+productivebees  = "1.20.1-12.6.0"
+jade            = "11.13.3+forge"
+mega-cells      = "forge-2.4.6"
+merequester     = "1.20.1-1.2.1+forge"
+applied-create  = "1.1.6"
+smartbrainlib   = "1.15"
+kotlin-for-forge = "Zsh14XeQ"           # 4.12.0-all language provider; do not fg.deobf
 # ---- Library dependencies ----
-cloth           = "11.1.106"
-architectury    = "9.1.12"
+cloth           = "11.1.136"
+architectury    = "9.2.14"
 curios          = "5.14.1+1.20.1"
-configuration   = "2.2.1"              # 本地 flatDir: libs/configuration-forge-1.20.1-2.2.1.jar
+configuration   = "9425510"            # 3.1.1; same GAV, satisfies EAEP embedded range [5840405,)
 mixin           = "0.8.5"
 # ---- Recipe viewers ----
-jei             = "15.20.0.106"
-emi             = "1.1.22+1.20.1"
+jei             = "15.74.0.234"        # Backported recipe-button API used by the 1.21 feature set
+emi             = "1.1.24+1.20.1+forge"
 
 [libraries]
 # AE2
@@ -46,7 +65,7 @@ ae2wtlib           = { module = "maven.modrinth:applied-energistics-2-wireless-t
 ae2wcwt            = { module = "maven.modrinth:ae2-wcwt", version.ref = "ae2wcwt" }
 extendedae-plus    = { module = "maven.modrinth:extendedae-plus", version.ref = "extendedae-plus" }
 advancedae         = { module = "maven.modrinth:advancedae",      version.ref = "advancedae" }
-geckolib           = { module = "software.bernie.geckolib:geckolib-forge-1.20.1", version.ref = "geckolib" }
+geckolib           = { module = "maven.modrinth:geckolib", version.ref = "geckolib" }
 glodium            = { module = "maven.modrinth:glodium",         version.ref = "glodium" }
 extendedae-epp     = { module = "maven.modrinth:extended-ae",     version.ref = "extendedae-epp" }
 appflux            = { module = "maven.modrinth:appflux",         version.ref = "appflux" }
@@ -59,18 +78,17 @@ create             = { module = "maven.modrinth:create", version.ref = "create" 
 mystical-agriculture = { module = "maven.modrinth:mystical-agriculture", version.ref = "mystical-agriculture" }
 cucumber           = { module = "maven.modrinth:cucumber", version.ref = "cucumber" }
 mystical-agradditions = { module = "maven.modrinth:mystical-agradditions", version.ref = "mystical-agradditions" }
-cosmetic-armor     = { module = "lain.mods:cosmetic-armor-reworked", version.ref = "cosmetic-armor" }
 sound-muffler      = { module = "maven.modrinth:extreme_sound_muffler", version.ref = "sound-muffler" }
-caramel-chat       = { module = "caramelChat-mc1.20.1-forge:caramelChat-mc1.20.1-forge", version.ref = "caramel-chat" }
+caramel-chat       = { module = "maven.modrinth:caramel-chat", version.ref = "caramel-chat" }
 modern-ui          = { module = "maven.modrinth:modern-ui", version.ref = "modern-ui" }
 mouse-tweaks       = { module = "maven.modrinth:mouse-tweaks", version.ref = "mouse-tweaks" }
-searchables        = { module = "Searchables-forge-1.20.1:Searchables-forge-1.20.1", version.ref = "searchables" }
+searchables        = { module = "maven.modrinth:searchables", version.ref = "searchables" }
 controlling        = { module = "maven.modrinth:controlling", version.ref = "controlling" }
 # Libraries
 cloth              = { module = "me.shedaniel.cloth:cloth-config-forge",  version.ref = "cloth" }
 architectury       = { module = "dev.architectury:architectury-forge",    version.ref = "architectury" }
 curios             = { module = "top.theillusivec4.curios:curios-forge",  version.ref = "curios" }
-configuration      = { module = "dev.toma.configuration:configuration-forge-1.20.1", version.ref = "configuration" }
+configuration      = { module = "curse.maven:configuration-444699", version.ref = "configuration" }
 # Recipe viewers
 jei-forge          = { module = "mezz.jei:jei-1.20.1-forge", version.ref = "jei" }
-emi-forge          = { module = "dev.emi:emi-forge",          version.ref = "emi" }
+emi-forge          = { module = "maven.modrinth:emi",          version.ref = "emi" }

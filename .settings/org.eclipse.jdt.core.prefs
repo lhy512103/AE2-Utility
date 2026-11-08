@@ -18,3 +18,4 @@ org.eclipse.jdt.core.compiler.problem.nullUncheckedConversion=ignore
 org.eclipse.jdt.core.compiler.problem.potentialNullProblem=warning
 org.eclipse.jdt.core.compiler.problem.potentialNullReference=warning
 org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields=enabled
+org.eclipse.jdt.core.compiler.processAnnotations=enabled

@@ -29,3 +29,8 @@ run
 
 # Files from Forge MDK
 forge*changelog.txt
+
+# Local pre-migration snapshot and verification logs
+migration-backup/
+.tmp-ae2-src/
+logs/
