@@ -11,6 +11,7 @@
 5. 修复：未安装 JEI 时机器拉料可能导致服务端报错的问题。
 6. 修复：与新版扩展模组共用时的样板上传、供应器选择和配方按钮兼容问题。
 7. 修复：Applied Create 与 Jade 共用时因缺少配置文本而无法进入主菜单的问题。
+8. 优化：配方界面关闭后及时释放编码按钮缓存，减少长时间浏览的内存占用。
 
 ### English
 
@@ -21,6 +22,7 @@
 5. Fixed: Machine ingredient pulling could fail on servers without JEI installed.
 6. Fixed: Pattern uploads, provider selection, and recipe buttons with newer addon versions.
 7. Fixed: Missing configuration labels could prevent reaching the title screen with Applied Create and Jade.
+8. Improved: Released encoding-button caches after recipe layouts close to reduce memory retention.
 
 ## v1.20.1.1
 

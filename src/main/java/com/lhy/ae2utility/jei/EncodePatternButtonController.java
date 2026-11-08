@@ -4,7 +4,7 @@ import com.lhy.ae2utility.compat.ModCapabilities;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
+import com.lhy.ae2utility.util.WeakValueRegistry;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jetbrains.annotations.Nullable;
@@ -56,7 +56,7 @@ import mezz.jei.common.util.ImmutableRect2i;
 import mezz.jei.gui.recipes.RecipesGui;
 
 public class EncodePatternButtonController implements IIconButtonController {
-    private static final Map<IRecipeLayoutDrawable<?>, EncodePatternButtonController> CONTROLLERS = new WeakHashMap<>();
+    private static final WeakValueRegistry<IRecipeLayoutDrawable<?>, EncodePatternButtonController> CONTROLLERS = new WeakValueRegistry<>();
     private static final AtomicInteger NEXT_PREVIEW_REQUEST_ID = new AtomicInteger(1);
 
     private final IRecipeLayoutDrawable<?> recipeLayout;
@@ -356,11 +356,9 @@ public class EncodePatternButtonController implements IIconButtonController {
         if (payload == null) {
             return;
         }
-        for (EncodePatternButtonController controller : CONTROLLERS.values()) {
-            if (controller.previewRequestId == payload.requestId()) {
-                controller.applyServerEncodedInputs(payload);
-                break;
-            }
+        EncodePatternButtonController controller = CONTROLLERS.find(value -> value.previewRequestId == payload.requestId());
+        if (controller != null) {
+            controller.applyServerEncodedInputs(payload);
         }
     }
 
