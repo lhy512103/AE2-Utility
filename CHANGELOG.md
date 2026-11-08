@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### English
+
+1. Fixed: Restore pattern upload and provider selection compatibility with newer ExtendedAE Plus versions while keeping support for older versions.
+
+### 中文
+
+1. 修复：适配新版 ExtendedAE Plus 的样板上传和供应器选择，同时保留旧版兼容。
+
 ## 1.8.0
 
 ### English

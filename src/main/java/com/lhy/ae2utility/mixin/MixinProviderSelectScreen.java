@@ -22,6 +22,7 @@ import com.lhy.ae2utility.client.SequentialUploadQueue;
 import com.lhy.ae2utility.debug.InventoryPatternUploadDebug;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
 import com.lhy.ae2utility.network.EaepSequentialProviderDismissPacket;
+import com.lhy.ae2utility.integration.eaep.EaepApiAccess;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
@@ -41,10 +42,6 @@ public class MixinProviderSelectScreen {
 
     @Shadow
     private int page;
-
-    /** EAEP 的「唯一匹配自动上传」开关（持久化于 pinned_providers.json）。关闭时不得自动点选供应器。 */
-    @Shadow
-    private static boolean autoUploadUniqueMatchEnabled;
 
     @Unique
     private boolean ae2utility$sequentialUniqueProviderAutoFired;
@@ -153,7 +150,7 @@ public class MixinProviderSelectScreen {
      * 而 ae2utility 的搜索关键字常常是「界面打开后」才同步过来的，原版那次判定会错过，
      * 因此这里在搜索框填好后补一次自动点选。判定条件与 EAEP 对齐：
      * <ul>
-     *   <li>必须开启「唯一匹配自动上传」开关（{@link #autoUploadUniqueMatchEnabled}）；</li>
+     *   <li>必须开启「唯一匹配自动上传」开关（由版本桥读取旧屏幕字段或新配置项）；</li>
      *   <li>搜索框必须有真实过滤词（避免「网络里只有一个供应器/无过滤」时被误判为唯一并自动上传）；</li>
      *   <li>过滤后恰好只有一个供应器。</li>
      * </ul>
@@ -163,7 +160,7 @@ public class MixinProviderSelectScreen {
      * 已不在当前列表（例如装满后被 EAEP 剔除，列表只剩一个异名供应器）时，取消原生自动上传，
      * 避免把样板误传到名字不同的供应器（如「聚合核心」→「聚合核心max」），改为停下弹窗让玩家手动选。
      */
-    @Inject(method = "tryAutoUploadIfUniqueMatch", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "tryAutoUploadIfUniqueMatch", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private void ae2utility$suppressNativeAutoUploadWhenRememberedAbsent(CallbackInfo ci) {
         if (InventoryPatternUploadQueue.requiresManualProviderChoice()) {
             InventoryPatternUploadDebug.info("provider_auto_choose",
@@ -225,7 +222,9 @@ public class MixinProviderSelectScreen {
         if (fIds == null || fIds.isEmpty()) {
             return false;
         }
-        if (!autoUploadUniqueMatchEnabled) {
+        // EAEP 1.6.4 moved the switch into ModConfigs and removed native screen auto-upload.
+        // Our init/tick path still enforces the remembered-name guard below before invoking onChoose.
+        if (!EaepApiAccess.uniqueProviderAutoUploadEnabled()) {
             return false;
         }
         EditBox searchBox = ae2utility$searchBox();
@@ -235,28 +234,14 @@ public class MixinProviderSelectScreen {
             return false;
         }
 
-        int chosenIdx = -1;
-        boolean reused = false;
-        // 仅当开启「批次内复用」时才查询本批次已记住的同名选择。
         String remembered = Ae2UtilityClientConfig.reuseProviderWithinBatch()
                 ? EaepRememberedProviderChoice.lookup(currentQuery)
                 : null;
-        if (remembered != null && fNames != null) {
-            // 本批次已选过供应器：只复用「同名」供应器（按名称匹配当前列表，不会错位）。
-            // 若记住的供应器已不在列表（例如装满后被 EAEP 剔除），则绝不自动点选其它异名供应器——
-            // 停下来弹窗让玩家手动选，避免误传到名字不同的供应器（如「聚合核心」→「聚合核心max」）。
-            for (int i = 0; i < fNames.size(); i++) {
-                if (remembered.equals(fNames.get(i))) {
-                    chosenIdx = i;
-                    reused = true;
-                    break;
-                }
-            }
-        } else if (fIds.size() == 1) {
-            // 本批次尚未记住选择，且过滤后唯一供应器：与 EAEP 唯一匹配自动上传一致。
-            chosenIdx = 0;
-        }
-        if (chosenIdx < 0) {
+        // Both EAEP generations use this guarded path for our queue. An absent remembered
+        // provider must not fall through to a differently named unique provider.
+        int chosenIdx = EaepApiAccess.automaticProviderIndex(fNames, hasSearchFilter, remembered);
+        boolean reused = remembered != null && chosenIdx >= 0;
+        if (chosenIdx < 0 || chosenIdx >= fIds.size()) {
             return false;
         }
 

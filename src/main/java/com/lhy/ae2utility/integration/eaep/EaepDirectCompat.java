@@ -11,7 +11,6 @@ import appeng.helpers.patternprovider.PatternContainer;
 
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
 import com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil;
-import com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -31,11 +30,11 @@ public final class EaepDirectCompat {
     }
 
     public static boolean uploadPatternToMatrix(ServerPlayer player, ItemStack pattern, IGrid grid) {
-        return ExtendedAEPatternUploadUtil.uploadPatternToMatrix(player, pattern, grid);
+        return EaepReflection.uploadPatternToMatrix(player, pattern, grid);
     }
 
     public static boolean uploadInventoryPatternToProvider(ServerPlayer player, int playerSlotIndex, long providerId) {
-        return ExtendedAEPatternUploadUtil.uploadPatternToProvider(player, playerSlotIndex, providerId);
+        return EaepReflection.uploadPatternToProvider(player, playerSlotIndex, providerId);
     }
 
     public static boolean preparePatternToNetworkProvider(ServerPlayer player, ItemStack pattern, IGrid grid) {
@@ -60,7 +59,7 @@ public final class EaepDirectCompat {
             return false;
         }
         try {
-            return CtrlQPendingUploadUtil.uploadPendingCtrlQPattern(player, providerId);
+            return EaepReflection.uploadPendingCtrlQPattern(player, providerId);
         } finally {
             CtrlQPendingUploadUtil.clearPendingCtrlQUpload(player);
         }
@@ -85,7 +84,7 @@ public final class EaepDirectCompat {
                 return;
             }
             Map<PatternContainer, ItemStack[]> inventories = new IdentityHashMap<>();
-            for (PatternContainer container : ExtendedAEPatternUploadUtil.listAvailableProvidersFromGrid(grid)) {
+            for (PatternContainer container : EaepReflection.listAvailableProvidersFromGrid(grid)) {
                 InternalInventory inventory = container.getTerminalPatternInventory();
                 if (inventory != null) {
                     inventories.put(container, snapshot(inventory));
@@ -113,7 +112,7 @@ public final class EaepDirectCompat {
                 InternalInventory inventory = container.getTerminalPatternInventory();
                 int changedSlot = findChangedSlot(inventory, entry.getValue());
                 if (changedSlot >= 0) {
-                    ExtendedAEPatternUploadUtil.recordProviderUpload(player, providerId, container, changedSlot);
+                    EaepReflection.recordProviderUpload(player, providerId, container, changedSlot);
                     return;
                 }
             }
