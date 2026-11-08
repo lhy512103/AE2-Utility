@@ -120,15 +120,18 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
 
         int inputsSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_RECIPE_INPUT_SLOTS, "inputs");
         List<List<GenericStack>> inputs = new ArrayList<>(inputsSize);
+        int remainingStacks = NetworkValidation.MAX_TOTAL_PATTERN_STACKS;
         for (int i = 0; i < inputsSize; i++) {
             if (buffer.readBoolean()) {
-                inputs.add(readGenericStacks(buffer, "input alternatives"));
+                List<GenericStack> alternatives = readGenericStacks(buffer, "input alternatives", remainingStacks);
+                remainingStacks -= alternatives.size();
+                inputs.add(alternatives);
             } else {
                 inputs.add(null);
             }
         }
 
-        List<GenericStack> outputs = readGenericStacks(buffer, "outputs");
+        List<GenericStack> outputs = readGenericStacks(buffer, "outputs", remainingStacks);
         boolean jeiSequentialQueue = buffer.readableBytes() > 0 && buffer.readBoolean();
         boolean jeiFullCategoryBatch = buffer.readableBytes() > 0 && buffer.readBoolean();
         int bulkEncodeSessionId = buffer.readableBytes() > 0 ? buffer.readVarInt() : 0;
@@ -189,8 +192,9 @@ public record EncodePatternPacket(List<List<GenericStack>> inputs, List<GenericS
         buffer.writeUtf(omniversalSourceId, 256);
     }
 
-    private static List<GenericStack> readGenericStacks(FriendlyByteBuf buffer, String field) {
-        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_STACKS_PER_SLOT, field);
+    private static List<GenericStack> readGenericStacks(FriendlyByteBuf buffer, String field, int remainingStacks) {
+        int size = NetworkValidation.readListSize(buffer,
+                Math.min(NetworkValidation.MAX_STACKS_PER_SLOT, remainingStacks), field);
         List<GenericStack> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             if (buffer.readBoolean()) {
