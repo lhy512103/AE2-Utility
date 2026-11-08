@@ -5,10 +5,12 @@
 ### English
 
 1. Fixed: Restore pattern upload and provider selection compatibility with newer ExtendedAE Plus versions while keeping support for older versions.
+2. Fixed: Prevent crashes when opening recipes in newer optimized JEI builds.
 
 ### 中文
 
 1. 修复：适配新版 ExtendedAE Plus 的样板上传和供应器选择，同时保留旧版兼容。
+2. 修复：新版 JEI 字节码优化后打开配方界面时可能崩溃的问题。
 
 ## 1.8.0
 
