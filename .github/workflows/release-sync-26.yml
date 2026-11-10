@@ -1,0 +1,31 @@
+name: Sync Release - NeoForge 26.1.2
+
+# Also installed on main: release edits are routed from the default branch.
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published tag with attached main JAR: neoforge-26.1.2-v1.8.1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-26-distribution-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: >-
+      !github.event.release.draft &&
+      startsWith(inputs.tag || github.event.release.tag_name, 'neoforge-26.1.2-v')
+    uses: lhy512103/AE2-Utility/.github/workflows/_publish-26.yml@neoforge-26.1.2
+    with:
+      tag: ${{ inputs.tag || github.event.release.tag_name }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

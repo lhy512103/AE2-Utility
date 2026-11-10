@@ -19,7 +19,9 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || !github.event.release.draft
+    if: >-
+      (github.event_name == 'workflow_dispatch' || !github.event.release.draft) &&
+      !startsWith(inputs.tag || github.event.release.tag_name, 'neoforge-26.1.2-v')
     uses: ./.github/workflows/_publish.yml
     with:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
