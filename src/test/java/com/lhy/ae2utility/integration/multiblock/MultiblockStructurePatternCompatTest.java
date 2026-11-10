@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 class MultiblockStructurePatternCompatTest {
     private static final class DemoMultiblockInfoPage {
@@ -16,13 +16,13 @@ class MultiblockStructurePatternCompatTest {
     private static final class DemoRecipePage {
     }
 
-    private record TitledStructure(ResourceLocation id, Component title) {
+    private record TitledStructure(Identifier id, Component title) {
     }
 
     private static final class EmiMultiblockWrapper {
         @SuppressWarnings("unused")
         private final TitledStructure structure = new TitledStructure(
-                ResourceLocation.fromNamespaceAndPath("ae2lt", "missing_translation"),
+                Identifier.fromNamespaceAndPath("ae2lt", "missing_translation"),
                 Component.literal("天枢物质扭曲矩阵"));
     }
 

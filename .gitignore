@@ -1,3 +1,8 @@
+# Local migration diagnostics and extracted upstream sources
+.migration-deps/
+migration-*.log
+logs/
+
 ### Gradle ###
 .gradle
 build/

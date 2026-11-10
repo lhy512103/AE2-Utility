@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.lhy.ae2utility.api.card.NbtTearRule;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 class Ae2UtilityApiTest {
     @Test
@@ -21,20 +21,20 @@ class Ae2UtilityApiTest {
 
     @Test
     void nbtTearRuleCopiesItsInput() {
-        Set<ResourceLocation> ids = new LinkedHashSet<>();
-        ids.add(ResourceLocation.fromNamespaceAndPath("test", "first"));
+        Set<Identifier> ids = new LinkedHashSet<>();
+        ids.add(Identifier.fromNamespaceAndPath("test", "first"));
 
         NbtTearRule rule = new NbtTearRule(ids);
-        ids.add(ResourceLocation.fromNamespaceAndPath("test", "second"));
+        ids.add(Identifier.fromNamespaceAndPath("test", "second"));
 
         assertEquals(1, rule.itemIds().size());
         assertThrows(UnsupportedOperationException.class,
-                () -> rule.itemIds().add(ResourceLocation.fromNamespaceAndPath("test", "third")));
+                () -> rule.itemIds().add(Identifier.fromNamespaceAndPath("test", "third")));
     }
 
     @Test
     void customRecipeFeaturesAreMergedWithBuiltIns() {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("test", "classifier_api_contract");
+        Identifier id = Identifier.fromNamespaceAndPath("test", "classifier_api_contract");
         Ae2UtilityApi.recipeFinder().registerClassifier(id, 100,
                 ingredient -> "marker".equals(ingredient) ? Set.of("test.marker") : Set.of());
 

@@ -19,12 +19,69 @@ neoForge {
     accessTransformers.from "src/main/resources/META-INF/accesstransformer.cfg"
     mods { create(mod_id) { sourceSet sourceSets.main } }
     runs {
-        client { client(); gameDirectory = file('run/client') }
+        client {
+            client()
+            gameDirectory = file('run/client')
+            if (providers.gradleProperty('testServer').isPresent()) {
+                programArguments.addAll('--quickPlayMultiplayer', providers.gradleProperty('testServer').get())
+            }
+        }
         server { server(); programArgument '--nogui'; gameDirectory = file('run/server') }
     }
 }
 
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+    maven { url = 'https://cursemaven.com'; content { includeGroup 'curse.maven' } }
+    maven { url = 'https://maven.blamejared.com'; content { includeGroup 'mezz.jei' } }
+    ivy {
+        name = 'AppliedMekanisticsPortReleases'
+        url = 'https://github.com/victor0hxz/Applied-Mekanistics-Version-Locked/releases/download'
+        patternLayout { artifact '[revision]/[artifact]-26.1.2-[revision].[ext]' }
+        metadataSources { artifact() }
+        content { includeModule 'io.github.victor0hxz', 'Applied-Mekanistics-Version-Locked' }
+    }
+}
+
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    implementation 'maven.modrinth:ae2:26.1.13-beta'
+    implementation 'curse.maven:jei-238222:9384706'
+    localRuntime 'maven.modrinth:guideme:26.1.17-beta'
+    localRuntime 'curse.maven:mezzconfig-1689768:9527941'
+    compileOnly 'curse.maven:extendedae-plus-1337639:9006822'
+    compileOnly 'curse.maven:sophisticated-core-618298:9524637'
+    // Maintained 26.1.2 port; the original EMI has no release for this target.
+    compileOnly 'maven.modrinth:pf-emi:RHajWT5D'
+    // Optional chemical integration targets the explicitly named 26.1.2 port.
+    compileOnly 'curse.maven:mekanism-version-locked-1713956:9267959'
+    compileOnly 'io.github.victor0hxz:Applied-Mekanistics-Version-Locked:1.6.0-port1'
+    if (providers.gradleProperty('compatibilityRuntime').isPresent()) {
+        localRuntime 'curse.maven:extendedae-plus-1337639:9006822'
+        localRuntime 'curse.maven:ex-pattern-provider-892005:9453241'
+        localRuntime 'maven.modrinth:glodium:26.1-1.2-neoforge'
+        localRuntime 'maven.modrinth:advancedae:26.1.7'
+        if (providers.gradleProperty('ecoRuntime').isPresent()) {
+            localRuntime 'maven.modrinth:neoecoae:26.2.15-beta'
+            localRuntime 'maven.modrinth:B1CBVXHX:mc26.1.x-26.1.2.46-neoforge'
+        }
+        localRuntime 'curse.maven:geckolib-388172:8327201'
+        localRuntime 'curse.maven:ae2-crystal-science-1435174:8133403'
+        if (!providers.gradleProperty('ecoRuntime').isPresent()) {
+            localRuntime 'curse.maven:ae2-lightning-tech-1527395:8121639'
+        }
+        localRuntime 'curse.maven:sophisticated-core-618298:9524637'
+        localRuntime 'maven.modrinth:pf-emi:RHajWT5D'
+        localRuntime 'curse.maven:mekanism-version-locked-1713956:9267959'
+        localRuntime 'io.github.victor0hxz:Applied-Mekanistics-Version-Locked:1.6.0-port1'
+    }
+}
+
 
 sourceSets {
     test {
@@ -36,6 +93,7 @@ sourceSets {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test', Test).configure { useJUnitPlatform() }
@@ -58,4 +116,7 @@ tasks.named("processResources", ProcessResources).configure {
     filesMatching(["META-INF/neoforge.mods.toml", "pack.mcmeta"]) { expand properties }
 }
 
-tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-Xmaxerrs', '1000'])
+}

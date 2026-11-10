@@ -1,5 +1,5 @@
 {
-  "required": false,
+  "required": true,
   "minVersion": "0.8.5",
   "package": "com.lhy.ae2utility.mixin",
   "compatibilityLevel": "JAVA_25",
@@ -11,9 +11,9 @@
     "CraftingServiceAccessor",
     "CraftingTreeProcessAccessor",
     "CraftingTreeNodeAccessor",
-    "ScreenRenderableAccessor",
     "MixinAdvPatternProviderLogic",
     "MixinCraftingCpuLogicGroup",
+    "MixinNeoEcoOutputDelivery",
     "MixinAeStylePatternProviderBlock",
     "MixinAdvStylePatternProviderBlock",
     "MixinCraftingStylePatternInput",
@@ -36,6 +36,8 @@
     "MixinRestrictedInputSlot"
   ],
   "client": [
+    "ScreenRenderableAccessor",
+    "MixinContainerScreenTearHighlight",
     "AEBaseScreenStyleAccessor",
     "AEBaseScreenInvoker",
     "MixinAEBaseScreen",

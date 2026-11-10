@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 class JeiRecipePageKindsTest {
     @Test
@@ -26,9 +26,9 @@ class JeiRecipePageKindsTest {
 
     @Test
     void recognizesJeiTagRecipeTypeUids() {
-        assertTrue(JeiRecipePageKinds.isTagRecipeType(ResourceLocation.fromNamespaceAndPath("jei", "tag_recipes/block")));
-        assertTrue(JeiRecipePageKinds.isTagRecipeType(ResourceLocation.fromNamespaceAndPath("jei", "tag_recipes/item")));
-        assertFalse(JeiRecipePageKinds.isTagRecipeType(ResourceLocation.fromNamespaceAndPath("minecraft", "crafting")));
+        assertTrue(JeiRecipePageKinds.isTagRecipeType(Identifier.fromNamespaceAndPath("jei", "tag_recipes/block")));
+        assertTrue(JeiRecipePageKinds.isTagRecipeType(Identifier.fromNamespaceAndPath("jei", "tag_recipes/item")));
+        assertFalse(JeiRecipePageKinds.isTagRecipeType(Identifier.fromNamespaceAndPath("minecraft", "crafting")));
         assertFalse(JeiRecipePageKinds.isTagRecipeType(null));
     }
 }

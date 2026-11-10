@@ -2,6 +2,8 @@
 
 本文档描述 `com.lhy.ae2utility.api` 下的稳定 Java API。当前 `Ae2UtilityApi.API_VERSION` 为 `1`。
 
+本分支面向 Minecraft 26.1.2 / NeoForge 26.1.2 / Java 25；示例中的 `Identifier` 来自 `net.minecraft.resources.Identifier`，机器配方类型使用 JEI `IRecipeType<?>`。兼容承诺仅适用于同一 Minecraft 版本线，旧版模组必须重新编译，不能直接加载 1.21.1 二进制。
+
 ## 兼容边界
 
 只有 `com.lhy.ae2utility.api` 及其子包属于公共契约。以下包是实现细节，不应由第三方模组直接引用：
@@ -117,7 +119,7 @@ var result = Ae2UtilityApi.recipeTransfer()
 ```java
 Ae2UtilityApi.recipeTransfer().registerMachine(
         new MachineTransferRegistration(
-                ResourceLocation.fromNamespaceAndPath("example", "crusher"),
+                Identifier.fromNamespaceAndPath("example", "crusher"),
                 CrusherMenu.class,
                 EXAMPLE_CRUSHING_RECIPE_TYPE,
                 new int[] { 0, 1 }
@@ -177,7 +179,7 @@ cards.onSuccessfulPatternPush(host, providerBusy, returnInventoryPending);
 
 ```java
 Ae2UtilityApi.recipeFinder().registerClassifier(
-        ResourceLocation.fromNamespaceAndPath("example", "alloys"),
+        Identifier.fromNamespaceAndPath("example", "alloys"),
         100,
         ingredient -> ingredient instanceof ItemStack stack && isAlloy(stack)
                 ? Set.of("example.alloy")

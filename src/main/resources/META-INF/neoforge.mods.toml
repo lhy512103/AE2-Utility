@@ -9,6 +9,23 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
 
+[[mixins]]
+config="ae2utility.mixins.json"
+
+[[dependencies.${mod_id}]]
+modId="ae2"
+type="required"
+versionRange="[26.1.13-beta,27)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="jei"
+type="required"
+versionRange="[29.53.0.115,30)"
+ordering="AFTER"
+side="CLIENT"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
