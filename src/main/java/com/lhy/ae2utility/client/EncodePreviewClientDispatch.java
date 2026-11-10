@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-import com.lhy.ae2utility.jei.EncodePatternButtonController;
 import com.lhy.ae2utility.network.EncodePreviewResultPacket;
 
 public final class EncodePreviewClientDispatch {
@@ -20,7 +19,6 @@ public final class EncodePreviewClientDispatch {
     }
 
     public static void handle(EncodePreviewResultPacket payload) {
-        EncodePatternButtonController.handlePreviewResult(payload);
         for (Consumer<EncodePreviewResultPacket> listener : LISTENERS) {
             listener.accept(payload);
         }

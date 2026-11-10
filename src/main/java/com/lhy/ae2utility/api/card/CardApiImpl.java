@@ -82,23 +82,24 @@ final class CardApiImpl implements CardApi {
         if (host == null) {
             throw new IllegalArgumentException("host is required");
         }
-        boolean active = busy || returnPending;
+        ItemStack signalCard = host.signalCard();
+        updateSignalState(host, busy || returnPending, allowCraftOnFallingEdge,
+                modeOf(signalCard), durationOrDefault(signalCard));
+    }
+
+    static void updateSignalState(RedstoneSignalHost host, boolean active, boolean allowCraftOnFallingEdge,
+            RedstoneSignalMode mode, int duration) {
+        // Level output must be reconciled even without an activity edge: cards can
+        // be removed/reconfigured, and a saved host may reload with stale output.
+        host.setContinuousSignal(active && mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE);
         if (active == host.lastActive()) {
             return;
         }
         host.setLastActive(active);
-        ItemStack signalCard = host.signalCard();
-        RedstoneSignalMode mode = modeOf(signalCard);
-        if (active) {
-            if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
-                host.setContinuousSignal(true);
-            } else if (mode == RedstoneSignalMode.ORDER) {
-                host.triggerPulse(durationOrDefault(signalCard));
-            }
-        } else if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
-            host.setContinuousSignal(false);
-        } else if (allowCraftOnFallingEdge && mode == RedstoneSignalMode.CRAFT) {
-            host.triggerPulse(durationOrDefault(signalCard));
+        if (active && mode == RedstoneSignalMode.ORDER) {
+            host.triggerPulse(duration);
+        } else if (!active && allowCraftOnFallingEdge && mode == RedstoneSignalMode.CRAFT) {
+            host.triggerPulse(duration);
         }
     }
 
@@ -108,13 +109,15 @@ final class CardApiImpl implements CardApi {
             throw new IllegalArgumentException("host is required");
         }
         ItemStack signalCard = host.signalCard();
-        RedstoneSignalMode mode = modeOf(signalCard);
-        if (mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE) {
-            host.setContinuousSignal(true);
-        } else if (mode == RedstoneSignalMode.ORDER) {
-            host.triggerPulse(durationOrDefault(signalCard));
+        successfulPush(host, busy || returnPending, modeOf(signalCard), durationOrDefault(signalCard));
+    }
+
+    static void successfulPush(RedstoneSignalHost host, boolean active, RedstoneSignalMode mode, int duration) {
+        host.setContinuousSignal(mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE);
+        if (mode == RedstoneSignalMode.ORDER) {
+            host.triggerPulse(duration);
         }
-        host.setLastActive(mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE || busy || returnPending);
+        host.setLastActive(mode == RedstoneSignalMode.UNTIL_RECIPE_COMPLETE || active);
     }
 
     private static RedstoneSignalMode modeOf(ItemStack stack) {

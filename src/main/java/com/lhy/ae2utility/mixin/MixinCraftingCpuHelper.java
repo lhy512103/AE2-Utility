@@ -1,9 +1,6 @@
 package com.lhy.ae2utility.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.world.level.Level;
 
@@ -17,14 +14,12 @@ import com.lhy.ae2utility.card.NbtTearPatternContext;
 @Mixin(value = CraftingCpuHelper.class, remap = false)
 public class MixinCraftingCpuHelper {
 
-    @Inject(method = "extractPatternInputs", at = @At("HEAD"))
-    private static void ae2utility$pushPattern(IPatternDetails details, ICraftingInventory sourceInv, Level level,
-            KeyCounter expectedOutputs, KeyCounter expectedContainerItems, CallbackInfoReturnable<KeyCounter[]> cir) {
-        NbtTearPatternContext.set(details);
-    }
-
-    @Inject(method = "extractPatternInputs", at = @At("RETURN"))
-    private static void ae2utility$popPattern(CallbackInfoReturnable<KeyCounter[]> cir) {
-        NbtTearPatternContext.clear();
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "extractPatternInputs")
+    private static KeyCounter[] ae2utility$extractScoped(IPatternDetails details, ICraftingInventory sourceInv, Level level,
+            KeyCounter expectedOutputs, KeyCounter expectedContainerItems,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<KeyCounter[]> original) {
+        try (var ignored = NbtTearPatternContext.enter(details)) {
+            return original.call(details, sourceInv, level, expectedOutputs, expectedContainerItems);
+        }
     }
 }

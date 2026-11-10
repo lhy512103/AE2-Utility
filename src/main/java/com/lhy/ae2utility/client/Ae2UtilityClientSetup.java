@@ -16,6 +16,8 @@ public final class Ae2UtilityClientSetup {
     }
 
     public static void init(ModContainer container, IEventBus modBus) {
+        ClientPacketHandlers.register();
+        Ae2UtilityClientLifecycle.register(modBus);
         registerConfigScreen(container);
         modBus.addListener(Ae2UtilityClientSetup::registerTooltipComponents);
         modBus.addListener(Ae2UtilityClientSetup::onClientSetup);
@@ -23,7 +25,6 @@ public final class Ae2UtilityClientSetup {
 
     private static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            MenuScreens.register(Objects.requireNonNull(ModMenus.RECIPE_FINDER.get()), RecipeFinderScreen::new);
             MenuScreens.register(Objects.requireNonNull(ModMenus.NBT_TEAR_CARD.get()), NbtTearCardScreen::new);
         });
     }

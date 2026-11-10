@@ -11,9 +11,6 @@ import com.lhy.ae2utility.network.ModNetworking;
 import appeng.api.crafting.PatternDetailsHelper;
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.network.ClearPatternsPacket;
-import com.lhy.ae2utility.jei.ClientRepoCraftableIndex;
-import com.lhy.ae2utility.jei.CraftableStateCache;
-import com.lhy.ae2utility.jei.JeiClientCacheContext;
 
 @EventBusSubscriber(modid = Ae2UtilityMod.MOD_ID, value = Dist.CLIENT)
 public class Ae2UtilityClient {
@@ -21,9 +18,7 @@ public class Ae2UtilityClient {
     @SubscribeEvent
     public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
         if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
-        JeiClientCacheContext.advanceClientTick();
-        ClientRepoCraftableIndex.advanceClientTick();
-        CraftableStateCache.tick();
+        ClientCacheLifecycle.tick();
         InventoryPatternUploadQueue.tick();
         SequentialUploadQueue.tick();
     }

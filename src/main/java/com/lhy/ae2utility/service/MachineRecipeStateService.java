@@ -15,7 +15,7 @@ import com.lhy.ae2utility.network.MachineRecipeStatePacket;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket.IngredientAvailability;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 import com.lhy.ae2utility.network.QueryMachineRecipeStatePacket;
-import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
+import com.lhy.ae2utility.network.RequestedIngredientsCodec;
 
 public final class MachineRecipeStateService {
     private MachineRecipeStateService() {
@@ -25,7 +25,7 @@ public final class MachineRecipeStateService {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return;
         }
-        String requestKey = RecipeTransferPacketHelper.requestSignature(payload.requestedIngredients());
+        String requestKey = RequestedIngredientsCodec.requestSignature(payload.requestedIngredients());
 
         var profile = MachineTransferProfiles.byId(payload.profileId());
         if (profile == null || serverPlayer.containerMenu.containerId != payload.containerId() || !profile.matches(serverPlayer.containerMenu)) {
@@ -35,6 +35,7 @@ public final class MachineRecipeStateService {
         var resolution = WirelessTerminalContextResolver.resolve(serverPlayer);
         if (!resolution.isReady()) {
             ModNetworking.sendToPlayer(serverPlayer, new MachineRecipeStatePacket(
+                payload.requestNonce(),
                     payload.containerId(),
                     payload.profileId(),
                     requestKey,
@@ -71,6 +72,7 @@ public final class MachineRecipeStateService {
         }
 
         ModNetworking.sendToPlayer(serverPlayer, new MachineRecipeStatePacket(
+                payload.requestNonce(),
                 payload.containerId(),
                 payload.profileId(),
                 requestKey,

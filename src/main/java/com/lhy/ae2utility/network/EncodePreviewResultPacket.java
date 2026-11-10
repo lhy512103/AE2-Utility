@@ -11,7 +11,6 @@ import net.minecraft.resources.ResourceLocation;
 import appeng.api.stacks.GenericStack;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.client.EncodePreviewClientDispatch;
 import com.lhy.ae2utility.util.PatternEncodingPreview;
 import com.lhy.ae2utility.util.PatternEncodingPreviewMode;
 
@@ -121,6 +120,6 @@ public record EncodePreviewResultPacket(
     }
 
     public static void handle(EncodePreviewResultPacket payload) {
-        EncodePreviewClientDispatch.handle(payload);
+        ClientPacketDispatch.handle(payload);
     }
 }

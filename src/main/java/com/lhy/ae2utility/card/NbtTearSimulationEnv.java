@@ -13,6 +13,10 @@ public final class NbtTearSimulationEnv {
     private NbtTearSimulationEnv() {
     }
 
+    public static NbtTearScope enter(@Nullable CraftingService cs) {
+        return NbtTearScope.enter(SERVICE, cs);
+    }
+
     public static void beginCalculation(CraftingService cs) {
         SERVICE.set(cs);
     }

@@ -61,7 +61,7 @@ public final class SequentialUploadResultBridge {
         if (player != null) {
             player.getPersistentData().remove(PENDING_NAME_KEY);
             PENDING_CRAFTABLE_REFRESH_KEYS.remove(player.getUUID());
-            EncodePatternService.disarmEaepShiftBlankRefund(player);
+            BlankPatternLedger.releaseHold(player);
         }
         SequentialUploadContextBridge.wipeUploadOrchestrationState(player);
     }
@@ -122,7 +122,7 @@ public final class SequentialUploadResultBridge {
         EaepUploadDebugLog.info(
                 "flushPendingProviderUiDismissed player={} patternName={} purgeQueuedSameEaep={}",
                 player.getScoreboardName(), patternName, purgeQueuedSameEaepMachine);
-        EncodePatternService.disarmEaepShiftBlankRefund(player);
+        BlankPatternLedger.releaseHold(player);
         clearPendingName(player);
         ModNetworking.sendToPlayer(player,
                 new SequentialUploadResultPacket(patternName, false, false, false, purgeQueuedSameEaepMachine, false));
@@ -144,9 +144,9 @@ public final class SequentialUploadResultBridge {
                 "flushPendingResult player={} patternName={} uploaded={} purgeQueuedSameEaep={}",
                 player.getScoreboardName(), patternName, uploaded, purgeQueuedSameEaepMachine);
         if (uploaded) {
-            EncodePatternService.disarmEaepShiftBlankRefund(player);
+            BlankPatternLedger.releaseHold(player);
         } else {
-            EncodePatternService.refundEaepShiftBlankIfPending(player);
+            BlankPatternLedger.refundHoldIfPending(player);
         }
         List<AEKey> craftableRefresh = takePendingCraftableRefreshKeys(player);
         clearPendingName(player);

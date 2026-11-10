@@ -1,74 +1,68 @@
 package com.lhy.ae2utility.jei;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-
 import org.jetbrains.annotations.Nullable;
 
-import com.lhy.ae2utility.network.ModNetworking;
-
+import com.lhy.ae2utility.client.ClientCacheLifecycle;
+import com.lhy.ae2utility.client.cache.ClientRequestCache;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;
+import com.lhy.ae2utility.network.ModNetworking;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket.RequestedIngredient;
 import com.lhy.ae2utility.network.QueryMachineRecipeStatePacket;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
+import net.minecraft.client.Minecraft;
 
+/** World/player/menu scoped; key = menu ID + profile + ingredient signature.
+ * 64 access-order entries, 1s stock TTL, 500ms retry throttle. Nonces prevent replies
+ * from an earlier menu/session (including a reused container ID) being accepted.
+ */
 public final class MachineRecipeStateCache {
-    private static final long REQUEST_INTERVAL_MS = 500L;
-    private static final int MAX_CACHE_ENTRIES = 64;
+    private static final ClientRequestCache<CacheKey, MachineRecipeStatePacket> CACHE =
+            new ClientRequestCache<>(64, 1000, 500, ClientRequestCache::monotonicMillis);
 
-    private static final Map<CacheKey, CacheEntry> CACHE = new LinkedHashMap<>();
+    private static final java.util.Map<CacheKey, List<RequestedIngredient>> PENDING = new java.util.LinkedHashMap<>();
+    private static long lastSendTime;
 
-    private MachineRecipeStateCache() {
-    }
+    private MachineRecipeStateCache() {}
 
     @Nullable
-    public static MachineRecipeStatePacket getOrRequest(int containerId, String profileId, List<RequestedIngredient> requestedIngredients) {
-        List<RequestedIngredient> copiedIngredients = copyRequestedIngredients(requestedIngredients);
-        String requestKey = RecipeTransferPacketHelper.requestSignature(copiedIngredients);
-        CacheKey cacheKey = new CacheKey(containerId, profileId, requestKey);
-        long now = System.currentTimeMillis();
-        CacheEntry entry = CACHE.get(cacheKey);
-        if (entry != null && entry.packet() != null) {
-            return entry.packet();
-        }
-
-        if (entry == null || now - entry.lastRequestMs() >= REQUEST_INTERVAL_MS) {
-            if (!RecipeTransferPacketHelper.canEncodeRequestedIngredients(copiedIngredients)) {
-                return null;
-            }
-            ModNetworking.sendToServer(new QueryMachineRecipeStatePacket(containerId, profileId, copiedIngredients));
-            CACHE.put(cacheKey, new CacheEntry(copiedIngredients, entry != null ? entry.packet() : null, now));
-            trimCache();
-        }
-
-        return entry != null ? entry.packet() : null;
+    public static MachineRecipeStatePacket getOrRequest(int containerId, String profileId,
+            List<RequestedIngredient> requestedIngredients) {
+        ClientCacheLifecycle.synchronizeContext();
+        var player = Minecraft.getInstance().player;
+        if (player == null || Minecraft.getInstance().level == null || player.containerMenu.containerId != containerId) return null;
+        List<RequestedIngredient> copied = requestedIngredients.stream().map(RequestedIngredient::copy).toList();
+        CacheKey key = new CacheKey(containerId, profileId, RecipeTransferPacketHelper.requestSignature(copied));
+        MachineRecipeStatePacket packet = CACHE.get(key);
+        if (CACHE.shouldRequest(key) && PENDING.size() < 64
+                && RecipeTransferPacketHelper.canEncodeRequestedIngredients(copied)) PENDING.putIfAbsent(key, copied);
+        return packet;
     }
 
     public static void handle(MachineRecipeStatePacket packet) {
-        CacheKey cacheKey = new CacheKey(packet.containerId(), packet.profileId(), packet.requestKey());
-        CacheEntry existing = CACHE.get(cacheKey);
-        List<RequestedIngredient> requestedIngredients = existing != null ? existing.requestedIngredients() : List.of();
-        long lastRequestMs = existing != null ? existing.lastRequestMs() : System.currentTimeMillis();
-        CACHE.put(cacheKey, new CacheEntry(requestedIngredients, packet, lastRequestMs));
-        trimCache();
+        ClientCacheLifecycle.synchronizeContext();
+        CACHE.complete(new CacheKey(packet.containerId(), packet.profileId(), packet.requestKey()), packet.requestNonce(), packet);
     }
 
-    private static List<RequestedIngredient> copyRequestedIngredients(List<RequestedIngredient> requestedIngredients) {
-        return requestedIngredients.stream().map(RequestedIngredient::copy).toList();
-    }
-
-    private static void trimCache() {
-        while (CACHE.size() > MAX_CACHE_ENTRIES) {
-            CacheKey firstKey = CACHE.keySet().iterator().next();
-            CACHE.remove(firstKey);
+    /** At most four distinct requests per tick/50ms, never from a render callback. */
+    public static void tick() {
+        long now = ClientRequestCache.monotonicMillis();
+        if (Minecraft.getInstance().level == null || now - lastSendTime < 500) return;
+        var iterator = PENDING.entrySet().iterator();
+        int sent = 0;
+        while (iterator.hasNext() && sent < 4) {
+            var entry = iterator.next();
+            iterator.remove();
+            CacheKey key = entry.getKey();
+            if (!CACHE.shouldRequest(key)) continue;
+            long nonce = ClientRequestCache.nextNonce();
+            CACHE.beginRequest(key, nonce);
+            ModNetworking.sendToServer(new QueryMachineRecipeStatePacket(nonce, key.containerId(), key.profileId(), entry.getValue()));
+            sent++;
         }
+        if (sent > 0) lastSendTime = now;
     }
 
-    private record CacheKey(int containerId, String profileId, String requestKey) {
-    }
-
-    private record CacheEntry(List<RequestedIngredient> requestedIngredients, @Nullable MachineRecipeStatePacket packet,
-            long lastRequestMs) {
-    }
+    public static void clear() { CACHE.clear(); PENDING.clear(); }
+    private record CacheKey(int containerId, String profileId, String requestKey) {}
 }

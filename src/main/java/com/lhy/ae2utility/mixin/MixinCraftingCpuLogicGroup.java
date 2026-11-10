@@ -2,9 +2,7 @@ package com.lhy.ae2utility.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.world.level.Level;
 
@@ -29,15 +27,16 @@ import com.lhy.ae2utility.card.NbtTearSimulationEnv;
 }, remap = false)
 public class MixinCraftingCpuLogicGroup {
 
-    @Inject(method = "executeCrafting(ILappeng/me/service/CraftingService;Lappeng/api/networking/energy/IEnergyService;Lnet/minecraft/world/level/Level;)I", at = @At("HEAD"))
-    private void ae2utility$pushGlobalFilter(int maxPatterns, CraftingService craftingService,
-            IEnergyService energyService, Level level, CallbackInfoReturnable<Integer> cir) {
-        NbtTearSimulationEnv.beginCpuExtract(craftingService);
-    }
-
-    @Inject(method = "executeCrafting(ILappeng/me/service/CraftingService;Lappeng/api/networking/energy/IEnergyService;Lnet/minecraft/world/level/Level;)I", at = @At("RETURN"))
-    private void ae2utility$popGlobalFilter(CallbackInfoReturnable<Integer> cir) {
-        NbtTearSimulationEnv.clear();
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "executeCrafting(ILappeng/me/service/CraftingService;Lappeng/api/networking/energy/IEnergyService;Lnet/minecraft/world/level/Level;)I")
+    private int ae2utility$executeScoped(int maxPatterns, CraftingService craftingService,
+            IEnergyService energyService, Level level,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Integer> original) {
+        try (var environment = NbtTearSimulationEnv.enter(craftingService);
+                var pattern = com.lhy.ae2utility.card.NbtTearPatternContext.enter(null);
+                var execution = NbtTearCardThreadLocal.enter(null);
+                var crafting = com.lhy.ae2utility.card.NbtTearCraftingContext.enter(null)) {
+            return original.call(maxPatterns, craftingService, energyService, level);
+        }
     }
 
     @Redirect(method = "insert", at = @At(value = "INVOKE",

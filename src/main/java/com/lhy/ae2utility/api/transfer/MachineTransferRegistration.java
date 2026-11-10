@@ -2,19 +2,17 @@ package com.lhy.ae2utility.api.transfer;
 
 import java.util.Arrays;
 
-import mezz.jei.api.recipe.RecipeType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
-/** Client registration used to add JEI transfer support for a machine menu. */
+/** Common machine menu and input-slot metadata, safe to load without recipe viewers. */
 public record MachineTransferRegistration(
         ResourceLocation id,
         Class<? extends AbstractContainerMenu> menuClass,
-        RecipeType<?> recipeType,
         int[] inputSlotIndices) {
 
     public MachineTransferRegistration {
-        if (id == null || menuClass == null || recipeType == null || inputSlotIndices == null) {
+        if (id == null || menuClass == null || inputSlotIndices == null) {
             throw new IllegalArgumentException("all machine transfer fields are required");
         }
         inputSlotIndices = inputSlotIndices.clone();

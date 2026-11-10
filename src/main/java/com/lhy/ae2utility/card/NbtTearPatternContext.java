@@ -8,6 +8,10 @@ import appeng.api.crafting.IPatternDetails;
 public final class NbtTearPatternContext {
     private static final ThreadLocal<IPatternDetails> PATTERN = new ThreadLocal<>();
 
+    public static NbtTearScope enter(@Nullable IPatternDetails details) {
+        return NbtTearScope.enter(PATTERN, details);
+    }
+
     public static void set(@Nullable IPatternDetails details) {
         PATTERN.set(details);
     }

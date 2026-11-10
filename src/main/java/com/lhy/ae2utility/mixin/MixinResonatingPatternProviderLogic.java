@@ -1,29 +1,32 @@
 package com.lhy.ae2utility.mixin;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.List;
+import java.util.Optional;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import io.github.lounode.ae2cs.common.me.crafting.EncodedResonatingPattern.Target;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.ItemStackHandler;
 
-import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderTarget;
 
 import com.lhy.ae2utility.card.NbtTearFilter;
-import com.lhy.ae2utility.debug.NbtTearCardDebug;
+import com.lhy.ae2utility.integration.ae2cs.Ae2CsRoutingAdapter;
+import com.lhy.ae2utility.integration.ae2cs.RoutingAttempt;
 import com.lhy.ae2utility.integration.ae2.NbtTearLogicAccess;
 import com.lhy.ae2utility.integration.ae2.PatternProviderFeatureCardCache;
 import com.lhy.ae2utility.integration.ae2.PatternProviderSignalAccess;
@@ -34,10 +37,7 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
     private static final String AE2UTILITY_TEAR_CARD = "ae2utility_nbt_tear_card";
 
     @Unique
-    private final Deque<AEKey> ae2utility$markedSimulateKeys = new ArrayDeque<>();
-
-    @Unique
-    private final Deque<AEKey> ae2utility$markedModulateKeys = new ArrayDeque<>();
+    private RoutingAttempt<Target, PatternProviderTarget> ae2utility$routingAttempt;
 
     @Unique
     private ItemStackHandler ae2utility$tearHandler;
@@ -152,106 +152,67 @@ public abstract class MixinResonatingPatternProviderLogic implements NbtTearLogi
         ae2utility$continuousSignalActive = false;
     }
 
-    @Inject(method = "pushPattern", at = @At("HEAD"))
-    private void ae2utility$initResolvedKeys(IPatternDetails patternDetails, KeyCounter[] inputHolder,
-            CallbackInfoReturnable<Boolean> cir) {
-        ae2utility$markedSimulateKeys.clear();
-        ae2utility$markedModulateKeys.clear();
-    }
-
-    @Inject(method = "pushPattern", at = @At("RETURN"))
-    private void ae2utility$clearResolvedKeys(IPatternDetails patternDetails, KeyCounter[] inputHolder,
-            CallbackInfoReturnable<Boolean> cir) {
-        ae2utility$markedSimulateKeys.clear();
-        ae2utility$markedModulateKeys.clear();
-        if (!cir.getReturnValueZ() || patternDetails == null
-                || !patternDetails.getClass().getName().endsWith("ResonatingPatternDetails")) {
-            return;
-        }
-        var host = ((PatternProviderLogicInvoker) this).ae2utility$getHost();
-        PatternProviderLogic logic = (PatternProviderLogic) (Object) this;
-        // 谐振样板由子类自定义路径接受，绕过基类 pushPattern；只在该类型的成功返回点
-        // 转发一次下单事件，普通样板仍由 MixinPatternProviderLogic 处理。
-        ae2utility$onSuccessfulPatternPush(host, logic.isBusy(), !logic.getReturnInv().isEmpty());
-    }
-
-    @Redirect(method = "pushPattern",
-            at = @At(value = "INVOKE",
-                    target = "Lio/github/lounode/ae2cs/common/me/logic/ResonatingPatternProviderLogic;removeFromRemaining([Lappeng/api/stacks/KeyCounter;Lappeng/api/stacks/AEKey;J)Z"))
-    private boolean ae2utility$removeFromRemainingWithTear(KeyCounter[] remaining, AEKey expectedKey, long amount) {
-        AEKey resolved = ae2utility$removeMatchingKey(remaining, expectedKey, amount);
-        if (resolved == null) {
-            NbtTearCardDebug.logFuzzyCraftSearch("resonating_remove", expectedKey, null, false, "no_matching_key");
+    @WrapMethod(method = "pushPattern")
+    private boolean ae2utility$withRoutingAttempt(IPatternDetails patternDetails, KeyCounter[] inputHolder,
+            Operation<Boolean> original) {
+        var previous = ae2utility$routingAttempt;
+        var attempt = new RoutingAttempt<Target, PatternProviderTarget>();
+        ae2utility$routingAttempt = attempt;
+        try {
+            boolean accepted = original.call(patternDetails, inputHolder);
+            if (accepted && attempt.isRouted()) {
+                // Includes ordinary processing patterns routed through the new provider defaults.
+                // The superclass fallback already sends its own successful-push notification.
+                var host = ((PatternProviderLogicInvoker) this).ae2utility$getHost();
+                PatternProviderLogic logic = (PatternProviderLogic) (Object) this;
+                ae2utility$onSuccessfulPatternPush(host, logic.isBusy(), !logic.getReturnInv().isEmpty());
+            }
+            return accepted;
+        } catch (Ae2CsRoutingAdapter.UnresolvedInputs rejectedBeforeSending) {
+            // Resolution occurs before native target simulation/insertion. The CPU still owns every input.
             return false;
+        } finally {
+            ae2utility$routingAttempt = previous;
         }
-
-        ae2utility$markedSimulateKeys.addLast(resolved);
-        ae2utility$markedModulateKeys.addLast(resolved);
-        NbtTearCardDebug.logFuzzyCraftSearch("resonating_remove", expectedKey, resolved, true, "resolved_key");
-        return true;
     }
 
-    @Redirect(method = "pushPattern",
+    @WrapOperation(method = "pushPattern", require = 1,
             at = @At(value = "INVOKE",
-                    target = "Lappeng/helpers/patternprovider/PatternProviderTarget;insert(Lappeng/api/stacks/AEKey;JLappeng/api/config/Actionable;)J"))
-    private long ae2utility$insertResolvedMarkedKey(PatternProviderTarget target, AEKey key, long amount, Actionable mode) {
-        if (mode == Actionable.SIMULATE && !ae2utility$markedSimulateKeys.isEmpty()) {
-            AEKey resolved = ae2utility$markedSimulateKeys.removeFirst();
-            NbtTearCardDebug.logFuzzyCraftSearch("resonating_insert_simulate", key, resolved, true, "resolved_key");
-            return target.insert(resolved, amount, mode);
-        }
-        if (mode == Actionable.MODULATE && !ae2utility$markedModulateKeys.isEmpty()) {
-            AEKey resolved = ae2utility$markedModulateKeys.removeFirst();
-            NbtTearCardDebug.logFuzzyCraftSearch("resonating_insert_modulate", key, resolved, true, "resolved_key");
-            return target.insert(resolved, amount, mode);
-        }
-        return target.insert(key, amount, mode);
+                    target = "Lio/github/lounode/ae2cs/common/me/logic/ResonatingPatternProviderLogic$RoutedPatternData;sparseInputs()Ljava/util/List;"))
+    private List<GenericStack> ae2utility$resolveSparseInputs(@Coerce Object routed,
+            Operation<List<GenericStack>> original, IPatternDetails patternDetails, KeyCounter[] inputHolder) {
+        // Semantic typed producer, not a compiler-assigned local slot. Native Marked and local lists,
+        // simulation, modulation and persisted overflow all receive these SAME actual AEKeys.
+        return Ae2CsRoutingAdapter.resolve(original.call(routed), inputHolder,
+                ae2utility$getActiveTearFilter(), ae2utility$routingAttempt);
     }
 
-    @Unique
-    private AEKey ae2utility$removeMatchingKey(KeyCounter[] remaining, AEKey expectedKey, long amount) {
-        AEKey exact = ae2utility$removeExactKey(remaining, expectedKey, amount);
-        if (exact != null) {
-            return exact;
-        }
-
-        NbtTearFilter filter = ae2utility$getActiveTearFilter();
-        if (filter == null) {
-            return null;
-        }
-
-        for (KeyCounter counter : remaining) {
-            for (var fuzzy : counter.findFuzzy(expectedKey, appeng.api.config.FuzzyMode.IGNORE_ALL)) {
-                AEKey candidate = fuzzy.getKey();
-                if (counter.get(candidate) < amount) {
-                    continue;
-                }
-                if (!NbtTearFilter.matchesUnlockExpected(expectedKey, candidate, filter)) {
-                    continue;
-                }
-                counter.remove(candidate, amount);
-                return candidate;
-            }
-        }
-        return null;
+    @WrapOperation(method = "pushPattern", require = 1,
+            at = @At(value = "INVOKE",
+                    target = "Lio/github/lounode/ae2cs/common/me/logic/ResonatingPatternProviderLogic$RoutedPatternData;getTargetForSparseInputIndex(I)Ljava/util/Optional;"))
+    private Optional<Target> ae2utility$preserveSparseRouting(@Coerce Object routed, int resolvedIndex,
+            Operation<Optional<Target>> original) {
+        return original.call(routed, ae2utility$routingAttempt.sourceIndex(resolvedIndex));
     }
 
-    @Unique
-    private static AEKey ae2utility$removeExactKey(KeyCounter[] remaining, AEKey expectedKey, long amount) {
-        long toRemove = amount;
-        for (KeyCounter counter : remaining) {
-            long available = counter.get(expectedKey);
-            if (available <= 0) {
-                continue;
-            }
-            long take = Math.min(available, toRemove);
-            counter.remove(expectedKey, take);
-            toRemove -= take;
-            if (toRemove <= 0) {
-                return expectedKey;
-            }
-        }
-        return null;
+    @WrapOperation(method = "pushPattern", require = 1,
+            at = @At(value = "INVOKE", ordinal = 0,
+                    target = "Lio/github/lounode/ae2cs/common/me/logic/ResonatingPatternProviderLogic;findTarget(Lio/github/lounode/ae2cs/common/me/crafting/EncodedResonatingPattern$Target;)Lappeng/helpers/patternprovider/PatternProviderTarget;"))
+    private PatternProviderTarget ae2utility$rememberSimulatedTarget(@Coerce Object logic, Target target,
+            Operation<PatternProviderTarget> original) {
+        return ae2utility$routingAttempt.target(target, () -> original.call(logic, target));
+    }
+
+    @WrapOperation(method = "pushPattern", require = 1,
+            at = @At(value = "INVOKE", ordinal = 1,
+                    target = "Lio/github/lounode/ae2cs/common/me/logic/ResonatingPatternProviderLogic;findTarget(Lio/github/lounode/ae2cs/common/me/crafting/EncodedResonatingPattern$Target;)Lappeng/helpers/patternprovider/PatternProviderTarget;"))
+    private PatternProviderTarget ae2utility$bufferUnavailableCommitTarget(@Coerce Object logic, Target target,
+            Operation<PatternProviderTarget> original) {
+        // Native otherwise returns false here AFTER earlier remote destinations may have accepted items.
+        // Recheck availability (never insert into a detached cached capability), but on late absence
+        // accept ownership and let native PendingSend preserve the complete actual-key remainder.
+        return ae2utility$routingAttempt.commitTarget(target, () -> original.call(logic, target),
+                Ae2CsRoutingAdapter.BUFFER_ONLY_TARGET);
     }
 
     @Unique

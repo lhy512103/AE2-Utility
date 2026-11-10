@@ -41,6 +41,17 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
     private static final String AE2UTILITY_PENDING_OUTPUTS = "ae2utility_pending_outputs";
 
     @Shadow
+    @org.spongepowered.asm.mixin.Final
+    private appeng.api.networking.IManagedGridNode mainNode;
+
+    @Inject(method = "onMainNodeStateChanged", at = @At("TAIL"))
+    private void ae2utility$clearOfflineSignal(CallbackInfo ci) {
+        if (!mainNode.isActive()) {
+            ae2utility$onSignalHostDisconnected(ae2utility$host());
+        }
+    }
+
+    @Shadow
     private GenericStack unlockStack;
 
     @Shadow
@@ -252,17 +263,24 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
         ae2utility$tickRedstoneStateMachine(ae2utility$host(), isBusy(), !getReturnInv().isEmpty(), false);
     }
 
-    @Inject(method = "doWork", at = @At("HEAD"))
-    private void ae2utility$setThreadLocal(CallbackInfoReturnable<Boolean> cir) {
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "doWork")
+    private boolean ae2utility$workScoped(
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Boolean> original) {
         ItemStack card = ae2utility$getEffectiveTearCardStack();
-        if (!card.isEmpty() && card.getItem() instanceof NbtTearCardItem) {
-            NbtTearCardThreadLocal.set(com.lhy.ae2utility.item.NbtTearCardItem.getFilter(card));
+        try (var ignored = NbtTearCardThreadLocal.enter(card.getItem() instanceof NbtTearCardItem
+                ? NbtTearCardItem.getFilter(card) : null)) {
+            return original.call();
         }
     }
 
-    @Inject(method = "doWork", at = @At("RETURN"))
-    private void ae2utility$clearThreadLocal(CallbackInfoReturnable<Boolean> cir) {
-        NbtTearCardThreadLocal.clear();
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "pushPattern")
+    private boolean ae2utility$pushScoped(IPatternDetails details, KeyCounter[] inputs,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Boolean> original) {
+        ItemStack card = ae2utility$getEffectiveTearCardStack();
+        try (var ignored = NbtTearCardThreadLocal.enter(card.getItem() instanceof NbtTearCardItem
+                ? NbtTearCardItem.getFilter(card) : null)) {
+            return original.call(details, inputs);
+        }
     }
 
     @Inject(method = "pushPattern", at = @At("HEAD"))
@@ -278,15 +296,10 @@ public abstract class MixinAdvPatternProviderLogic implements NbtTearLogicAccess
                     diagnosticCard.isEmpty() ? "missing" : diagnosticCard.getItem(),
                     diagnosticCard.isEmpty() ? "none" : com.lhy.ae2utility.item.RedstoneSignalCardItem.getMode(diagnosticCard));
         }
-        ItemStack card = ae2utility$getEffectiveTearCardStack();
-        if (!card.isEmpty() && card.getItem() instanceof NbtTearCardItem) {
-            NbtTearCardThreadLocal.set(com.lhy.ae2utility.item.NbtTearCardItem.getFilter(card));
-        }
     }
 
     @Inject(method = "pushPattern", at = @At("RETURN"))
     private void ae2utility$pushPatternTearReturn(CallbackInfoReturnable<Boolean> cir) {
-        NbtTearCardThreadLocal.clear();
         if (Ae2UtilityRedstoneSignalDebugLog.PULSE_TRACE) {
             Ae2UtilityRedstoneSignalDebugLog.pulse(
                     "adv_push_pattern_return logic={} accepted={} busy={} returnPending={}",

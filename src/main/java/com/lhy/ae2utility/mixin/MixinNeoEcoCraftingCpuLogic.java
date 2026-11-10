@@ -2,9 +2,7 @@ package com.lhy.ae2utility.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.world.level.Level;
 
@@ -26,15 +24,15 @@ import com.lhy.ae2utility.card.NbtTearSimulationEnv;
 @Mixin(targets = "cn.dancingsnow.neoecoae.crafting.execution.ECOCraftingCPULogic", remap = false)
 public class MixinNeoEcoCraftingCpuLogic {
 
-    @Inject(method = "tickCraftingLogic", at = @At("HEAD"))
-    private void ae2utility$pushGlobalFilter(IEnergyService energyService, CraftingService craftingService,
-            org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
-        NbtTearSimulationEnv.beginCpuExtract(craftingService);
-    }
-
-    @Inject(method = "tickCraftingLogic", at = @At("RETURN"))
-    private void ae2utility$popGlobalFilter(org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
-        NbtTearSimulationEnv.clear();
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "tickCraftingLogic")
+    private void ae2utility$tickScoped(IEnergyService energyService, CraftingService craftingService,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Void> original) {
+        try (var environment = NbtTearSimulationEnv.enter(craftingService);
+                var pattern = com.lhy.ae2utility.card.NbtTearPatternContext.enter(null);
+                var execution = NbtTearCardThreadLocal.enter(null);
+                var crafting = com.lhy.ae2utility.card.NbtTearCraftingContext.enter(null)) {
+            original.call(energyService, craftingService);
+        }
     }
 
     @Redirect(method = "insert", at = @At(value = "INVOKE",

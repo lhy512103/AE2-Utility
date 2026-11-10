@@ -29,13 +29,13 @@ public record PullRecipeInputsPacket(boolean maxTransfer, boolean craftMissing,
         boolean maxTransfer = buffer.readBoolean();
         boolean craftMissing = buffer.readBoolean();
         return new PullRecipeInputsPacket(maxTransfer, craftMissing,
-                RecipeTransferPacketHelper.readRequestedIngredients(buffer));
+                RequestedIngredientsCodec.readRequestedIngredients(buffer));
     }
 
     private void write(FriendlyByteBuf buffer) {
         buffer.writeBoolean(maxTransfer);
         buffer.writeBoolean(craftMissing);
-        RecipeTransferPacketHelper.writeRequestedIngredients(buffer, requestedIngredients);
+        RequestedIngredientsCodec.writeRequestedIngredients(buffer, requestedIngredients);
     }
 
     @Override

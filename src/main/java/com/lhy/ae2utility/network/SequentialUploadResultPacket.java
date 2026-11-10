@@ -1,7 +1,6 @@
 package com.lhy.ae2utility.network;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.client.SequentialUploadQueue;
 
 import net.minecraft.network.FriendlyByteBuf;
 import com.lhy.ae2utility.network.codec.StreamCodec;
@@ -39,6 +38,6 @@ public record SequentialUploadResultPacket(String patternName, boolean uploaded,
     }
 
     public static void handle(SequentialUploadResultPacket packet) {
-        SequentialUploadQueue.handleResult(packet);
+        ClientPacketDispatch.handle(packet);
     }
 }

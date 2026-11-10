@@ -178,16 +178,9 @@ public abstract class MixinMeteoritePatternProviderLogic implements NbtTearLogic
         NbtTearFilter filter = card.getItem() instanceof NbtTearCardItem
                 ? com.lhy.ae2utility.item.NbtTearCardItem.getFilter(card)
                 : null;
-        if (filter != null) {
-            NbtTearCardThreadLocal.set(filter);
-        }
         long inserted;
-        try {
+        try (var ignored = NbtTearCardThreadLocal.enter(filter)) {
             inserted = storage.insert(key, amount, mode, source);
-        } finally {
-            if (filter != null) {
-                NbtTearCardThreadLocal.clear();
-            }
         }
         if (mode == Actionable.MODULATE && inserted > 0) {
             NbtTearCardDebug.logProviderCheck("meteorite_result_insert", new GenericStack(key, inserted), this, card, filter,

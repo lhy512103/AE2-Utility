@@ -1,8 +1,8 @@
 # AE2: Utility
 
 AE2: Utility is a **Minecraft 1.20.1 Forge** helper mod for Applied Energistics 2.
-It adds fast JEI-driven pattern encoding and ExtendedAE Plus upload workflows
-without adding work to JEI's per-frame render path.
+It adds JEI/EMI-driven pattern encoding and ExtendedAE Plus upload workflows
+without adding work to recipe viewers' per-frame render path.
 
 ## Features
 
@@ -17,11 +17,12 @@ without adding work to JEI's per-frame render path.
 - Configure terminal requirements from Forge's in-game Mods configuration screen.
 - Map Advanced AE Reaction Chamber recipes to matching providers during upload.
 - Preview the encoded pattern and pin its actual ingredients while hovering the JEI/EMI encode arrow.
-- Find and select recipes with the recipe finder, then batch encode or upload the selection.
 - Pull ingredients from ME storage into supported machines or the player inventory.
 - Use NBT Tear Cards and configurable redstone signal cards in supported pattern providers.
 - Transfer container items, fluids and Mekanism chemicals with the ME Quick Transfer Tool.
-- Integrate through the version 1 [Java API](docs/API.md), including custom machine profiles and recipe classifiers.
+- Integrate through the version 2 [Java API](docs/API.md), including custom machine profiles.
+
+The Recipe Finder and its classification API were removed in version 1.20.1.3 (API version 2). Old finder items map to a compass when loading worlds.
 
 ## Requirements
 
@@ -34,6 +35,7 @@ without adding work to JEI's per-frame render path.
 | Just Enough Items | 15.74.0.234 or newer, below 16 | For JEI features |
 | ExtendedAE Plus | 1.6.4, below 1.7 | For provider/matrix uploads |
 | AE2 Lightning Tech | 2.1.4 Forge 1.20.1, below 2.2 | Only for its provider integration |
+| AE2 Crystal Science | 1.2.0 or newer supported 1.20.1 Forge release | For Resonating Pattern Provider integration |
 | Neo ECO AE Extension | 20.5.5, below 20.6 | Only for its crafting CPU integration |
 
 AE2WTLib, Wireless Comprehensive Work Terminal, Curios, Advanced AE, Mekanism,
@@ -43,7 +45,7 @@ and Applied Mekanistics are optional compatibility integrations.
 
 1. Install Forge for Minecraft 1.20.1.
 2. Install Applied Energistics 2 and any optional integrations you use.
-3. Place `ae2utility-1.20.1.2.jar` in the Minecraft `mods` directory.
+3. Place `ae2utility-1.20.1.3.jar` in the Minecraft `mods` directory.
 
 ## Configuration
 
@@ -59,14 +61,12 @@ available in the standard Forge `config` directory.
 The release jar is generated in `build/libs`. The project uses Java 17 and
 ForgeGradle 6.
 
-The 1.20.1.2 release ports the 1.21.1 project's feature set through upstream 1.8.0.
-See [migration notes](docs/MIGRATION-1.21.1.md) for platform differences and validation.
+The 1.20.1.3 release refines optional-mod compatibility, updates AE2 Crystal Science routing support, and removes the recipe finder.
 
 Run `./gradlew test` for regression tests, or `./gradlew runClient -PmigrationSmokeTest`
 for an automatic title-screen and lazy Mixin target check. The smoke run exits without opening a world.
 The smoke run uses the full normal client dependency set, including Applied Create; missing Jade integration labels are supplied by this mod.
-See [dependency audit](docs/DEPENDENCY-AUDIT.md) for exact release pins and [the refactoring plan](docs/REFACTORING-PLAN.md) for staged maintenance work.
-Back up worlds before updating addon storage networks, and update both clients and servers together for release 1.20.1.2.
+Back up worlds before updating addon storage networks, and update both clients and servers together for release 1.20.1.3.
 
 ## Branches
 

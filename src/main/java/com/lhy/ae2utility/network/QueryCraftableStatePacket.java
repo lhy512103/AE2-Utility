@@ -11,7 +11,12 @@ import net.minecraft.resources.ResourceLocation;
 import appeng.api.stacks.AEKey;
 import com.lhy.ae2utility.Ae2UtilityMod;
 
-public record QueryCraftableStatePacket(List<AEKey> keys) implements CustomPacketPayload {
+public record QueryCraftableStatePacket(long requestNonce, List<AEKey> keys) implements CustomPacketPayload {
+    public QueryCraftableStatePacket(List<AEKey> keys) { this(0, keys); }
+    public QueryCraftableStatePacket {
+        NetworkValidation.requireSize(keys.size(), NetworkValidation.MAX_CRAFTABLE_KEYS, "keys");
+        keys = List.copyOf(keys);
+    }
     public static final CustomPacketPayload.Type<QueryCraftableStatePacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "query_craftable_state"));
 
@@ -19,15 +24,17 @@ public record QueryCraftableStatePacket(List<AEKey> keys) implements CustomPacke
             StreamCodec.ofMember(QueryCraftableStatePacket::write, QueryCraftableStatePacket::decode);
 
     private static QueryCraftableStatePacket decode(FriendlyByteBuf buffer) {
-        int size = buffer.readVarInt();
+        long nonce = buffer.readLong();
+        int size = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_CRAFTABLE_KEYS, "keys");
         List<AEKey> list = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             list.add(AEKey.readKey(buffer));
         }
-        return new QueryCraftableStatePacket(list);
+        return new QueryCraftableStatePacket(nonce, list);
     }
 
     private void write(FriendlyByteBuf buffer) {
+        buffer.writeLong(requestNonce);
         buffer.writeVarInt(keys.size());
         for (AEKey key : keys) {
             AEKey.writeKey(buffer, key);

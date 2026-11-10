@@ -24,13 +24,13 @@ public record UniversalPullPacket(List<RequestedIngredient> requestedIngredients
 
     private static UniversalPullPacket decode(FriendlyByteBuf buffer) {
         return new UniversalPullPacket(
-                RecipeTransferPacketHelper.readRequestedIngredients(buffer),
+                RequestedIngredientsCodec.readRequestedIngredients(buffer),
                 buffer.readBoolean()
         );
     }
 
     private void write(FriendlyByteBuf buffer) {
-        RecipeTransferPacketHelper.writeRequestedIngredients(buffer, requestedIngredients);
+        RequestedIngredientsCodec.writeRequestedIngredients(buffer, requestedIngredients);
         buffer.writeBoolean(maxTransfer);
     }
 

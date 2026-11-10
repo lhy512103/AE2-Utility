@@ -15,4 +15,10 @@ public record IngredientRequest(List<ItemStack> alternatives, int count) {
             throw new IllegalArgumentException("count must not be negative");
         }
     }
+
+    /** Each reader receives its own mutable stacks; the stored request is a snapshot. */
+    @Override
+    public List<ItemStack> alternatives() {
+        return alternatives.stream().map(ItemStack::copy).toList();
+    }
 }

@@ -25,6 +25,10 @@ configurations {
 }
 
 apply plugin: 'org.spongepowered.mixin'
+jarJar.enable()
+
+def runtimeProfile = providers.gradleProperty('runtimeProfile').orElse('full').get()
+def verificationRun = project.hasProperty('verificationRun')
 
 group = mod_group_id
 version = mod_version
@@ -64,14 +68,18 @@ minecraft {
             }
         }
         client {
-            workingDirectory project.file('run/client')
+            workingDirectory project.file(verificationRun ? "run/verification/${runtimeProfile}/client" : 'run/client')
             property 'forge.enabledGameTestNamespaces', mod_id
             if (project.hasProperty('migrationSmokeTest')) {
                 property 'ae2utility.migrationSmokeTest', 'true'
             }
         }
         server {
-            workingDirectory project.file('run/server')
+            workingDirectory project.file(verificationRun ? "run/verification/${runtimeProfile}/server" : 'run/server')
+            if (project.hasProperty('serverSmokeTest')) {
+                if (!verificationRun) throw new GradleException('serverSmokeTest requires -PverificationRun')
+                property 'ae2utility.serverSmokeTest', 'true'
+            }
             property 'forge.enabledGameTestNamespaces', mod_id
             args '--nogui'
         }
@@ -147,6 +155,7 @@ tasks.named('processResources', ProcessResources).configure {
 
 // ── JAR manifest ──────────────────────────────────────────────
 tasks.named('jar', Jar).configure {
+    archiveClassifier = 'slim'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,
@@ -160,6 +169,12 @@ tasks.named('jar', Jar).configure {
         ])
     }
     finalizedBy 'reobfJar'
+}
+
+tasks.named('jarJar', Jar).configure {
+    archiveClassifier = ''
+    manifest.from(tasks.named('jar', Jar).get().manifest)
+    finalizedBy 'reobfJarJar'
 }
 
 // ── 客户端专用运行依赖 ──────────────────────────────────────────
@@ -179,6 +194,7 @@ tasks.withType(JavaCompile).configureEach {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation fg.deobf("mezz.jei:jei-1.20.1-forge:${libs.versions.jei.get()}")
 }
 
 tasks.named('test', Test).configure {

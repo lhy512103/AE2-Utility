@@ -11,7 +11,10 @@ import net.minecraft.resources.ResourceLocation;
 import appeng.api.stacks.AEKey;
 import com.lhy.ae2utility.Ae2UtilityMod;
 
-public record CraftableStatePacket(List<AEKey> craftableKeys, List<AEKey> uncraftableKeys) implements CustomPacketPayload {
+public record CraftableStatePacket(long requestNonce, List<AEKey> craftableKeys, List<AEKey> uncraftableKeys) implements CustomPacketPayload {
+    public CraftableStatePacket(List<AEKey> craftableKeys, List<AEKey> uncraftableKeys) {
+        this(0, craftableKeys, uncraftableKeys);
+    }
     public CraftableStatePacket {
         NetworkValidation.requireSize(craftableKeys.size(), NetworkValidation.MAX_CRAFTABLE_KEYS, "craftableKeys");
         NetworkValidation.requireSize(uncraftableKeys.size(), NetworkValidation.MAX_CRAFTABLE_KEYS, "uncraftableKeys");
@@ -23,6 +26,7 @@ public record CraftableStatePacket(List<AEKey> craftableKeys, List<AEKey> uncraf
             StreamCodec.ofMember(CraftableStatePacket::write, CraftableStatePacket::decode);
 
     private static CraftableStatePacket decode(FriendlyByteBuf buffer) {
+        long nonce = buffer.readLong();
         int craftableSize = NetworkValidation.readListSize(buffer, NetworkValidation.MAX_CRAFTABLE_KEYS, "craftableKeys");
         List<AEKey> craftableKeys = new ArrayList<>(craftableSize);
         for (int i = 0; i < craftableSize; i++) {
@@ -33,10 +37,11 @@ public record CraftableStatePacket(List<AEKey> craftableKeys, List<AEKey> uncraf
         for (int i = 0; i < uncraftableSize; i++) {
             uncraftableKeys.add(AEKey.readKey(buffer));
         }
-        return new CraftableStatePacket(craftableKeys, uncraftableKeys);
+        return new CraftableStatePacket(nonce, craftableKeys, uncraftableKeys);
     }
 
     private void write(FriendlyByteBuf buffer) {
+        buffer.writeLong(requestNonce);
         buffer.writeVarInt(craftableKeys.size());
         for (AEKey key : craftableKeys) {
             AEKey.writeKey(buffer, key);

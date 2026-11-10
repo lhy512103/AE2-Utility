@@ -1,7 +1,6 @@
 package com.lhy.ae2utility.network;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
 
 import net.minecraft.network.FriendlyByteBuf;
 import com.lhy.ae2utility.network.codec.StreamCodec;
@@ -30,6 +29,6 @@ public record InventoryProviderUploadAckPacket(int slotIndex, boolean success)
     }
 
     public static void handle(InventoryProviderUploadAckPacket packet) {
-        InventoryPatternUploadQueue.handleUploadAck(packet.slotIndex(), packet.success());
+        ClientPacketDispatch.handle(packet);
     }
 }

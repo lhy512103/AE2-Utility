@@ -3,6 +3,10 @@ package com.lhy.ae2utility.card;
 public class NbtTearCardThreadLocal {
     private static final ThreadLocal<NbtTearFilter> FILTER = new ThreadLocal<>();
 
+    public static NbtTearScope enter(NbtTearFilter filter) {
+        return NbtTearScope.enter(FILTER, filter);
+    }
+
     public static void set(NbtTearFilter filter) {
         FILTER.set(filter);
     }

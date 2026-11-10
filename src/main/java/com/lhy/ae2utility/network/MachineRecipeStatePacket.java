@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 
-public record MachineRecipeStatePacket(int containerId, String profileId, String requestKey, State state,
+public record MachineRecipeStatePacket(long requestNonce, int containerId, String profileId, String requestKey, State state,
         List<IngredientAvailability> availability) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<MachineRecipeStatePacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Ae2UtilityMod.MOD_ID, "machine_recipe_state"));
@@ -20,6 +20,11 @@ public record MachineRecipeStatePacket(int containerId, String profileId, String
             StreamCodec.ofMember(MachineRecipeStatePacket::write, MachineRecipeStatePacket::decode);
 
     public MachineRecipeStatePacket(int containerId, String profileId, String requestKey, State state, List<IngredientAvailability> availability) {
+        this(0, containerId, profileId, requestKey, state, availability);
+    }
+
+    public MachineRecipeStatePacket(long requestNonce, int containerId, String profileId, String requestKey, State state, List<IngredientAvailability> availability) {
+        this.requestNonce = requestNonce;
         this.containerId = containerId;
         this.profileId = profileId;
         this.requestKey = requestKey;
@@ -28,6 +33,7 @@ public record MachineRecipeStatePacket(int containerId, String profileId, String
     }
 
     private static MachineRecipeStatePacket decode(FriendlyByteBuf buffer) {
+        long nonce = buffer.readLong();
         int containerId = buffer.readVarInt();
         String profileId = buffer.readUtf();
         String requestKey = buffer.readUtf();
@@ -37,10 +43,11 @@ public record MachineRecipeStatePacket(int containerId, String profileId, String
         for (int i = 0; i < size; i++) {
             availability.add(IngredientAvailability.decode(buffer));
         }
-        return new MachineRecipeStatePacket(containerId, profileId, requestKey, state, availability);
+        return new MachineRecipeStatePacket(nonce, containerId, profileId, requestKey, state, availability);
     }
 
     private void write(FriendlyByteBuf buffer) {
+        buffer.writeLong(requestNonce);
         buffer.writeVarInt(containerId);
         buffer.writeUtf(profileId);
         buffer.writeUtf(requestKey);

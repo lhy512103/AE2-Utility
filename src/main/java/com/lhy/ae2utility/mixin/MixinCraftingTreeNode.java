@@ -3,9 +3,6 @@ package com.lhy.ae2utility.mixin;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.crafting.CraftingTreeNode;
@@ -26,14 +23,17 @@ public class MixinCraftingTreeNode {
     @Final
     private IPatternDetails.IInput parentInput;
 
-    @Inject(method = "getValidItemTemplates", at = @At("HEAD"))
-    private void ae2utility$pushPattern(ICraftingInventory inv, CallbackInfoReturnable<Iterable<InputTemplate>> cir) {
-        // CraftingCpuHelper.getValidItemTemplates applies isValid lazily (Iterables.filter): callers iterate after
-        // this method returns. Clearing pattern on RETURN would run before isValid and break per-provider tear checks.
-        if (parent != null && parentInput != null) {
-            NbtTearPatternContext.set(((CraftingTreeProcessAccessor) (Object) parent).getDetails());
-        } else {
-            NbtTearPatternContext.clear();
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "getValidItemTemplates")
+    private Iterable<InputTemplate> ae2utility$scopedTemplates(ICraftingInventory inv,
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Iterable<InputTemplate>> original) {
+        IPatternDetails details = parent != null && parentInput != null
+                ? ((CraftingTreeProcessAccessor) (Object) parent).getDetails() : null;
+        Iterable<InputTemplate> templates;
+        try (var ignored = NbtTearPatternContext.enter(details)) {
+            templates = original.call(inv);
         }
+        // AE2 filters lazily. Scope each iterator operation, not the lifetime of the iterable.
+        return com.lhy.ae2utility.card.NbtTearScopedIterable.wrap(templates,
+                () -> NbtTearPatternContext.enter(details));
     }
 }

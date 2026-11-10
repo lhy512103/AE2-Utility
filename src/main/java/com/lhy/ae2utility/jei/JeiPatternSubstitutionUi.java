@@ -2,28 +2,20 @@ package com.lhy.ae2utility.jei;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
-import com.lhy.ae2utility.compat.WcwtCompat;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.sounds.SoundEvents;
 
-import org.jetbrains.annotations.Nullable;
-
 import appeng.client.gui.Icon;
-
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import mezz.jei.common.util.ImmutableRect2i;
@@ -45,6 +37,8 @@ public final class JeiPatternSubstitutionUi {
 
     public static final class RecipeOptionButtonController implements IIconButtonController {
         private final RecipeOptionButton button;
+        private com.lhy.ae2utility.client.PatternSubstitutionRules rules =
+                com.lhy.ae2utility.client.PatternSubstitutionRules.DEFAULT;
 
         public RecipeOptionButtonController(RecipeOptionButton button) {
             this.button = button;
@@ -68,14 +62,15 @@ public final class JeiPatternSubstitutionUi {
 
         @Override
         public void updateState(IButtonState state) {
+            rules = com.lhy.ae2utility.client.PatternSubstitutionState.snapshot();
             boolean active = isSubstitutionContextActive();
             state.setVisible(active && (button != RecipeOptionButton.BATCH_CATEGORY
                     || Ae2UtilityClientConfig.showJeiBatchEncodeFullCategoryButton()));
             state.setActive(active);
             if (button == RecipeOptionButton.ITEM_SUBSTITUTION) {
-                state.setForcePressed(active && isItemSubstituteOn());
+                state.setForcePressed(active && rules.items());
             } else if (button == RecipeOptionButton.FLUID_SUBSTITUTION) {
-                state.setForcePressed(active && isFluidSubstituteOn());
+                state.setForcePressed(active && rules.fluids());
             }
         }
 
@@ -83,15 +78,15 @@ public final class JeiPatternSubstitutionUi {
         public void getTooltips(mezz.jei.api.gui.builder.ITooltipBuilder tooltip) {
             switch (button) {
                 case ITEM_SUBSTITUTION -> {
-                    tooltip.add(Component.translatable(isItemSubstituteOn()
+                    tooltip.add(Component.translatable(rules.items()
                             ? "gui.tooltips.ae2.SubstitutionsOn" : "gui.tooltips.ae2.SubstitutionsOff"));
-                    tooltip.add(Component.translatable(isItemSubstituteOn()
+                    tooltip.add(Component.translatable(rules.items()
                             ? "gui.tooltips.ae2.SubstitutionsDescEnabled"
                             : "gui.tooltips.ae2.SubstitutionsDescDisabled").withStyle(ChatFormatting.GRAY));
                 }
                 case FLUID_SUBSTITUTION -> {
                     tooltip.add(Component.translatable("gui.tooltips.ae2.FluidSubstitutions"));
-                    tooltip.add(Component.translatable(isFluidSubstituteOn()
+                    tooltip.add(Component.translatable(rules.fluids()
                             ? "gui.tooltips.ae2.FluidSubstitutionsDescEnabled"
                             : "gui.tooltips.ae2.FluidSubstitutionsDescDisabled").withStyle(ChatFormatting.GRAY));
                 }
@@ -111,10 +106,10 @@ public final class JeiPatternSubstitutionUi {
             int x = area.getX();
             int y = area.getY();
             switch (button) {
-                case ITEM_SUBSTITUTION -> (isItemSubstituteOn()
+                case ITEM_SUBSTITUTION -> (rules.items()
                         ? Icon.SUBSTITUTION_ENABLED : Icon.SUBSTITUTION_DISABLED)
                         .getBlitter().dest(x, y, 16, 16).blit(graphics);
-                case FLUID_SUBSTITUTION -> (isFluidSubstituteOn()
+                case FLUID_SUBSTITUTION -> (rules.fluids()
                         ? Icon.FLUID_SUBSTITUTION_ENABLED : Icon.FLUID_SUBSTITUTION_DISABLED)
                         .getBlitter().dest(x, y, 16, 16).blit(graphics);
                 case BATCH_PAGE -> drawBatchIcon(graphics, TEX_BATCH_PAGE, x, y);
@@ -130,12 +125,6 @@ public final class JeiPatternSubstitutionUi {
             graphics.pose().popPose();
         }
     }
-    /** 无线/非终端场景下使用的本地开关（与终端打开时由菜单同步） */
-    public static boolean localSubstitute = false;
-    public static boolean localSubstituteFluids = true;
-    private static boolean localStateLoaded = false;
-    private static final String CONFIG_FILE_NAME = "ae2utility-jei-substitution.properties";
-
     private static final int BTN = 8;
     private static final int GAP = 2;
     private static final int PAD = 2;
@@ -198,171 +187,24 @@ public final class JeiPatternSubstitutionUi {
         lastBatchMachineY = Integer.MIN_VALUE;
     }
 
-    private static void ensureLocalStateLoaded() {
-        if (localStateLoaded) {
-            return;
-        }
-        localStateLoaded = true;
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.gameDirectory == null) {
-            return;
-        }
-        Path path = getLocalStatePath(minecraft);
-        if (!Files.exists(path)) {
-            return;
-        }
-        Properties properties = new Properties();
-        try (var reader = Files.newBufferedReader(path)) {
-            properties.load(reader);
-            localSubstitute = Boolean.parseBoolean(properties.getProperty("itemSubstitute", Boolean.toString(localSubstitute)));
-            localSubstituteFluids = Boolean.parseBoolean(properties.getProperty("fluidSubstitute", Boolean.toString(localSubstituteFluids)));
-        } catch (Exception ignored) {
-        }
-    }
-
-    private static void saveLocalState() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.gameDirectory == null) {
-            return;
-        }
-        Properties properties = new Properties();
-        properties.setProperty("itemSubstitute", Boolean.toString(localSubstitute));
-        properties.setProperty("fluidSubstitute", Boolean.toString(localSubstituteFluids));
-        Path path = getLocalStatePath(minecraft);
-        try {
-            Files.createDirectories(path.getParent());
-            try (var writer = Files.newBufferedWriter(path)) {
-                properties.store(writer, "AE2 Utility JEI substitution toggles");
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private static Path getLocalStatePath(Minecraft minecraft) {
-        return minecraft.gameDirectory.toPath().resolve("config").resolve(CONFIG_FILE_NAME);
-    }
-
-    private static @Nullable Object getOpenPatternMenu() {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player != null && WcwtCompat.isPatternEncodingLikeMenu(player.containerMenu)) {
-            return player.containerMenu;
-        }
-        return null;
-    }
-
     public static boolean isSubstitutionContextActive() {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            return false;
-        }
-        if (WcwtCompat.isPatternEncodingLikeMenu(player.containerMenu)) {
-            return true;
-        }
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            String itemName = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(player.getInventory().getItem(i).getItem()).toString();
-            if (itemName.contains("pattern_encoding") || itemName.contains("universal_terminal")) {
-                return true;
-            }
-        }
-        var curios = com.lhy.ae2utility.service.CuriosWirelessTerminalLookup.items(player);
-        if (curios != null) {
-            for (int slot = 0; slot < curios.getSlots(); slot++) {
-                String itemName = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(curios.getStackInSlot(slot).getItem()).toString();
-                if (itemName.contains("pattern_encoding") || itemName.contains("universal_terminal")) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return com.lhy.ae2utility.client.PatternSubstitutionState.isSubstitutionContextActive();
     }
 
     public static boolean isItemSubstituteOn() {
-        ensureLocalStateLoaded();
-        Object menu = getOpenPatternMenu();
-        if (menu != null) {
-            Boolean value = firstNonNullBoolean(menu, "isSubstitute", "isPatternSubstitute");
-            if (value != null) {
-                return value.booleanValue();
-            }
-        }
-        return localSubstitute;
+        return com.lhy.ae2utility.client.PatternSubstitutionState.snapshot().items();
     }
 
     public static boolean isFluidSubstituteOn() {
-        ensureLocalStateLoaded();
-        Object menu = getOpenPatternMenu();
-        if (menu != null) {
-            Boolean value = firstNonNullBoolean(menu, "isSubstituteFluids", "isPatternFluidSubstitute");
-            if (value != null) {
-                return value.booleanValue();
-            }
-        }
-        return localSubstituteFluids;
+        return com.lhy.ae2utility.client.PatternSubstitutionState.snapshot().fluids();
     }
 
     public static void toggleItemSubstitute() {
-        ensureLocalStateLoaded();
-        Object menu = getOpenPatternMenu();
-        if (menu != null) {
-            boolean next = !isItemSubstituteOn();
-            boolean applied = invokeVoidBoolean(menu, "setSubstitute", next)
-                    || invokeVoidBoolean(menu, "setPatternSubstitute", next);
-            if (applied) {
-                localSubstitute = isItemSubstituteOn();
-            } else {
-                localSubstitute = next;
-            }
-        } else {
-            localSubstitute = !localSubstitute;
-        }
-        saveLocalState();
+        com.lhy.ae2utility.client.PatternSubstitutionState.toggleItemSubstitute();
     }
 
     public static void toggleFluidSubstitute() {
-        ensureLocalStateLoaded();
-        Object menu = getOpenPatternMenu();
-        if (menu != null) {
-            boolean next = !isFluidSubstituteOn();
-            boolean applied = invokeVoidBoolean(menu, "setSubstituteFluids", next)
-                    || invokeVoidBoolean(menu, "setPatternFluidSubstitute", next);
-            if (applied) {
-                localSubstituteFluids = isFluidSubstituteOn();
-            } else {
-                localSubstituteFluids = next;
-            }
-        } else {
-            localSubstituteFluids = !localSubstituteFluids;
-        }
-        saveLocalState();
-    }
-
-    private static @Nullable Boolean invokeBoolean(Object target, String methodName) {
-        try {
-            Object value = target.getClass().getMethod(methodName).invoke(target);
-            return value instanceof Boolean b ? b : null;
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
-    private static @Nullable Boolean firstNonNullBoolean(Object target, String... methodNames) {
-        for (String name : methodNames) {
-            Boolean v = invokeBoolean(target, name);
-            if (v != null) {
-                return v;
-            }
-        }
-        return null;
-    }
-
-    /** @return 是否成功调用到对应 setter（AE2 样板终端与 WCWT 方法名不同） */
-    private static boolean invokeVoidBoolean(Object target, String methodName, boolean value) {
-        try {
-            target.getClass().getMethod(methodName, boolean.class).invoke(target, value);
-            return true;
-        } catch (Throwable ignored) {
-            return false;
-        }
+        com.lhy.ae2utility.client.PatternSubstitutionState.toggleFluidSubstitute();
     }
 
     private static void blitBatchIcon(GuiGraphics g, ResourceLocation tex, int destX, int destY, int mouseX, int mouseY) {
@@ -375,7 +217,6 @@ public final class JeiPatternSubstitutionUi {
      * 在 JEI {@code RecipesGui} 渲染末尾调用：配方区域左上角绘制替换开关与同尺寸批量编码按钮。
      */
     public static void render(ImmutableRect2i recipeLayoutsArea, GuiGraphics guiGraphics, int mouseX, int mouseY) {
-        ensureLocalStateLoaded();
         syncLayoutFromRecipeArea(recipeLayoutsArea);
         if (!isSubstitutionContextActive()) {
             return;

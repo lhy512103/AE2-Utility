@@ -8,6 +8,10 @@ import net.minecraftforge.fml.ModList;
  */
 public final class ModCapabilities {
     public static final String EMI = "emi";
+    public static final String CURIOS = "curios";
+    public static final String AE2_WIRELESS_TERMINALS = "ae2wtlib";
+    public static final String WCWT = "wcwt";
+    public static final String LEGACY_WCWT = "wireless_comprehensive_work_terminal";
     public static final String JEICT = "jeict";
     public static final String EXTENDEDAE_PLUS = "extendedae_plus";
     public static final String EXTENDEDAE = "expatternprovider";
@@ -23,6 +27,18 @@ public final class ModCapabilities {
 
     public static boolean isLoaded(String modId) {
         return modId != null && ModList.get().isLoaded(modId);
+    }
+
+    public static boolean hasCurios() {
+        return isLoaded(CURIOS);
+    }
+
+    public static boolean hasAE2WTLib() {
+        return isLoaded(AE2_WIRELESS_TERMINALS);
+    }
+
+    public static boolean hasWcwt() {
+        return isLoaded(WCWT) || isLoaded(LEGACY_WCWT);
     }
 
     public static boolean hasEmi() {

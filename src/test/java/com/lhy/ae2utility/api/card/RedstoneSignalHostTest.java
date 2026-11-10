@@ -43,6 +43,7 @@ class RedstoneSignalHostTest {
         private boolean lastActive;
         private int pulseCount;
         private int continuousSignalChanges;
+        private boolean continuous;
 
         @Override
         public ItemStack signalCard() {
@@ -66,7 +67,10 @@ class RedstoneSignalHostTest {
 
         @Override
         public void setContinuousSignal(boolean active) {
-            continuousSignalChanges++;
+            if (continuous != active) {
+                continuousSignalChanges++;
+                continuous = active;
+            }
         }
     }
 }

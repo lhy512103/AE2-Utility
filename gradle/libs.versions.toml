@@ -18,7 +18,7 @@ glodium         = "1.20-1.5-forge"     # Modrinth slug: glodium
 extendedae-epp  = "1.20-1.4.18-forge"  # Modrinth slug: extended-ae (Ex Pattern Provider)
 appflux         = "1.20-1.3.7-forge"   # Modrinth slug: appflux
 jecharacters    = "pdLyf9hN"           # Forge 1.20.1 4.6.12; bare version resolves an incompatible MC jar
-ae2cs           = "1.1.4.514-1.20.1-forge" # Latest compatible routed-input API; 1.2.0 requires a new NBT-tear adapter
+ae2cs           = "VGhHOKsP"           # Forge 1.20.1 1.2.0; routed actual-key adapter, exact file pin
 mekanism        = "10.4.16.80"
 applied-mek     = "1.4.3"               # Modrinth slug: applied-mekanistics
 create          = "mc1.20.1-6.0.8"
@@ -53,6 +53,7 @@ architectury    = "9.2.14"
 curios          = "5.14.1+1.20.1"
 configuration   = "9425510"            # 3.1.1; same GAV, satisfies EAEP embedded range [5840405,)
 mixin           = "0.8.5"
+mixinextras     = "0.5.5"             # Packaged for exception-safe scope wrappers, including AE2-only installs
 # ---- Recipe viewers ----
 jei             = "15.74.0.234"        # Backported recipe-button API used by the 1.21 feature set
 emi             = "1.1.24+1.20.1+forge"

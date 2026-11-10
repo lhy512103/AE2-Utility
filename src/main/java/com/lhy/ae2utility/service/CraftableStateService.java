@@ -63,6 +63,6 @@ public final class CraftableStateService {
             uncraftableKeys.addAll(payload.keys());
         }
 
-        ModNetworking.sendToPlayer(serverPlayer, new CraftableStatePacket(craftableKeys, uncraftableKeys));
+        ModNetworking.sendToPlayer(serverPlayer, new CraftableStatePacket(payload.requestNonce(), craftableKeys, uncraftableKeys));
     }
 }

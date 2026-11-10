@@ -11,6 +11,31 @@ import com.lhy.ae2utility.network.codec.ByteBufCodecs;
 
 class ForgePacketCodecTest {
     @Test
+    void queryAndReplyNoncesRoundTrip() {
+        var query = new QueryCraftableStatePacket(0x1122334455667788L, List.of());
+        var response = new CraftableStatePacket(0x1122334455667788L, List.of(), List.of());
+        var machineQuery = new QueryMachineRecipeStatePacket(23L, 7, "profile", List.of());
+        var machineResponse = new MachineRecipeStatePacket(23L, 7, "profile", "signature",
+                MachineRecipeStatePacket.State.READY, List.of());
+        assertRoundTrip(QueryCraftableStatePacket.STREAM_CODEC, query);
+        assertRoundTrip(CraftableStatePacket.STREAM_CODEC, response);
+        assertRoundTrip(QueryMachineRecipeStatePacket.STREAM_CODEC, machineQuery);
+        assertRoundTrip(MachineRecipeStatePacket.STREAM_CODEC, machineResponse);
+    }
+
+    private static <T> void assertRoundTrip(com.lhy.ae2utility.network.codec.StreamCodec<FriendlyByteBuf, T> codec,
+            T packet) {
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            codec.encode(buffer, packet);
+            assertEquals(packet, codec.decode(buffer));
+            assertEquals(0, buffer.readableBytes());
+        } finally {
+            buffer.release();
+        }
+    }
+
+    @Test
     void preservesLargeAlternativeListsAndUploadFlags() {
         var packet = new EncodePatternPacket(List.of(Collections.nCopies(71, null)), List.of(), null,
                 "pattern", "provider", "display", true, true, false, true, true, false, 17);

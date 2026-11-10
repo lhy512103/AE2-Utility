@@ -1,17 +1,14 @@
 package com.lhy.ae2utility.jei;
 
+import com.lhy.ae2utility.client.EncodePatternDrafts;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-import org.jetbrains.annotations.Nullable;
-
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
-
-import net.minecraftforge.fml.ModList;
 
 import appeng.api.stacks.GenericStack;
 
@@ -21,7 +18,6 @@ import mezz.jei.api.recipe.RecipeIngredientRole;
 
 import com.lhy.ae2utility.network.EncodePatternPacket;
 import com.lhy.ae2utility.debug.JeiEncodeQueueDebugLog;
-import com.lhy.ae2utility.integration.eaep.EaepReflection;
 import com.lhy.ae2utility.integration.multiblock.MultiblockStructurePatternCompat;
 import com.lhy.ae2utility.network.RecipeTransferPacketHelper;
 
@@ -43,66 +39,31 @@ public final class JeiEncodePacketFactory {
             }
             outputs = List.of(draftOutput);
         }
-        java.util.Set<appeng.api.stacks.AEKey> outputKeys = outputs.stream()
-                .filter(Objects::nonNull)
-                .map(GenericStack::what)
-                .filter(Objects::nonNull)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<List<GenericStack>> inputs = RecipeTransferPacketHelper.getGenericStacks(
-                slotsView, RecipeIngredientRole.INPUT, outputKeys);
+                slotsView, RecipeIngredientRole.INPUT, EncodePatternDrafts.outputKeys(outputs));
         if (multiblockStructureDraft) {
             inputs = filterMultiblockStructureInputs(slotsView, inputs);
-            if (!hasMeaningfulInputs(inputs)) {
+            if (!EncodePatternDrafts.hasMeaningfulInputs(inputs)) {
                 inputs = MultiblockStructurePatternCompat.extractStructureInputs(recipe).stream()
                         .map(List::of)
                         .toList();
             }
         }
 
-        boolean hasInput = hasMeaningfulInputs(inputs);
-        boolean hasOutput = outputs.stream().anyMatch(Objects::nonNull);
-        boolean hasUnsupportedInput = inputs.stream().anyMatch(slot -> slot == null);
-        boolean hasUnsupportedOutput = outputs.stream().anyMatch(Objects::isNull);
-
-        if (!hasInput || !hasOutput || hasUnsupportedInput || hasUnsupportedOutput) {
+        if (!EncodePatternDrafts.isEncodable(inputs, outputs)) {
             String recipeDesc = recipe instanceof Recipe<?> h && h.getId() != null ? h.getId().toString()
                 : (recipe != null ? recipe.getClass().getName() : "<null>");
-            JeiEncodeQueueDebugLog.info(
-                "JeiEncodePacketFactory.tryCreate rejected recipe={} hasInput={} hasOutput={} unsupportedIn={} unsupportedOut={} inputsSlots={} outputsCount={}",
-                recipeDesc, hasInput, hasOutput, hasUnsupportedInput, hasUnsupportedOutput, inputs.size(), outputs.size());
+            JeiEncodeQueueDebugLog.info("JeiEncodePacketFactory.tryCreate rejected recipe={} inputsSlots={} outputsCount={}",
+                recipeDesc, inputs.size(), outputs.size());
             return Optional.empty();
         }
 
-        ResourceLocation recipeId = null;
-        if (!multiblockStructureDraft && recipe instanceof Recipe<?> holder) {
-            recipeId = holder.getId();
-        }
-        String patternName = derivePatternName(recipeId, outputs);
-
-        String providerSearchKey = computeEaepProviderSearchKey(recipe, shiftUpload);
-
+        ResourceLocation recipeId = !multiblockStructureDraft && recipe instanceof Recipe<?> holder ? holder.getId() : null;
+        String providerSearchKey = EncodePatternDrafts.eaepUploadAvailable(shiftUpload)
+                ? EncodePatternDrafts.eaepSearchKey(recipe) : "";
         boolean craftingCategoryHint = !multiblockStructureDraft && isCraftingCategory(recipeLayout, recipe, inputs);
-
-        EncodePatternPacket packet = new EncodePatternPacket(
-                inputs,
-                outputs,
-                recipeId,
-                patternName,
-                providerSearchKey,
-                providerSearchKey,
-                shiftUpload,
-                JeiPatternSubstitutionUi.isItemSubstituteOn(),
-                JeiPatternSubstitutionUi.isFluidSubstituteOn(),
-                false,
-                false,
-                jeiFullCategoryBatch,
-                bulkEncodeSessionId,
-                craftingCategoryHint);
-        return Optional.of(com.lhy.ae2utility.compat.SomeUselessThingsCompat.attachIdentity(packet, recipe));
-    }
-
-    private static boolean hasMeaningfulInputs(List<List<GenericStack>> inputs) {
-        return inputs.stream().anyMatch(slot -> slot != null && !slot.isEmpty());
+        return Optional.of(EncodePatternDrafts.toPacket(new EncodePatternDrafts.Draft(inputs, outputs, recipeId,
+                providerSearchKey, shiftUpload, craftingCategoryHint, jeiFullCategoryBatch, bulkEncodeSessionId, recipe)));
     }
 
     private static boolean hasStructureInputs(IRecipeSlotsView slotsView) {
@@ -135,20 +96,13 @@ public final class JeiEncodePacketFactory {
         return filtered;
     }
 
-    /**
-     * 是否应按「工作台合成」处理：与原版 AE2 的判断保持同一边界，只有能放进 3x3 的配方才提示服务端做
-     * 合成 fallback。Create 动力合成器这类超过 3x3 的 JEI 页面即使长得像合成网格，也应保持处理样板路径。
-     */
+    /** 是否按「工作台合成」处理，边界见 {@link EncodePatternDrafts#fitsCraftingGrid}。 */
     private static boolean isCraftingCategory(IRecipeLayoutDrawable<?> recipeLayout, Object recipe,
             List<List<GenericStack>> inputs) {
-        long meaningfulInputs = inputs.stream()
-                .filter(slot -> slot != null && !slot.isEmpty())
-                .count();
-        if (meaningfulInputs > 9) {
+        if (!EncodePatternDrafts.fitsCraftingGrid(inputs)) {
             return false;
         }
-        if (recipe instanceof Recipe<?> holder
-                && holder instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
+        if (recipe instanceof CraftingRecipe) {
             return true;
         }
         try {
@@ -156,46 +110,5 @@ public final class JeiEncodePacketFactory {
         } catch (Throwable ignored) {
             return false;
         }
-    }
-
-    private static String derivePatternName(@Nullable ResourceLocation recipeId, List<GenericStack> outputs) {
-        for (GenericStack output : outputs) {
-            if (output == null || output.what() == null) {
-                continue;
-            }
-            Component name = output.what().getDisplayName();
-            if (name != null) {
-                String text = name.getString();
-                if (text != null && !text.isBlank()) {
-                    return text;
-                }
-            }
-        }
-        return recipeId != null ? recipeId.toString() : "-";
-    }
-
-    /**
-     * 仅计算写入数据包的字符串，不修改 EAEP 全局静态（批量时会覆盖导致供应器界面过滤错误；服务端会通过
-     * {@link com.lhy.ae2utility.network.SyncEaepProviderSearchKeyPacket} 同步客户端）。
-     */
-    private static String computeEaepProviderSearchKey(Object recipe, boolean shiftUpload) {
-        String providerSearchKey = "";
-        if (!shiftUpload || !ModList.get().isLoaded("extendedae_plus")) {
-            return providerSearchKey;
-        }
-        if (recipe instanceof Recipe<?> holder && holder instanceof net.minecraft.world.item.crafting.CraftingRecipe) {
-            providerSearchKey = EaepReflection.defaultCraftingSearchKey();
-        } else {
-            String name = null;
-            if (recipe instanceof Recipe<?> h) {
-                name = EaepReflection.mapRecipeTypeToSearchKey(h);
-            } else {
-                name = EaepReflection.deriveSearchKeyFromUnknownRecipe(recipe);
-            }
-            if (name != null && !name.isEmpty()) {
-                providerSearchKey = name;
-            }
-        }
-        return providerSearchKey == null ? "" : providerSearchKey;
     }
 }

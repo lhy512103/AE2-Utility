@@ -1,6 +1,8 @@
 package com.lhy.ae2utility.jei;
 
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import net.minecraft.world.item.crafting.Ingredient;
@@ -19,6 +21,8 @@ import appeng.menu.me.common.MEStorageMenu;
 public final class ClientRepoCraftableIndex {
     /** 单调递增；每次 {@link #advanceClientTick()} 加一，用于使跨 tick 的缓存失效。 */
     private static long tickGeneration;
+    private static long contentVersion;
+    private static Map<AEKey, Stock> stockSnapshot = Map.of();
 
     private static long cacheGeneration = Long.MIN_VALUE;
     private static @Nullable MEStorageMenu cacheMenu;
@@ -37,7 +41,6 @@ public final class ClientRepoCraftableIndex {
     /** 与 {@link CraftableStateCache#invalidateKeys} 等配合：样板或网络状态变更后强制下一查重建。 */
     public static void invalidate() {
         cacheGeneration = Long.MIN_VALUE;
-        cacheMenu = null;
         cacheCraftableKeys = null;
     }
 
@@ -71,6 +74,15 @@ public final class ClientRepoCraftableIndex {
         return false;
     }
 
+    /** Stable across ticks until actual repo quantities/craftability or menu scope change.
+     * Uses the existing shared once-per-tick traversal, never a per-layout fingerprint scan. */
+    public static long contentVersion(@Nullable MEStorageMenu menu) {
+        if (menu != null) craftableKeysForMenu(menu);
+        return contentVersion;
+    }
+
+    private record Stock(long stored, long requestable, boolean craftable) {}
+
     private static Set<AEKey> craftableKeysForMenu(MEStorageMenu menu) {
         if (cacheCraftableKeys != null && cacheMenu == menu && cacheGeneration == tickGeneration) {
             return cacheCraftableKeys;
@@ -81,14 +93,21 @@ public final class ClientRepoCraftableIndex {
 
     private static void rebuildForMenu(MEStorageMenu menu) {
         var repo = menu.getClientRepo();
+        boolean changedMenu = cacheMenu != menu;
         cacheMenu = menu;
         cacheGeneration = tickGeneration;
         if (repo == null) {
             cacheCraftableKeys = Set.of();
+            if (changedMenu || !stockSnapshot.isEmpty()) contentVersion++;
+            stockSnapshot = Map.of();
             return;
         }
         Set<AEKey> keys = new HashSet<>();
+        Map<AEKey, Stock> stock = new HashMap<>();
         for (var entry : repo.getAllEntries()) {
+            if (entry.getWhat() != null) {
+                stock.put(entry.getWhat(), new Stock(entry.getStoredAmount(), entry.getRequestableAmount(), entry.isCraftable()));
+            }
             if (entry.isCraftable()) {
                 AEKey what = entry.getWhat();
                 if (what != null) {
@@ -97,5 +116,7 @@ public final class ClientRepoCraftableIndex {
             }
         }
         cacheCraftableKeys = keys;
+        if (changedMenu || !stock.equals(stockSnapshot)) contentVersion++;
+        stockSnapshot = stock;
     }
 }

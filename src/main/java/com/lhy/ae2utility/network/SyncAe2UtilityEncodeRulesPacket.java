@@ -1,7 +1,6 @@
 package com.lhy.ae2utility.network;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.client.RemoteEncodeRules;
 
 import net.minecraft.network.FriendlyByteBuf;
 import com.lhy.ae2utility.network.codec.StreamCodec;
@@ -30,7 +29,6 @@ public record SyncAe2UtilityEncodeRulesPacket(boolean blockJeFullCategoryBatchEn
     }
 
     public static void handle(SyncAe2UtilityEncodeRulesPacket p) {
-        RemoteEncodeRules.receiveFromServer(p.blockJeFullCategoryBatchEncode(), p.requireOpenPatternEncodingMenuForJe(),
-                p.jeiBulkEncodeMaxPatternsPerSession());
+        ClientPacketDispatch.handle(p);
     }
 }

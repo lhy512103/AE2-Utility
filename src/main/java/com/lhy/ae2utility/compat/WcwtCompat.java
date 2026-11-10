@@ -4,7 +4,6 @@ import org.jetbrains.annotations.Nullable;
 
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionHost;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
@@ -36,7 +35,7 @@ public final class WcwtCompat {
         return menu != null && menu.getClass().getName().equals(WCWT_MENU_CLASS);
     }
 
-    public static boolean isOpenPatternEncodingLikeMenu(@Nullable LocalPlayer player) {
+    public static boolean isOpenPatternEncodingLikeMenu(@Nullable Player player) {
         return player != null && isPatternEncodingLikeMenu(player.containerMenu);
     }
 

@@ -5,7 +5,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.world.level.Level;
 
@@ -32,18 +31,15 @@ public class MixinCraftingCalculation {
         this.ae2utility$grid = grid;
     }
 
-    @Inject(method = "run", at = @At("HEAD"))
-    private void ae2utility$pushGlobalFilter(CallbackInfoReturnable<ICraftingPlan> cir) {
-        if (ae2utility$grid == null) return;
-        var svc = ae2utility$grid.getCraftingService();
-        if (svc instanceof CraftingService cs) {
-            NbtTearSimulationEnv.beginCalculation(cs);
+    @com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod(method = "run")
+    private ICraftingPlan ae2utility$runScoped(
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<ICraftingPlan> original) {
+        var service = ae2utility$grid == null ? null : ae2utility$grid.getCraftingService();
+        try (var environment = NbtTearSimulationEnv.enter(service instanceof CraftingService cs ? cs : null);
+                var pattern = NbtTearPatternContext.enter(null);
+                var execution = com.lhy.ae2utility.card.NbtTearCardThreadLocal.enter(null);
+                var crafting = com.lhy.ae2utility.card.NbtTearCraftingContext.enter(null)) {
+            return original.call();
         }
-    }
-
-    @Inject(method = "finish", at = @At("HEAD"))
-    private void ae2utility$clearGlobalFilter(CallbackInfo ci) {
-        NbtTearSimulationEnv.clear();
-        NbtTearPatternContext.clear();
     }
 }

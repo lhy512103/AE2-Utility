@@ -13,6 +13,7 @@ import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
  * JEI 收藏栏 AEKey 列表；同一客户端 tick 内最多反射采样一次。
  */
 public final class JeiBookmarkKeysCache {
+    private static final int MAX_BOOKMARK_KEYS = 4096;
     private static long cacheTickGeneration = Long.MIN_VALUE;
     private static List<AEKey> cachedKeys = List.of();
 
@@ -67,7 +68,7 @@ public final class JeiBookmarkKeysCache {
             Method getElementsMethod = bookmarkList.getClass().getMethod("getElements");
             List<?> elements = (List<?>) getElementsMethod.invoke(bookmarkList);
 
-            List<AEKey> bookmarks = new ArrayList<>(elements.size());
+            List<AEKey> bookmarks = new ArrayList<>(Math.min(elements.size(), MAX_BOOKMARK_KEYS));
             for (Object element : elements) {
                 Method getTypedIngredientMethod = element.getClass().getMethod("getTypedIngredient");
                 mezz.jei.api.ingredients.ITypedIngredient<?> typedIngredient =
@@ -78,6 +79,7 @@ public final class JeiBookmarkKeysCache {
 
                 AEKey key = com.lhy.ae2utility.util.GenericIngredientUtil.toAEKey(typedIngredient.getIngredient());
                 if (key != null) {
+                    if (bookmarks.size() == MAX_BOOKMARK_KEYS) break;
                     bookmarks.add(key);
                 }
             }

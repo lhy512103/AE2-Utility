@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
-import com.lhy.ae2utility.jei.JeiPatternSubstitutionUi;
+import com.lhy.ae2utility.client.PatternSubstitutionState;
 
 import appeng.client.gui.Icon;
 import dev.emi.emi.EmiPort;
@@ -57,6 +57,8 @@ public final class EmiBatchScreenButtons {
     private static int buttonY;
     private static int buttonCount;
     private static boolean substitutionContext;
+    private static com.lhy.ae2utility.client.PatternSubstitutionRules substitutionRules =
+            com.lhy.ae2utility.client.PatternSubstitutionRules.DEFAULT;
 
     static {
         clearLayout();
@@ -76,7 +78,8 @@ public final class EmiBatchScreenButtons {
             return;
         }
 
-        substitutionContext = JeiPatternSubstitutionUi.isSubstitutionContextActive();
+        substitutionContext = PatternSubstitutionState.isSubstitutionContextActive();
+        substitutionRules = PatternSubstitutionState.snapshot();
         if (substitutionContext) {
             addButton(Button.ITEM_SUBSTITUTION);
             addButton(Button.FLUID_SUBSTITUTION);
@@ -164,10 +167,10 @@ public final class EmiBatchScreenButtons {
         int iconX = x + (SLOT_SIZE - ICON_SIZE) / 2;
         int iconY = y + (SLOT_SIZE - ICON_SIZE) / 2;
         switch (button) {
-            case ITEM_SUBSTITUTION -> (JeiPatternSubstitutionUi.isItemSubstituteOn()
+            case ITEM_SUBSTITUTION -> (substitutionRules.items()
                     ? Icon.SUBSTITUTION_ENABLED : Icon.SUBSTITUTION_DISABLED)
                     .getBlitter().dest(iconX, iconY, ICON_SIZE, ICON_SIZE).blit(graphics);
-            case FLUID_SUBSTITUTION -> (JeiPatternSubstitutionUi.isFluidSubstituteOn()
+            case FLUID_SUBSTITUTION -> (substitutionRules.fluids()
                     ? Icon.FLUID_SUBSTITUTION_ENABLED : Icon.FLUID_SUBSTITUTION_DISABLED)
                     .getBlitter().dest(iconX, iconY, ICON_SIZE, ICON_SIZE).blit(graphics);
             case BATCH_PAGE -> drawJeiBatchIcon(graphics, TEX_BATCH_PAGE, iconX, iconY, hovered);
@@ -194,16 +197,16 @@ public final class EmiBatchScreenButtons {
             }
             return switch (BUTTON_TYPES[i]) {
                 case ITEM_SUBSTITUTION -> List.of(
-                        Component.translatable(JeiPatternSubstitutionUi.isItemSubstituteOn()
+                        Component.translatable(substitutionRules.items()
                                 ? "gui.tooltips.ae2.SubstitutionsOn"
                                 : "gui.tooltips.ae2.SubstitutionsOff"),
-                        Component.translatable(JeiPatternSubstitutionUi.isItemSubstituteOn()
+                        Component.translatable(substitutionRules.items()
                                 ? "gui.tooltips.ae2.SubstitutionsDescEnabled"
                                 : "gui.tooltips.ae2.SubstitutionsDescDisabled")
                                 .withStyle(ChatFormatting.GRAY));
                 case FLUID_SUBSTITUTION -> List.of(
                         Component.translatable("gui.tooltips.ae2.FluidSubstitutions"),
-                        Component.translatable(JeiPatternSubstitutionUi.isFluidSubstituteOn()
+                        Component.translatable(substitutionRules.fluids()
                                 ? "gui.tooltips.ae2.FluidSubstitutionsDescEnabled"
                                 : "gui.tooltips.ae2.FluidSubstitutionsDescDisabled")
                                 .withStyle(ChatFormatting.GRAY));
@@ -237,8 +240,8 @@ public final class EmiBatchScreenButtons {
             }
             playClick();
             switch (button) {
-                case ITEM_SUBSTITUTION -> JeiPatternSubstitutionUi.toggleItemSubstitute();
-                case FLUID_SUBSTITUTION -> JeiPatternSubstitutionUi.toggleFluidSubstitute();
+                case ITEM_SUBSTITUTION -> PatternSubstitutionState.toggleItemSubstitute();
+                case FLUID_SUBSTITUTION -> PatternSubstitutionState.toggleFluidSubstitute();
                 case BATCH_PAGE -> EmiRecipesBatchEncode.run(true, Screen.hasShiftDown());
                 case BATCH_CATEGORY -> EmiRecipesBatchEncode.run(false, Screen.hasShiftDown());
             }

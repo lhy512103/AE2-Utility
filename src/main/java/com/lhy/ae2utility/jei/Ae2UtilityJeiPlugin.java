@@ -16,7 +16,6 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.NbtTearCardScreen;
-import com.lhy.ae2utility.client.RecipeFinderScreen;
 import com.lhy.ae2utility.compat.JeictCompat;
 import com.lhy.ae2utility.compat.SomeUselessThingsCompat;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
@@ -31,7 +30,14 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void onRuntimeAvailable(mezz.jei.api.runtime.IJeiRuntime jeiRuntime) {
         Ae2UtilityJeiPlugin.jeiRuntime = jeiRuntime;
+        com.lhy.ae2utility.client.ClientCacheLifecycle.clear();
         JeictCompat.tryRegisterBackend();
+    }
+
+    @Override
+    public void onRuntimeUnavailable() {
+        jeiRuntime = null;
+        com.lhy.ae2utility.client.ClientCacheLifecycle.clear();
     }
 
     public static mezz.jei.api.runtime.IJeiRuntime getJeiRuntime() {
@@ -51,7 +57,6 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
         registration.addGhostIngredientHandler(NbtTearCardScreen.class, new NbtTearCardGhostHandler());
-        registration.addGhostIngredientHandler(RecipeFinderScreen.class, new RecipeFinderGhostHandler());
     }
 
     @Override

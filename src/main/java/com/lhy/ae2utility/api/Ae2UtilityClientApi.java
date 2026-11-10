@@ -3,7 +3,7 @@ package com.lhy.ae2utility.api;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
-import com.lhy.ae2utility.jei.EncodePatternButtonController;
+import com.lhy.ae2utility.client.PatternEncodingAvailability;
 
 /**
  * 客户端专用查询入口，属于 {@code com.lhy.ae2utility.api} 兼容范围。
@@ -26,6 +26,6 @@ public final class Ae2UtilityClientApi {
         if (player == null) {
             return false;
         }
-        return EncodePatternButtonController.playerMayEncodePatterns(player);
+        return PatternEncodingAvailability.playerMayEncodePatterns(player);
     }
 }

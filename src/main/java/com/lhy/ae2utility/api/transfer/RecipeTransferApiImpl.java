@@ -2,7 +2,6 @@ package com.lhy.ae2utility.api.transfer;
 
 import java.util.List;
 
-import com.lhy.ae2utility.jei.MachineTransferRecipeTypes;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 import com.lhy.ae2utility.network.PullMachineRecipeInputsPacket;
 import com.lhy.ae2utility.network.PullRecipeInputsPacket;
@@ -58,7 +57,8 @@ final class RecipeTransferApiImpl implements RecipeTransferApi {
         if (registration == null) {
             throw new IllegalArgumentException("registration is required");
         }
-        MachineTransferRecipeTypes.register(registration);
+        MachineTransferProfiles.register(new com.lhy.ae2utility.machine.MachineTransferProfile(
+                registration.id().toString(), registration.menuClass(), registration.inputSlotIndices()));
     }
 
     private static boolean valid(ServerPlayer player, List<IngredientRequest> ingredients, TransferOptions options) {

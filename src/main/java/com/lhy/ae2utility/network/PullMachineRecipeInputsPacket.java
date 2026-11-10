@@ -31,14 +31,14 @@ public record PullMachineRecipeInputsPacket(int containerId, String profileId, b
         String profileId = buffer.readUtf();
         boolean maxTransfer = buffer.readBoolean();
         return new PullMachineRecipeInputsPacket(containerId, profileId, maxTransfer,
-                RecipeTransferPacketHelper.readRequestedIngredients(buffer));
+                RequestedIngredientsCodec.readRequestedIngredients(buffer));
     }
 
     private void write(FriendlyByteBuf buffer) {
         buffer.writeVarInt(containerId);
         buffer.writeUtf(profileId);
         buffer.writeBoolean(maxTransfer);
-        RecipeTransferPacketHelper.writeRequestedIngredients(buffer, requestedIngredients);
+        RequestedIngredientsCodec.writeRequestedIngredients(buffer, requestedIngredients);
     }
 
     @Override

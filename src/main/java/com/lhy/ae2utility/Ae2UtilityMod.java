@@ -1,6 +1,5 @@
 package com.lhy.ae2utility;
 
-import com.lhy.ae2utility.compat.ModCapabilities;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -16,11 +15,9 @@ import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 
 import com.lhy.ae2utility.client.Ae2UtilityClientConfig;
 import com.lhy.ae2utility.client.Ae2UtilityClientSetup;
-import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.command.Ae2UtilityCommands;
 
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 
 import com.lhy.ae2utility.integration.ae2.Ae2UtilitySlotSemantics;
@@ -51,19 +48,7 @@ public class Ae2UtilityMod {
         if (FMLEnvironment.dist == Dist.CLIENT) {
             loadingContext.registerConfig(ModConfig.Type.CLIENT, Ae2UtilityClientConfig.SPEC);
             Ae2UtilityClientSetup.init(modContainer, modBus);
-            MinecraftForge.EVENT_BUS.addListener(Ae2UtilityMod::onClientLoggingOut);
-            modBus.addListener(Ae2UtilityMod::onClientSetup);
         }
     }
 
-    private static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-        RemoteEncodeRules.clearOnDisconnected();
-    }
-
-    private static void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
-        // Guarded reference: EmiBatchScreenButtons touches EMI classes, so only load it when EMI is present.
-        if (ModCapabilities.hasEmi()) {
-            com.lhy.ae2utility.emi.EmiBatchScreenButtons.register(MinecraftForge.EVENT_BUS);
-        }
-    }
 }

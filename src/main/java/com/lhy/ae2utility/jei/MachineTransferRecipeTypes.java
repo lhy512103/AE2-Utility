@@ -3,7 +3,6 @@ package com.lhy.ae2utility.jei;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.lhy.ae2utility.api.transfer.MachineTransferRegistration;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.machine.MachineTransferProfiles;
 
@@ -18,10 +17,14 @@ public final class MachineTransferRecipeTypes {
     private MachineTransferRecipeTypes() {
     }
 
-    public static synchronized void register(MachineTransferRegistration registration) {
-        MachineTransferProfiles.register(new MachineTransferProfile(
-                registration.id().toString(), registration.menuClass(), registration.inputSlotIndices()));
-        CUSTOM_TYPES.put(registration.id().toString(), registration.recipeType());
+    public static synchronized void register(net.minecraft.resources.ResourceLocation profileId, Object recipeType) {
+        if (!(recipeType instanceof RecipeType<?> type)) {
+            throw new IllegalArgumentException("recipeType must be a JEI recipe type");
+        }
+        if (MachineTransferProfiles.resolveId(profileId) == null) {
+            throw new IllegalArgumentException("machine transfer profile is not registered: " + profileId);
+        }
+        CUSTOM_TYPES.put(MachineTransferProfiles.resolveId(profileId), type);
     }
 
     public static synchronized RecipeType<?> forProfile(MachineTransferProfile profile) {

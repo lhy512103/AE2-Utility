@@ -1,7 +1,6 @@
 package com.lhy.ae2utility.network;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
-import com.lhy.ae2utility.client.InventoryPatternUploadQueue;
 
 import io.netty.buffer.ByteBuf;
 import com.lhy.ae2utility.network.codec.ByteBufCodecs;
@@ -21,7 +20,7 @@ public record InventoryProviderSelectionPreparedPacket(int playerSlotIndex, bool
             InventoryProviderSelectionPreparedPacket::new);
 
     public static void handle(InventoryProviderSelectionPreparedPacket packet) {
-        InventoryPatternUploadQueue.handleProviderSelectionPrepared(packet.playerSlotIndex(), packet.success());
+        ClientPacketDispatch.handle(packet);
     }
 
     @Override

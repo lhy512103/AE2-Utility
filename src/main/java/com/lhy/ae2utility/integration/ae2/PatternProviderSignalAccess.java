@@ -63,9 +63,6 @@ public interface PatternProviderSignalAccess {
                     host == null ? "null" : host.getClass().getName(), busy, returnPending, active,
                     ae2utility$getLastRedstoneActive(), card.isEmpty() ? "missing" : card.getItem(), mode, allowCraftOnFall);
         }
-        if (active == ae2utility$getLastRedstoneActive()) {
-            return;
-        }
         Ae2UtilityApi.cards().updateRedstoneSignal(
                 ae2utility$asPublicSignalHost(host), busy, returnPending, allowCraftOnFall);
     }
@@ -110,6 +107,23 @@ public interface PatternProviderSignalAccess {
                 }
             }
         };
+    }
+
+    /** Clears electrical output when the grid goes offline, retaining crafting/edge bookkeeping. */
+    default void ae2utility$onSignalHostDisconnected(Object host) {
+        boolean changed = ae2utility$isContinuousSignalActive() || ae2utility$getSignalPulseUntilTick() != 0;
+        ae2utility$setContinuousSignalActive(false);
+        ae2utility$setSignalPulseUntilTick(0);
+        if (!changed) {
+            return;
+        }
+        ae2utility$saveHostChanges(host);
+        BlockEntity blockEntity = ae2utility$getHostBlockEntity(host);
+        if (blockEntity != null && blockEntity.getLevel() != null && !blockEntity.getLevel().isClientSide) {
+            var level = blockEntity.getLevel();
+            level.updateNeighborsAt(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
+            level.updateNeighbourForOutputSignal(blockEntity.getBlockPos(), blockEntity.getBlockState().getBlock());
+        }
     }
 
     default void ae2utility$triggerSignalPulse(long gameTime, int durationTicks) {

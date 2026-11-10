@@ -1,4 +1,25 @@
-# Changelog
+## 1.20.1.3
+
+### 中文
+
+1. 移除：移除配方查找器、其物品及分类 API，API 版本升为 2；旧世界中的查找器会转换为指南针。
+2. 优化：拆分编码预览与配方替换状态，降低 JEI/EMI 间的相互依赖。
+3. 修复：更新 AE2 Crystal Science 1.2 配方路由，保留 NBT 撕裂卡的材料匹配与物品守恒。
+4. 修复：网络或界面切换后清理过期配方状态，忽略迟到的查询结果。
+5. 修复：断开 ME 网络时清除红石卡输出，避免供应器残留信号。
+6. 优化：改善未安装可选配方查看器或无线终端扩展时的兼容性。
+7. 优化：拆分编码服务，合并 JEI/EMI 编码数据包的重复逻辑。
+
+### English
+
+1. Removed: Removed the Recipe Finder, its item, and its classification API (API version 2); existing finder items become compasses when worlds load.
+2. Improved: Separated encoding previews and substitution state to reduce JEI/EMI coupling.
+3. Fixed: Updated AE2 Crystal Science 1.2 routing while preserving NBT Tear Card matching and item conservation.
+4. Fixed: Cleared stale recipe state after network or screen changes and ignored late query replies.
+5. Fixed: Cleared Redstone Signal Card output when an ME network disconnects.
+6. Improved: Compatibility when optional recipe viewers or wireless-terminal addons are absent.
+7. Improved: Split the encoding service and merged duplicated JEI/EMI encode packet logic.
+
 
 ## 1.20.1.2
 

@@ -24,6 +24,24 @@ class IngredientRequestTest {
     }
 
     @Test
+    void callerAndReaderCannotMutateStoredStackSnapshot() {
+        com.lhy.ae2utility.testutil.MinecraftTestBootstrap.ensure();
+        ItemStack original = new ItemStack(net.minecraft.world.item.Items.STONE, 3);
+        original.getOrCreateTag().putString("consumer", "original");
+        IngredientRequest request = new IngredientRequest(List.of(original), 3);
+        original.setCount(1);
+        original.getOrCreateTag().putString("consumer", "caller mutation");
+        ItemStack firstReader = request.alternatives().get(0);
+        assertEquals(3, firstReader.getCount());
+        assertEquals("original", firstReader.getOrCreateTag().getString("consumer"));
+        firstReader.setCount(2);
+        firstReader.getOrCreateTag().putString("consumer", "reader mutation");
+        ItemStack secondReader = request.alternatives().get(0);
+        assertEquals(3, secondReader.getCount());
+        assertEquals("original", secondReader.getOrCreateTag().getString("consumer"));
+    }
+
+    @Test
     void rejectsNegativeCounts() {
         assertThrows(IllegalArgumentException.class,
                 () -> new IngredientRequest(List.of(), -1));

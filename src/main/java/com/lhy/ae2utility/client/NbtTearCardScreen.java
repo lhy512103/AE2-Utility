@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 
+import com.lhy.ae2utility.compat.ModCapabilities;
 import com.lhy.ae2utility.jei.NbtTearCardGhostHandler;
 import com.lhy.ae2utility.menu.NbtTearCardMenu;
 
@@ -37,7 +38,7 @@ public class NbtTearCardScreen extends AbstractContainerScreen<NbtTearCardMenu> 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        if (NbtTearCardGhostHandler.isFilterGhostDragActive()) {
+        if (ModCapabilities.isLoaded("jei") && NbtTearCardGhostHandler.isFilterGhostDragActive()) {
             int idx = hoveredFilterSlotIndex();
             if (idx >= 0) {
                 Slot s = this.menu.getSlot(idx);
@@ -67,7 +68,9 @@ public class NbtTearCardScreen extends AbstractContainerScreen<NbtTearCardMenu> 
 
     @Override
     public void removed() {
-        NbtTearCardGhostHandler.clearFilterGhostDragActive();
+        if (ModCapabilities.isLoaded("jei")) {
+            NbtTearCardGhostHandler.clearFilterGhostDragActive();
+        }
         super.removed();
     }
 
