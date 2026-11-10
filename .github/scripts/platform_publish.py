@@ -55,8 +55,8 @@ CURSEFORGE_GAME_VERSIONS = [MINECRAFT_VERSION, "Forge", "Java 17", "Client", "Se
 # AE2 is required; JEI is optional on Forge 1.20.1 (EMI is supported too), matching mods.toml.
 MODRINTH_DEPENDENCIES = [{"project_id": "XxWD5pD3", "dependency_type": "required"},
                          {"project_id": "u6dRKJwZ", "dependency_type": "optional"}]
-CURSEFORGE_RELATIONS = [{"slug": "applied-energistics-2", "projectID": "223794", "type": "requiredDependency"},
-                        {"slug": "jei", "projectID": "238222", "type": "optionalDependency"}]
+CURSEFORGE_RELATIONS = [{"slug": "applied-energistics-2", "projectID": 223794, "type": "requiredDependency"},
+                        {"slug": "jei", "projectID": 238222, "type": "optionalDependency"}]
 TIMEOUT_SECONDS = 60
 
 
