@@ -1,6 +1,5 @@
 package com.lhy.ae2utility.client;
 
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;

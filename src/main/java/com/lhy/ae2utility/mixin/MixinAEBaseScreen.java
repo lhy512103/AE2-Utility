@@ -93,7 +93,7 @@ public abstract class MixinAEBaseScreen {
         AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
         PatternProviderTearSlot tear = ae2utility$findPatternProviderTearSlot();
         if (tear != null) {
-            PatternProviderTearSlotChrome.draw(graphics, screen.getGuiLeft() + tear.x + 2, screen.getGuiTop() + tear.y);
+            PatternProviderTearSlotChrome.draw(graphics, screen.getLeftPos() + tear.x + 2, screen.getTopPos() + tear.y);
         }
     }
 
@@ -114,8 +114,8 @@ public abstract class MixinAEBaseScreen {
     }
 
     private static boolean ae2utility$isMouseOverSlot(AEBaseScreen<?> screen, Slot slot, int mouseX, int mouseY) {
-        int x = screen.getGuiLeft() + slot.x + 2;
-        int y = screen.getGuiTop() + slot.y;
+        int x = screen.getLeftPos() + slot.x + 2;
+        int y = screen.getTopPos() + slot.y;
         return mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18;
     }
 

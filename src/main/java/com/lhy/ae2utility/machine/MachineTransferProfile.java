@@ -5,7 +5,6 @@ import java.util.Arrays;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
 import mezz.jei.api.recipe.types.IRecipeType;
-import mezz.jei.api.recipe.types.IRecipeHolderType;
 
 public final class MachineTransferProfile {
     private final String id;

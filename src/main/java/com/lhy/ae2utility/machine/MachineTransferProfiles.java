@@ -71,12 +71,11 @@ public final class MachineTransferProfiles {
         return List.copyOf(list);
     }
 
-    @SuppressWarnings("rawtypes")
     private static void addExternal(List<MachineTransferProfile> list, String id, String menuClassName, String recipeNamespace, String recipePath, String recipeClassName, int... inputSlotIndices) {
         try {
             Class<?> menuClass = Class.forName(menuClassName);
             Class<?> recipeClass = Class.forName(recipeClassName);
-            list.add(new MachineTransferProfile(id, menuClass, IRecipeType.create(recipeNamespace, recipePath, (Class) recipeClass), inputSlotIndices));
+            list.add(new MachineTransferProfile(id, menuClass, IRecipeType.create(recipeNamespace, recipePath, recipeClass), inputSlotIndices));
         } catch (Exception | NoClassDefFoundError ignored) {
         }
     }
@@ -89,13 +88,12 @@ public final class MachineTransferProfiles {
         }
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private static void addExternalVanilla(List<MachineTransferProfile> list, String id, String menuClassName, String recipeNamespace, String recipePath, int... inputSlotIndices) {
         try {
             Class<?> menuClass = Class.forName(menuClassName);
             net.minecraft.world.item.crafting.RecipeType<?> vanillaType = net.minecraft.core.registries.BuiltInRegistries.RECIPE_TYPE.getValue(net.minecraft.resources.Identifier.fromNamespaceAndPath(recipeNamespace, recipePath));
             if (vanillaType != null) {
-                list.add(new MachineTransferProfile(id, menuClass, IRecipeHolderType.create((net.minecraft.world.item.crafting.RecipeType) vanillaType), inputSlotIndices));
+                list.add(new MachineTransferProfile(id, menuClass, IRecipeHolderType.create(vanillaType), inputSlotIndices));
             }
         } catch (Exception | NoClassDefFoundError ignored) {
         }

@@ -3,7 +3,6 @@ package com.lhy.ae2utility.api.transfer;
 import java.util.Arrays;
 
 import mezz.jei.api.recipe.types.IRecipeType;
-import mezz.jei.api.recipe.types.IRecipeHolderType;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 

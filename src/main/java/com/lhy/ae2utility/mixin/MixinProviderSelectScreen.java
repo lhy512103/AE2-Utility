@@ -29,7 +29,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 @org.spongepowered.asm.mixin.Pseudo
 @Mixin(targets = "com.extendedae_plus.client.screen.ProviderSelectScreen", remap = false)

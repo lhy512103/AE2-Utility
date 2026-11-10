@@ -63,8 +63,15 @@ public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> im
         return (IRecipeType<R>) profile.recipeType();
     }
 
+    /** Required by JEI's legacy abstract contract; new callers use the context overload. */
+    @Deprecated(forRemoval = true)
     @Override
     public IRecipeTransferError transferRecipe(C container, R recipe, IRecipeSlotsView recipeSlots, Player player,
+            boolean maxTransfer, boolean doTransfer) {
+        return transferInputs(container, recipeSlots, player, maxTransfer, doTransfer);
+    }
+
+    private IRecipeTransferError transferInputs(C container, IRecipeSlotsView recipeSlots, Player player,
             boolean maxTransfer, boolean doTransfer) {
         List<IRecipeSlotView> inputSlots = collectInputSlots(recipeSlots);
         List<RequestedIngredient> requestedIngredients = collectRequestedIngredients(inputSlots);
@@ -101,7 +108,7 @@ public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> im
     @Override
     public IRecipeTransferError transferRecipe(
             mezz.jei.api.recipe.transfer.IRecipeTransferContext<R, C> context, boolean doTransfer) {
-        IRecipeTransferError error = transferRecipe(context.getContainer(), context.getRecipe(),
+        IRecipeTransferError error = transferInputs(context.getContainer(),
                 context.getRecipeSlots(), context.getPlayer(), context.isMaxTransfer(), doTransfer);
         if (doTransfer && error == null) {
             context.completeRecipeTransfer(mezz.jei.api.recipe.transfer.RecipeTransferResult.SUCCESS);

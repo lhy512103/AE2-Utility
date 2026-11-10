@@ -45,8 +45,8 @@ public class NbtTearCardGhostHandler implements IGhostIngredientHandler<NbtTearC
         List<Target<I>> targets = new ArrayList<>(NbtTearCardMenu.FILTER_SIZE);
         for (int i = 0; i < NbtTearCardMenu.FILTER_SIZE; i++) {
             Slot slot = gui.getMenu().getSlot(i);
-            int x = gui.getGuiLeft() + slot.x;
-            int y = gui.getGuiTop() + slot.y;
+            int x = gui.getLeftPos() + slot.x;
+            int y = gui.getTopPos() + slot.y;
             var area = new net.minecraft.client.renderer.Rect2i(x, y, 18, 18);
             int slotIndex = i;
             targets.add(new Target<>() {

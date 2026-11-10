@@ -8,8 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import net.minecraft.nbt.Tag;
-
 import appeng.api.stacks.AEKey;
 
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;

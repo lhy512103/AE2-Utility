@@ -46,6 +46,8 @@ public class Ae2UtilityMod {
         Ae2UtilityServerGameplay.register(modBus);
         modBus.addListener(FMLCommonSetupEvent.class, ModCommonSetup::onCommonSetup);
         modBus.addListener(BuildCreativeModeTabContentsEvent.class, ModSetup::onCreativeTab);
+        modBus.addListener(net.neoforged.neoforge.event.RegisterTooltipAppendersEvent.class,
+                com.lhy.ae2utility.item.MeQuickTransferToolItem::registerTooltipAppenders);
         modContainer.registerConfig(ModConfig.Type.SERVER, Ae2UtilityServerConfig.SPEC);
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Ae2UtilityClientConfig.SPEC);

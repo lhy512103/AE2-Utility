@@ -1,7 +1,5 @@
 package com.lhy.ae2utility.item;
 
-import java.util.List;
-
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;

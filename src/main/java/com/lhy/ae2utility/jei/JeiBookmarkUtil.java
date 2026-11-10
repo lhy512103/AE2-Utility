@@ -27,7 +27,6 @@ import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IBookmarkOverlay;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.Identifier;
-import net.minecraft.client.gui.screens.Screen;
 
 /**
  * 通过反射操作 JEI 内部 {@code BookmarkList}，与 {@link com.lhy.ae2utility.network.RecipeTransferPacketHelper#getBookmarkKeys()} 一致。

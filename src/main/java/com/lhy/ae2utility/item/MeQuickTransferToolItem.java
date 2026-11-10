@@ -1,6 +1,6 @@
 package com.lhy.ae2utility.item;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.GlobalPos;
@@ -11,7 +11,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
+import net.neoforged.neoforge.common.tooltip.TooltipLocation;
+import net.neoforged.neoforge.event.RegisterTooltipAppendersEvent;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 
@@ -55,7 +56,6 @@ public class MeQuickTransferToolItem extends Item {
 
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
         if (!player.isShiftKeyDown()) {
             return InteractionResult.PASS;
         }
@@ -65,9 +65,15 @@ public class MeQuickTransferToolItem extends Item {
         return InteractionResult.SUCCESS;
     }
 
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display, java.util.function.Consumer<Component> tooltipComponents,
-            TooltipFlag tooltipFlag) {
+    public static void registerTooltipAppenders(RegisterTooltipAppendersEvent event) {
+        event.registerAppender(TooltipLocation.POST_CUSTOM, (stack, context, display, player, flag, builder) -> {
+            if (stack.getItem() instanceof MeQuickTransferToolItem) {
+                appendToolTooltip(stack, builder);
+            }
+        });
+    }
+
+    private static void appendToolTooltip(ItemStack stack, Consumer<Component> tooltipComponents) {
         if (stack.get(AEComponents.WIRELESS_LINK_TARGET) == null) {
             tooltipComponents.accept(Component.translatable("item.ae2utility.me_quick_transfer.tooltip_unlinked")
                     .withStyle(ChatFormatting.RED));

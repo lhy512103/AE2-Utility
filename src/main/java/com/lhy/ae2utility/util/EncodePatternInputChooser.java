@@ -200,9 +200,13 @@ public final class EncodePatternInputChooser {
 
         // Displays preserve component-specific custom ingredient examples. Tag displays may
         // need a registry context, so also consider the ingredient's resolved item holders.
+        var customIngredient = ingredient.getCustomIngredient();
+        var itemHolders = customIngredient != null
+                ? customIngredient.items()
+                : ingredient.getValues().stream();
         ItemStack[] items = java.util.stream.Stream.concat(
                 ingredient.display().resolveForStacks(net.minecraft.util.context.ContextMap.EMPTY).stream(),
-                ingredient.items().map(ItemStack::new))
+                itemHolders.map(ItemStack::new))
                 .filter(ingredient::test).toArray(ItemStack[]::new);
         if (craftable != null) {
             for (ItemStack stack : items) {

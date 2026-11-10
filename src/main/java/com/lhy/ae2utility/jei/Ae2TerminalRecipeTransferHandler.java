@@ -15,7 +15,6 @@ import org.jetbrains.annotations.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -227,8 +226,17 @@ public class Ae2TerminalRecipeTransferHandler<C extends MEStorageMenu> implement
             }
         }
 
-        ItemStack[] items = ingredient.items().map(net.minecraft.core.Holder::value).map(net.minecraft.world.item.Item::getDefaultInstance).toArray(ItemStack[]::new);
-        return items.length > 0 ? items[0].copy() : ItemStack.EMPTY;
+        var customIngredient = ingredient.getCustomIngredient();
+        var itemHolders = customIngredient != null
+                ? customIngredient.items()
+                : ingredient.getValues().stream();
+        return java.util.stream.Stream.concat(
+                ingredient.display().resolveForStacks(net.minecraft.util.context.ContextMap.EMPTY).stream(),
+                itemHolders.map(ItemStack::new))
+                .filter(ingredient::test)
+                .findFirst()
+                .map(ItemStack::copy)
+                .orElse(ItemStack.EMPTY);
     }
 
     private static List<ItemStack> sortItemAlternatives(Map<AEKey, Integer> ingredientPriorities, List<ItemStack> alternatives) {

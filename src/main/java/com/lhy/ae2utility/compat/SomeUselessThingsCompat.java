@@ -173,7 +173,6 @@ public final class SomeUselessThingsCompat {
         return resolved == null ? null : resolved.orElse(null);
     }
 
-    @SuppressWarnings("unchecked")
     private static @Nullable Object findEntryFromPattern(ItemStack processingPattern, Level level)
             throws ReflectiveOperationException {
         if (processingPattern == null || processingPattern.isEmpty()) {

@@ -13,12 +13,10 @@ import appeng.client.gui.me.items.PatternEncodingTermScreen;
 import appeng.client.gui.style.WidgetStyle;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 @Mixin(appeng.client.gui.AEBaseScreen.class)
 public class MixinPatternEncodingTermScreenUpload {

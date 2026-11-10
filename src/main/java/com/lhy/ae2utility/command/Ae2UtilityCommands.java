@@ -15,9 +15,6 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  */
 public final class Ae2UtilityCommands {
 
-    /** 与 Vanilla 管理级命令对齐，防止低权限误判清全服上传。 */
-    private static final int PERMISSION_STOP_ALL_UPLOADS = 4;
-
     private Ae2UtilityCommands() {
     }
 
