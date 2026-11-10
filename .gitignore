@@ -34,3 +34,7 @@ forge*changelog.txt
 migration-backup/
 .tmp-ae2-src/
 logs/
+
+# Python release-tool cache
+__pycache__/
+*.py[cod]

@@ -1,0 +1,27 @@
+name: Sync Forge 1.20.1 Release to Modrinth and CurseForge
+
+# Release events always run the workflow from the default branch (main), so this Forge
+# copy is manual only: run it from the forge-1.20.1 branch after editing a Forge Release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published Forge GitHub Release tag (e.g. v1.20.1.4); must already contain its main JAR'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: distribution-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    uses: ./.github/workflows/_publish.yml
+    with:
+      tag: ${{ inputs.tag }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

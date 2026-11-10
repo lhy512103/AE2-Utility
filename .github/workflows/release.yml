@@ -1,0 +1,106 @@
+name: Tag Release (Forge 1.20.1)
+
+# A tag push runs the workflow file from the tagged commit, so only tags placed on
+# forge-1.20.1 commits reach this file; NeoForge tags on main run main's own workflow.
+on:
+  push:
+    tags:
+      - 'v1.20.1.[0-9]*'
+      - '1.20.1.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, e.g. v1.20.1.4 (must match mod_version and CHANGELOG)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distribution-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  # Trusted release automation always comes from the Forge branch, never from the tag or main.
+  AUTOMATION_REF: forge-1.20.1
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out the exact tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out trusted release automation
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.AUTOMATION_REF }}
+          path: automation
+          persist-credentials: false
+      - name: Require the tag to be on the Forge 1.20.1 branch
+        working-directory: source
+        run: |
+          git fetch --no-tags origin "$AUTOMATION_REF"
+          git merge-base --is-ancestor HEAD FETCH_HEAD
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate tag/version and extract only this version's changelog
+        id: metadata
+        run: >-
+          python automation/.github/scripts/release.py prepare
+          --source source --config automation/.github/release-config.json
+          --tag "$RELEASE_TAG" --bundle dist/release
+      - name: Test release safety gates
+        run: python -m unittest discover -s automation/.github/scripts/tests -v
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test the tagged source
+        working-directory: source
+        run: |
+          chmod +x gradlew
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          ./gradlew clean build --no-daemon
+      - name: Require the exact valid main JAR
+        run: >-
+          python automation/.github/scripts/release.py pack
+          --libs source/build/libs --bundle dist/release
+      - uses: actions/upload-artifact@v6
+        with:
+          name: github-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/release/
+          if-no-files-found: error
+      - name: Attach JAR, verify remote bytes, then publish/update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python automation/.github/scripts/release.py github-release
+          --repository "$GITHUB_REPOSITORY" --bundle dist/release
+          --commit "$(git -C source rev-parse HEAD)"
+
+  # GITHUB_TOKEN-created releases do NOT trigger release-event workflows.
+  publish:
+    needs: release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/_publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

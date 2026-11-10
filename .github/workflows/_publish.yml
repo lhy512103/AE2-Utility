@@ -1,0 +1,103 @@
+name: Publish validated GitHub Release (Forge 1.20.1)
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Existing, published GitHub Release tag'
+        required: true
+        type: string
+    secrets:
+      MODRINTH_TOKEN:
+        required: false
+      CURSEFORGE_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Use trusted Forge automation, never run code from the downloaded JAR
+        uses: actions/checkout@v5
+        with:
+          ref: forge-1.20.1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Require a Forge tag on the maintained branch
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python -c 'import os,sys; sys.path.insert(0,".github/scripts"); from release import version_from_tag; version_from_tag(os.environ["RELEASE_TAG"])'
+          git fetch --no-tags origin "refs/heads/forge-1.20.1:refs/remotes/origin/forge-1.20.1" "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          git merge-base --is-ancestor "refs/tags/$RELEASE_TAG^{commit}" refs/remotes/origin/forge-1.20.1
+      - name: Require a published Release, current text, and actual valid main JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: >-
+          python .github/scripts/release.py download-release
+          --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY"
+          --bundle dist/publish
+      - uses: actions/upload-artifact@v6
+        with:
+          name: validated-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/publish/
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # Persist each platform's receipt as a GitHub Release asset.
+    strategy:
+      fail-fast: false # A failed platform must not hide the other platform's successful receipt.
+      matrix:
+        include:
+          - platform: modrinth
+            token_secret: MODRINTH_TOKEN
+          - platform: curseforge
+            token_secret: CURSEFORGE_TOKEN
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: forge-1.20.1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v6
+        with:
+          name: validated-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/publish
+      - name: Upload main JAR and Release text, or update verified existing version text
+        id: publish
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PLATFORM_TOKEN: ${{ secrets[matrix.token_secret] }}
+        run: >-
+          python .github/scripts/platform_publish.py
+          --platform "$PLATFORM" --bundle dist/publish
+          --receipt "dist/publish/publish-${PLATFORM}.json"
+          --output-receipt "dist/publish/receipts/publish-${PLATFORM}.json"
+      - name: Preserve acknowledged platform result even after a later step fails
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM: ${{ matrix.platform }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          receipt="dist/publish/receipts/publish-${PLATFORM}.json"
+          if test -s "$receipt"; then
+            python .github/scripts/release.py save-receipt \
+              --tag "$RELEASE_TAG" --repository "$GITHUB_REPOSITORY" \
+              --platform "$PLATFORM" --receipt "$receipt"
+          fi

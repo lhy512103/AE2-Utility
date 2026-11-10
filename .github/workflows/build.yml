@@ -12,13 +12,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Test release safety gates (no credentials or publishing)
+        run: python -m unittest discover -s .github/scripts/tests -v
 
       - uses: actions/setup-java@v5
         with:
@@ -28,17 +41,26 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Ensure Gradle wrapper is executable
-        run: chmod +x gradlew
-
-      - name: Build
-        run: ./gradlew clean build --no-daemon
+      - name: Build and test
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build --no-daemon
 
       - name: Upload release jar
         uses: actions/upload-artifact@v6
         with:
-          name: ae2utility-forge-1.20.1
+          name: ae2utility-forge-1.20.1-${{ github.sha }}
           if-no-files-found: error
           path: |
             build/libs/ae2utility-*.jar
             !build/libs/*-sources.jar
+            !build/libs/*-slim.jar
+            !build/libs/*-api-javadoc.jar
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tests-${{ github.sha }}
+          path: build/reports/tests/
+          if-no-files-found: ignore
