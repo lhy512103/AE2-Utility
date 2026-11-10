@@ -1,0 +1,40 @@
+package com.lhy.ae2utility.init;
+
+import com.mojang.serialization.Codec;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+import com.lhy.ae2utility.Ae2UtilityMod;
+import com.lhy.ae2utility.card.NbtTearFilter;
+import com.lhy.ae2utility.card.RedstoneSignalCardMode;
+
+public final class ModDataComponents {
+    public static final DeferredRegister.DataComponents REG =
+            DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, Ae2UtilityMod.MOD_ID);
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<NbtTearFilter>> NBT_TEAR_FILTER = REG.registerComponentType(
+            "nbt_tear_filter",
+            builder -> builder.persistent(NbtTearFilter.CODEC)
+                    .networkSynchronized(ByteBufCodecs.fromCodecWithRegistries(NbtTearFilter.CODEC)));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> PATTERN_PROVIDER_SEARCH_KEY = REG.registerComponentType(
+            "pattern_provider_search_key",
+            builder -> builder.persistent(Codec.STRING)
+                    .networkSynchronized(ByteBufCodecs.STRING_UTF8));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<RedstoneSignalCardMode>> REDSTONE_SIGNAL_CARD_MODE = REG.registerComponentType(
+            "redstone_signal_card_mode",
+            builder -> builder.persistent(RedstoneSignalCardMode.CODEC)
+                    .networkSynchronized(ByteBufCodecs.fromCodec(RedstoneSignalCardMode.CODEC)));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> REDSTONE_SIGNAL_HOLD_TICKS = REG.registerComponentType(
+            "redstone_signal_hold_ticks",
+            builder -> builder.persistent(com.mojang.serialization.Codec.INT)
+                    .networkSynchronized(ByteBufCodecs.VAR_INT));
+
+    private ModDataComponents() {
+    }
+}

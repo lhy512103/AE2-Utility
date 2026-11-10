@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "RRR",
+    "RAR",
+    "RRR"
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "A": {
+      "item": "ae2:advanced_card"
+    }
+  },
+  "result": {
+    "id": "ae2utility:redstone_signal_card",
+    "count": 1
+  }
+}
