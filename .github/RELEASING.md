@@ -29,7 +29,8 @@
 
 - `release-sync.yml` 在默认分支 main 和 Forge 分支各保留一份轻量路由，接收 `release.published` / `release.edited`；只有 Forge `1.20.1.*` tag 转发到本分支 `_publish.yml`，不会误发 NeoForge Release。
 - 使用 `GITHUB_TOKEN` 创建的 Release 不会再次触发其它工作流，因此 tag 工作流直接调用 `_publish.yml`；人工修改公开 Release 正文则由事件路由自动同步。
-- 也可以在 Actions 手动运行 `Sync Forge 1.20.1 Release to Modrinth and CurseForge`，选择 Forge 分支并填写 tag；它不会重建或替换附件，而是使用 Release 已有 JAR 和最新正文。
+- 也可以在 Actions 手动运行默认分支已注册的 `Forward Forge Release updates`，填写 Forge tag；它不会重建或替换附件，而是使用 Release 已有 JAR 和最新正文。`publish.yml` 也保留 Forge 分支的手动入口；若该入口尚未显示，直接使用默认分支路由即可。
+- tag 构建失败时在对应 Actions run 使用 Re-run jobs 重试；无需移动 tag，也不要为触发同步而重新上传不同二进制。
 - 已发布且二进制相同的 MR 版本会更新原版本说明；CF 使用保存于 Release 的 `publish-curseforge.json` 回执定位同一文件并更新说明，不创建重复版本。
 - 每个平台成功后的回执单独保存为 Release 附件；一方失败不丢掉另一方的成功回执，重新执行可继续。
 - 发布后不要修改 tag 指向或替换同版本二进制；需要变更 JAR 时应提升版本并推送新 tag。
