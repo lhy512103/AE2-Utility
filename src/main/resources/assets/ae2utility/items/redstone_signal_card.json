@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "ae2utility:item/redstone_signal_card"
+  }
+}

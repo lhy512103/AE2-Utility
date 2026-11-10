@@ -7,10 +7,10 @@
     "RAR"
   ],
   "key": {
-    "R": { "item": "ae2:import_bus" },
-    "A": { "item": "ae2:speed_card" },
-    "W": { "item": "ae2:wireless_receiver" },
-    "F": { "item": "ae2:formation_core" }
+    "R": "ae2:import_bus",
+    "A": "ae2:speed_card",
+    "W": "ae2:wireless_receiver",
+    "F": "ae2:formation_core"
   },
   "result": {
     "id": "ae2utility:me_quick_transfer",

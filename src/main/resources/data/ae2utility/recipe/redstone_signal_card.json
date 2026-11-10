@@ -7,12 +7,8 @@
     "RRR"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:redstone_block"
-    },
-    "A": {
-      "item": "ae2:advanced_card"
-    }
+    "R": "minecraft:redstone_block",
+    "A": "ae2:advanced_card"
   },
   "result": {
     "id": "ae2utility:redstone_signal_card",
