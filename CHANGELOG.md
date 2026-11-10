@@ -1,6 +1,6 @@
 # Changelog
 
-## 26.1.2 — In development / 开发中
+## 1.8.1
 
 ### English
 

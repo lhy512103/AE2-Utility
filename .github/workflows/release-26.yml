@@ -1,0 +1,82 @@
+name: Tag Release - NeoForge 26.1.2
+
+on:
+  push:
+    tags: ['neoforge-26.1.2-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag, e.g. neoforge-26.1.2-v1.8.1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-26-distribution-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      tag: ${{ steps.prepare.outputs.tag }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: neoforge-26.1.2
+          path: automation
+          persist-credentials: false
+      - name: Check tag syntax before resolving source
+        run: |
+          python -c 'import sys; sys.path.insert(0,"automation/.github/scripts"); from release import version_from_tag; import os; version_from_tag(os.environ["RELEASE_TAG"])'
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify existing tag points to checked-out commit
+        working-directory: source
+        run: |
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: temurin
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test publication gates without network writes
+        run: python -m unittest discover -s automation/.github/scripts/tests -v
+      - name: Extract exact version changelog
+        id: prepare
+        run: python automation/.github/scripts/release.py prepare --source source --config automation/.github/release-config.json --bundle bundle
+      - name: Build and test tagged source
+        working-directory: source
+        run: bash gradlew build --no-configuration-cache
+      - name: Validate and package the exact main JAR
+        run: python automation/.github/scripts/release.py pack --bundle bundle --libs source/build/libs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-26-validated-bundle
+          path: bundle/
+          if-no-files-found: error
+      - name: Attach JAR before publishing or updating GitHub Release
+        run: python automation/.github/scripts/release.py github-release --bundle bundle --commit "$(git -C source rev-parse HEAD)"
+
+  # GITHUB_TOKEN-created releases do not trigger a second workflow: call explicitly.
+  distribute:
+    needs: release
+    uses: ./.github/workflows/_publish-26.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

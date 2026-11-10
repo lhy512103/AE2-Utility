@@ -2,6 +2,11 @@
 .migration-deps/
 migration-*.log
 logs/
+__pycache__/
+*.py[cod]
+release-check/
+bundle/
+receipts/
 
 ### Gradle ###
 .gradle

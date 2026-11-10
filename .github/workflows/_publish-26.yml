@@ -1,0 +1,61 @@
+name: Publish validated Release - NeoForge 26.1.2
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      MODRINTH_TOKEN:
+        required: true
+      CURSEFORGE_TOKEN:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [modrinth, curseforge]
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: neoforge-26.1.2
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Require actual uploaded Release JAR and current Release text
+        run: python .github/scripts/release.py download-release --bundle bundle
+      - name: Upload JAR with Release text or update matching published file
+        env:
+          PLATFORM_TOKEN: ${{ matrix.platform == 'modrinth' && secrets.MODRINTH_TOKEN || secrets.CURSEFORGE_TOKEN }}
+        run: >-
+          python .github/scripts/platform_publish.py
+          --platform '${{ matrix.platform }}'
+          --bundle bundle
+          --receipt 'bundle/publish-${{ matrix.platform }}.json'
+          --output-receipt 'receipts/publish-${{ matrix.platform }}.json'
+      - name: Preserve publication receipt even if a later operation fails
+        if: always() && hashFiles(format('receipts/publish-{0}.json', matrix.platform)) != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipt-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: receipts/publish-${{ matrix.platform }}.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Bind platform file ID and SHA-256 to GitHub Release
+        if: always() && hashFiles(format('receipts/publish-{0}.json', matrix.platform)) != ''
+        run: >-
+          python .github/scripts/release.py save-receipt
+          --platform '${{ matrix.platform }}'
+          --receipt 'receipts/publish-${{ matrix.platform }}.json'
