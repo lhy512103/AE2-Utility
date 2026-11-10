@@ -142,6 +142,15 @@ class BundleTest(unittest.TestCase):
             with self.subTest(content=content[:30]), self.assertRaises(ValueError):
                 self.packed()
 
+    def test_bundle_without_hash_cannot_publish(self):
+        metadata = self.packed()
+        del metadata["sha256"]
+        release.write_metadata(self.bundle, metadata)
+        github = FakeGitHub()
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            release.github_release(github, self.bundle, "a" * 40)
+        self.assertEqual(github.writes, [])
+
     def test_modified_bundle_jar_is_rejected(self):
         self.packed()
         (self.bundle / "ae2utility-neoforge-26.1.2-1.8.1.jar").write_bytes(jar_bytes(extra=b"different"))

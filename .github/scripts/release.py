@@ -127,6 +127,8 @@ def read_bundle(bundle: Path) -> tuple[dict, str, Path]:
     version = version_from_tag(metadata["tag"])
     if metadata["version"] != version or metadata["jar_name"] != f"{metadata['mod_id']}-neoforge-26.1.2-{version}.jar":
         raise ValueError("Invalid release bundle metadata")
+    if not re.fullmatch(r"[0-9a-f]{64}", metadata.get("sha256", "")):
+        raise ValueError("Release bundle requires a validated SHA-256; run pack first")
     jar = bundle / metadata["jar_name"]
     validate_jar(jar, metadata)
     notes = require_notes((bundle / "release-notes.md").read_text(encoding="utf-8"))

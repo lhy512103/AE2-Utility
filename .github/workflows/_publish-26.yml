@@ -22,23 +22,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [modrinth, curseforge]
+        include:
+          - platform: modrinth
+            token: MODRINTH_TOKEN
+          - platform: curseforge
+            token: CURSEFORGE_TOKEN
     env:
       RELEASE_TAG: ${{ inputs.tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: neoforge-26.1.2
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
       - name: Require actual uploaded Release JAR and current Release text
         run: python .github/scripts/release.py download-release --bundle bundle
       - name: Upload JAR with Release text or update matching published file
         env:
-          PLATFORM_TOKEN: ${{ matrix.platform == 'modrinth' && secrets.MODRINTH_TOKEN || secrets.CURSEFORGE_TOKEN }}
+          PLATFORM_TOKEN: ${{ secrets[matrix.token] }}
         run: >-
           python .github/scripts/platform_publish.py
           --platform '${{ matrix.platform }}'
@@ -47,7 +51,7 @@ jobs:
           --output-receipt 'receipts/publish-${{ matrix.platform }}.json'
       - name: Preserve publication receipt even if a later operation fails
         if: always() && hashFiles(format('receipts/publish-{0}.json', matrix.platform)) != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: receipt-${{ matrix.platform }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: receipts/publish-${{ matrix.platform }}.json
