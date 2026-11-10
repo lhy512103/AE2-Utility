@@ -212,9 +212,23 @@ class Transport:
                 data = response.read()
                 return json.loads(data) if data else None
         except urllib.error.HTTPError as error:
-            # Never include response body, reason, URL, headers, or exception repr:
-            # any of these may echo a credential. Never retry a mutation.
-            raise PublishError("Platform API HTTP " + str(error.code) + "; request was not retried.") from None
+            # Only bounded JSON validation messages for 400s are useful diagnostics.
+            # Never print URLs, headers, raw response bodies or authentication failures.
+            detail = ""
+            if error.code == 400:
+                try:
+                    response = json.loads(error.read(8192))
+                    if isinstance(response, dict):
+                        message = response.get("errorMessage") or response.get("message")
+                        if isinstance(message, str):
+                            for key, value in headers.items():
+                                if key.lower() in ("authorization", "x-api-token") and value:
+                                    message = message.replace(value, "[REDACTED]")
+                            detail = ": " + re.sub(r"[\x00-\x1f\x7f]+", " ", message)[:400]
+                except (ValueError, UnicodeError, OSError):
+                    pass
+            raise PublishError("Platform API " + method + " HTTP " + str(error.code) + detail
+                               + "; request was not retried.") from None
         except (urllib.error.URLError, TimeoutError, OSError):
             raise PublishError("Platform network failure; request was not retried. A write may have succeeded; reconcile before rerunning.") from None
         except (ValueError, UnicodeError):

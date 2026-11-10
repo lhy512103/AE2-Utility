@@ -348,6 +348,19 @@ class PublishTests(unittest.TestCase):
         with patch.dict(os.environ, {"PLATFORM_TOKEN": ""}):
             self.assert_invalid_no_network()
 
+    def test_validation_error_reports_stage_and_redacts_secret(self):
+        secret = "mock-secret-token"
+        error = urllib.error.HTTPError("https://host/", 400, "ignored", {},
+                io.BytesIO(json.dumps({"errorMessage": "Unknown game version; token=" + secret}).encode()))
+        transport = pub.Transport()
+        with patch.object(transport.opener, "open", side_effect=error):
+            with self.assertRaises(pub.PublishError) as result:
+                transport.request("POST", pub.CF_BASE + "/projects/1521605/upload-file",
+                                  {"X-Api-Token": secret}, b"data")
+        self.assertIn("POST HTTP 400", str(result.exception))
+        self.assertIn("Unknown game version", str(result.exception))
+        self.assertNotIn(secret, str(result.exception))
+
     def test_transport_http_error_never_leaks_token_or_body(self):
         secret = "mock-secret-token"
         error = urllib.error.HTTPError("https://host/?token=" + secret, 401, secret,
