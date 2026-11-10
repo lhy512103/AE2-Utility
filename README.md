@@ -30,6 +30,10 @@
 
 ### 构建与验证
 
+默认开发运行时包含 ExtendedAE Plus、ExtendedAE、Glodium 和水晶科技；客户端另含 Mouse Tweaks、Just Enough Characters、Modern UI、Sodium，后四项不会进入服务端运行类路径。这些开发依赖不会打进模组 JAR。
+
+VS Code 工作区配置使用 Buildship 导入 Gradle，并排除 `.migration-deps` 中的参考工程。若切换导入器或更新构建文件后仍出现整包依赖无法解析，请执行“开发人员：重新加载窗口”，再执行“Java：重新加载项目”。Gradle 自动使用系统代理配置，不要求写死本机代理端口。
+
 ```sh
 ./gradlew build
 ./gradlew runClient
