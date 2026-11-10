@@ -329,8 +329,8 @@ class CurseForge:
         metadata = {**self._metadata(bundle),
                     "gameVersionNames": [bundle.metadata["minecraft_version"], "NeoForge", "Java 21", "Client", "Server"],
                     "relations": {"projects": [
-                        {"slug": "applied-energistics-2", "projectID": "223794", "type": "requiredDependency"},
-                        {"slug": "jei", "projectID": "238222", "type": "requiredDependency"}]}}
+                        {"slug": "applied-energistics-2", "projectID": 223794, "type": "requiredDependency"},
+                        {"slug": "jei", "projectID": 238222, "type": "requiredDependency"}]}}
         body, content_type = multipart("metadata", metadata, bundle)
         result = self.transport.request("POST", CF_BASE + "/projects/" + PROJECT_IDS[self.platform] + "/upload-file",
                                         {**self.headers, "Content-Type": content_type}, body)

@@ -156,8 +156,8 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(data["changelogType"], "markdown")
         self.assertEqual(data["gameVersionNames"], ["1.21.1", "NeoForge", "Java 21", "Client", "Server"])
         self.assertEqual(data["relations"]["projects"], [
-            {"slug": "applied-energistics-2", "projectID": "223794", "type": "requiredDependency"},
-            {"slug": "jei", "projectID": "238222", "type": "requiredDependency"}])
+            {"slug": "applied-energistics-2", "projectID": 223794, "type": "requiredDependency"},
+            {"slug": "jei", "projectID": 238222, "type": "requiredDependency"}])
 
     def test_mr_same_receipt_updates_only_text(self):
         expected = self.existing()
