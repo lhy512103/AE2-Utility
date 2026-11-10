@@ -1,50 +1,58 @@
 package com.lhy.ae2utility.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
 import com.lhy.ae2utility.client.jei.EncodePatternRecipeLayoutContext;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import net.minecraft.client.gui.GuiGraphics;
 
+/**
+ * Publishes the current recipe layout to {@link EncodePatternRecipeLayoutContext} while JEI ticks or draws it.
+ *
+ * <p>Uses {@link WrapMethod} rather than HEAD/RETURN {@code @Inject}s. The shipped JEI bytecode reuses local slot 0
+ * (normally {@code this}) for other values inside these methods, so a RETURN injection that loads {@code this}
+ * fails bytecode verification and disables JEI's GUI. Wrapping also guarantees the pop runs when JEI throws.</p>
+ */
 @Mixin(targets = "mezz.jei.library.gui.recipes.RecipeLayout", remap = false, priority = 500)
 public class MixinRecipeLayout {
 
-    private static IRecipeLayoutDrawable<?> ae2utility$selfLayout(Object self) {
-        return (IRecipeLayoutDrawable<?>) self;
+    private IRecipeLayoutDrawable<?> ae2utility$selfLayout() {
+        return (IRecipeLayoutDrawable<?>) (Object) this;
     }
 
-    @Inject(method = "tick", at = @At("HEAD"))
-    private void ae2utility$pushLayoutTick(CallbackInfo ci) {
-        EncodePatternRecipeLayoutContext.push(ae2utility$selfLayout(this));
+    @WrapMethod(method = "tick")
+    private void ae2utility$withLayoutTick(Operation<Void> original) {
+        EncodePatternRecipeLayoutContext.push(ae2utility$selfLayout());
+        try {
+            original.call();
+        } finally {
+            EncodePatternRecipeLayoutContext.pop();
+        }
     }
 
-    @Inject(method = "tick", at = @At("RETURN"))
-    private void ae2utility$popLayoutTick(CallbackInfo ci) {
-        EncodePatternRecipeLayoutContext.pop();
+    @WrapMethod(method = "drawRecipe")
+    private void ae2utility$withLayoutDrawRecipe(GuiGraphics guiGraphics, int mouseX, int mouseY,
+            Operation<Void> original) {
+        EncodePatternRecipeLayoutContext.push(ae2utility$selfLayout());
+        try {
+            original.call(guiGraphics, mouseX, mouseY);
+        } finally {
+            EncodePatternRecipeLayoutContext.pop();
+        }
     }
 
-    @Inject(method = "drawRecipe", at = @At("HEAD"))
-    private void ae2utility$pushLayoutDrawRecipe(GuiGraphics guiGraphics, int mouseX, int mouseY, CallbackInfo ci) {
-        EncodePatternRecipeLayoutContext.push(ae2utility$selfLayout(this));
+    @WrapMethod(method = "drawOverlays")
+    private void ae2utility$withLayoutDrawOverlays(GuiGraphics guiGraphics, int mouseX, int mouseY,
+            Operation<Void> original) {
+        EncodePatternRecipeLayoutContext.push(ae2utility$selfLayout());
+        try {
+            original.call(guiGraphics, mouseX, mouseY);
+        } finally {
+            EncodePatternRecipeLayoutContext.pop();
+        }
     }
-
-    @Inject(method = "drawRecipe", at = @At("RETURN"))
-    private void ae2utility$popLayoutDrawRecipe(GuiGraphics guiGraphics, int mouseX, int mouseY, CallbackInfo ci) {
-        EncodePatternRecipeLayoutContext.pop();
-    }
-
-    @Inject(method = "drawOverlays", at = @At("HEAD"))
-    private void ae2utility$pushLayoutDrawOverlays(GuiGraphics guiGraphics, int mouseX, int mouseY, CallbackInfo ci) {
-        EncodePatternRecipeLayoutContext.push(ae2utility$selfLayout(this));
-    }
-
-    @Inject(method = "drawOverlays", at = @At("RETURN"))
-    private void ae2utility$popLayoutDrawOverlays(GuiGraphics guiGraphics, int mouseX, int mouseY, CallbackInfo ci) {
-        EncodePatternRecipeLayoutContext.pop();
-    }
-
 }

@@ -9,6 +9,7 @@
 5. 修复：断开 ME 网络时清除红石卡输出，避免供应器残留信号。
 6. 优化：改善未安装可选配方查看器或无线终端扩展时的兼容性。
 7. 优化：拆分编码服务，合并 JEI/EMI 编码数据包的重复逻辑。
+8. 修复：JEI 配方界面因注入校验失败而无法打开的问题。
 
 ### English
 
@@ -19,6 +20,7 @@
 5. Fixed: Cleared Redstone Signal Card output when an ME network disconnects.
 6. Improved: Compatibility when optional recipe viewers or wireless-terminal addons are absent.
 7. Improved: Split the encoding service and merged duplicated JEI/EMI encode packet logic.
+8. Fixed: JEI recipe screens failing to open because of a bytecode verification error.
 
 
 ## 1.20.1.2

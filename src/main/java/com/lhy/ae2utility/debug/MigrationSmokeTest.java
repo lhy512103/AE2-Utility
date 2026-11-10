@@ -56,11 +56,15 @@ public final class MigrationSmokeTest {
         for (String[] target : targets) {
             if (!ModList.get().isLoaded(target[0])) continue;
             try {
-                Class.forName(target[1], false, MigrationSmokeTest.class.getClassLoader());
+                // initialize=true links the class, which runs the bytecode verifier over the mixed-in code.
+                // Loading alone (initialize=false) misses broken injections that only fail verification.
+                Class.forName(target[1], true, MigrationSmokeTest.class.getClassLoader());
                 checked++;
                 Ae2UtilityMod.LOGGER.info("Migration smoke: loaded {}", target[1]);
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException("Missing migration target " + target[1], e);
+            } catch (LinkageError e) {
+                throw new IllegalStateException("Mixin target failed verification " + target[1], e);
             }
         }
         if (ModList.get().isLoaded("jei")) {
