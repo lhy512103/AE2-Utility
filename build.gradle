@@ -60,7 +60,7 @@ repositories {
 
 dependencies {
     implementation 'maven.modrinth:ae2:26.1.13-beta'
-    implementation 'curse.maven:jei-238222:9384706'
+    implementation 'curse.maven:jei-238222:9193052'
     localRuntime 'maven.modrinth:guideme:26.1.17-beta'
     localRuntime 'curse.maven:mezzconfig-1689768:9527941'
     compileOnly 'curse.maven:extendedae-plus-1337639:9006822'

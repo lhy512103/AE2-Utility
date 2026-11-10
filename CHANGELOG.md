@@ -10,6 +10,7 @@
 4. Removed: Remove the Recipe Finder item and its filtering interface while retaining JEI/EMI pattern encoding and batch uploads.
 5. Fixed: Keep shared JEI recipe access available when EMI handles plugin callbacks.
 6. Fixed: Preserve custom ingredient components when selecting fallback items for recipe transfer.
+7. Fixed: Restore the JEI item list when ExtendedAE Plus is installed.
 
 ### 中文
 
@@ -19,3 +20,4 @@
 4. 移除：删除配方查找器物品及筛选界面，保留 JEI/EMI 样板编码与批量上传。
 5. 修复：EMI 接管插件回调时仍可访问共享的 JEI 配方数据。
 6. 修复：配方拉料选择备用物品时保留自定义原料的数据组件。
+7. 修复：安装 ExtendedAE Plus 时 JEI 物品列表不显示的问题。

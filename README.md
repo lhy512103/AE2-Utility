@@ -17,7 +17,7 @@
 
 ### 依赖与可选集成
 
-核心依赖：AE2 `26.1.13-beta`、客户端 JEI `29.53.0.115`，以及它们要求的 GuideME、MezzConfig。
+核心依赖：AE2 `26.1.13-beta`、客户端 JEI `29.47.0.110`，以及它们要求的 GuideME、MezzConfig。
 
 可选集成在未安装对应模组时不启用，核心功能不依赖这些扩展。
 
@@ -52,7 +52,7 @@ AE2 Utility for **Minecraft 26.1.2, NeoForge 26.1.2.126 and Java 25**. This bran
 
 Features include ME ingredient transfer, JEI/EMI pattern encoding and preview, batch uploads, NBT Tear and Redstone Signal cards, the ME Quick Transfer Tool, server policies and public APIs.
 
-Core requirements are AE2 `26.1.13-beta`, JEI `29.53.0.115` on clients, and their GuideME/MezzConfig dependencies. Optional integrations remain isolated when absent.
+Core requirements are AE2 `26.1.13-beta`, JEI `29.47.0.110` on clients, and their GuideME/MezzConfig dependencies. Optional integrations remain isolated when absent.
 
 The target EMI integration uses the **unofficial PF-EMI port**; chemical transfer uses **unofficial Mekanism / Applied Mekanistics Version Locked ports**. These must not be confused with official releases. NeoEco `26.2.15-beta` rejects AE2LT versions below `1.1.3`; the provided test profiles keep NeoEco separate from the available AE2LT `1.0.1alpha` release. Optional bridges without a verified target release are retained but are not claimed as runtime-tested.
 
