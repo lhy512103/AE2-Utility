@@ -1,0 +1,27 @@
+name: Forward Forge Release updates
+
+# Install this small router on main too: release edits must not depend on the
+# default branch being the Forge source branch. No tagged code is executed here.
+on:
+  release:
+    types: [published, edited]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: distribution-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  sync-forge:
+    if: >-
+      !github.event.release.draft &&
+      (startsWith(github.event.release.tag_name, 'v1.20.1.') ||
+       startsWith(github.event.release.tag_name, '1.20.1.'))
+    uses: lhy512103/AE2-Utility/.github/workflows/_publish.yml@forge-1.20.1
+    with:
+      tag: ${{ github.event.release.tag_name }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
