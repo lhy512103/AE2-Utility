@@ -1,7 +1,7 @@
 dependencies {
     // ── 编译期 API ─────────────────────────────────────────────
     // JEI 完整（非仅 API）：编译期需要 RecipesGui、ImmutableRect2i 等实现类
-    compileOnly "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    compileOnly "maven.modrinth:ae2:${ae2_version}"
     compileOnly "curse.maven:jei-238222:${jei_file}"
     compileOnly "dev.emi:emi-neoforge:${emi_version}"
     // Optional compile-time contract for direct EAEP integration; remains optional at runtime.
@@ -9,11 +9,11 @@ dependencies {
     compileOnly "curse.maven:mekanism-268560:${mekanism_file}"
     compileOnly "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
     compileOnly "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
-    compileOnly "curse.maven:some-useless-things-1401600:8962878"
+    compileOnly "curse.maven:some-useless-things-1401600:9454907"
 
     // ── 运行时核心模组 ─────────────────────────────────────────
-    coreLocalRuntime "org.appliedenergistics:appliedenergistics2:${ae2_version}"
-    coreLocalRuntime "de.mari_023:ae2wtlib:${ae2wtlib_version}"
+    coreLocalRuntime "maven.modrinth:ae2:${ae2_version}"
+    coreLocalRuntime "maven.modrinth:guideme:${guideme_version}"
     coreLocalRuntime "curse.maven:spark-361579:${spark_file}"
     coreLocalRuntime "maven.modrinth:modernfix:${modernfix_version}"
     coreLocalRuntime "curse.maven:curios-309927:6529130"
@@ -26,7 +26,7 @@ dependencies {
     // ── 运行时 AE2 扩展 ────────────────────────────────────────
     ae2AddonLocalRuntime "curse.maven:advancedae-1084104:${advancedae_file}"
     ae2AddonLocalRuntime "curse.maven:ae2-crystal-science-1435174:${ae2cs_file}"
-    ae2AddonLocalRuntime "curse.maven:ae2-import-export-card-982512:8033654"
+    ae2AddonLocalRuntime "curse.maven:ae2-import-export-card-982512:8961599"
     ae2AddonLocalRuntime "curse.maven:ex-pattern-provider-892005:${extendedae_file}"
     ae2AddonLocalRuntime "curse.maven:extendedae-plus-1337639:${extendedae_plus_file}"
     ae2AddonLocalRuntime "curse.maven:applied-energistics-2-wireless-terminals-459929:${ae2wt_terminals_file}"
@@ -34,16 +34,16 @@ dependencies {
     ae2AddonLocalRuntime "curse.maven:applied-create-1474758:${applied_create_file}"
     ae2AddonLocalRuntime "curse.maven:mega-cells-622112:${mega_cells_file}"
     ae2AddonLocalRuntime "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file}"
-    ae2AddonLocalRuntime "curse.maven:merequester-688367:7844592"
+    ae2AddonLocalRuntime "curse.maven:merequester-688367:8787722"
     // AE2 Lightning Tech 2.x requires Thunderbolt Core.
     ae2AddonLocalRuntime "curse.maven:thunderbolt-core-1631756:${thunderbolt_file}"
     ae2AddonLocalRuntime "curse.maven:ae2-lightning-tech-1527395:${ae2lt_file}"
     ae2AddonLocalRuntime "curse.maven:ae2helpers-1450496:7634384"
     // ae2AddonLocalRuntime "curse.maven:data-energistics-1565514:8429524"
-    ae2AddonLocalRuntime "curse.maven:aeinfinitybooster-559313:8377914"
-    ae2AddonLocalRuntime "curse.maven:clientsort-1049891:8172893"
-    ae2AddonLocalRuntime "curse.maven:inventory-essentials-368825:8362286"
-    ae2AddonLocalRuntime "curse.maven:balm-531761:8424824"
+    ae2AddonLocalRuntime "curse.maven:aeinfinitybooster-559313:9483395"
+    ae2AddonLocalRuntime "curse.maven:clientsort-1049891:8978780"
+    ae2AddonLocalRuntime "curse.maven:inventory-essentials-368825:9035078"
+    ae2AddonLocalRuntime "curse.maven:balm-531761:9406246"
 
     // ── 运行时依赖与集成目标 ───────────────────────────────────
     compatibilityLocalRuntime "curse.maven:inventory-profiles-next-495267:${inventory_profiles_next_file}"
@@ -54,58 +54,54 @@ dependencies {
     compatibilityLocalRuntime "curse.maven:polymorph-388800:${polymorph_file}"
     compatibilityLocalRuntime "dev.architectury:architectury-neoforge:${architectury_version}"
     compatibilityLocalRuntime "dev.ftb.mods:ftb-library-neoforge:${ftb_library_version}"
-    compatibilityLocalRuntime "dev.ftb.mods:ftb-ultimine-neoforge:${ftb_ultimine_version}"
+    compatibilityLocalRuntime("dev.ftb.mods:ftb-ultimine-neoforge:${ftb_ultimine_version}") {
+        // Architectury and FTB Library are explicit; Ranks/EZ Crystals are optional.
+        transitive = false
+    }
     compatibilityLocalRuntime "maven.modrinth:jade:${jade_version}"
-    // Create is sanitized to remove its conflicting embedded Registrate jar;
-    // provide its mandatory nested mods explicitly.
-    compatibilityLocalRuntime "net.createmod.ponder:Ponder-NeoForge-1.21.1:1.0.64"
-    compatibilityLocalRuntime "dev.engine-room.flywheel:flywheel-neoforge-1.21.1:${flywheel_version}"
+    // Create retains its bundled Ponder and Flywheel; no duplicate standalone jars.
     compatibilityLocalRuntime "curse.maven:mekanism-268560:${mekanism_file}"
-    compatibilityLocalRuntime "curse.maven:some-useless-things-1401600:8962878"
-    // Some Useless Things links Neo ECO AE's fast-path API at load time.
-    // Use the complete Neo ECO AE Extension runtime instead of the compile-only API jar.
-    compatibilityLocalRuntime "curse.maven:neo-eco-ae-extension-1460639:8918723"
+    compatibilityLocalRuntime "curse.maven:some-useless-things-1401600:9454907"
     compatibilityLocalRuntime "me.desht.pneumaticcraft:pneumaticcraft-repressurized:${pneumaticcraft_version}"
     compatibilityLocalRuntime "thedarkcolour:kotlinforforge-neoforge:${kotlinforforge_version}"
 
-    // ── JDTE 运行时兼容依赖（与 D:\Code\java\JDTE 对齐）────────────
-    // 这些模组用于复现 JDTE 的完整开发运行环境，便于联调与兼容性回归。
-    compatibilityLocalRuntime "org.appliedenergistics:guideme:${guideme_version}"
+    // ── JDTE 运行时兼容依赖 ────────────────────────────────────
     compatibilityLocalRuntime "curse.maven:just-dire-things-1002348:7463040"
-    compatibilityLocalRuntime "curse.maven:ftb-ultimine-forge-386134:8231400"
     compatibilityLocalRuntime "curse.maven:appleskin-248787:7854442"
     compatibilityLocalRuntime "curse.maven:patchouli-306770:7730942"
     compatibilityLocalRuntime "curse.maven:titanium-287342:7951516"
-    compatibilityLocalRuntime "curse.maven:industrial-foregoing-266515:8370717"
+    // 3.6.39 is Beta; use the latest stable release with stable Titanium 4.0.43.
+    compatibilityLocalRuntime "curse.maven:industrial-foregoing-266515:7600395"
     compatibilityLocalRuntime "curse.maven:ex-deorum-901420:8384464"
-    compatibilityLocalRuntime "curse.maven:just-dyna-things-1189855:7851999"
-    compatibilityLocalRuntime "curse.maven:mystical-agriculture-246640:8344249"
-    compatibilityLocalRuntime "curse.maven:mystical-agradditions-256247:7802027"
+    compatibilityLocalRuntime "curse.maven:just-dyna-things-1189855:9056387"
+    compatibilityLocalRuntime "curse.maven:mystical-agriculture-246640:9291239"
+    compatibilityLocalRuntime "curse.maven:mystical-agradditions-256247:9041182"
     compatibilityLocalRuntime "curse.maven:cucumber-272335:8035802"
     compatibilityLocalRuntime "curse.maven:productivebees-377897:${productivebees_file}"
     compatibilityLocalRuntime "curse.maven:allthecompressed-514045:${allthecompressed_file}"
     compatibilityLocalRuntime "curse.maven:ato-405593:7825464"
-    compatibilityLocalRuntime "curse.maven:allthemodium-364466:7974403"
+    compatibilityLocalRuntime "curse.maven:allthemodium-364466:9143638"
     compatibilityLocalRuntime "curse.maven:sophisticated-storage-619320:${sophisticated_storage_file}"
     compatibilityLocalRuntime "curse.maven:sophisticated-core-618298:${sophisticated_core_file}"
     compatibilityLocalRuntime "curse.maven:logistics-network-1448257:${logistics_network_file}"
     compatibilityLocalRuntime "curse.maven:bookshelf-228525:7606240"
-    compatibilityLocalRuntime "curse.maven:placebo-283644:6926281"
+    compatibilityLocalRuntime "curse.maven:placebo-283644:9153039"
     compatibilityLocalRuntime "curse.maven:prickle-1023259:6961457"
-    compatibilityLocalRuntime "curse.maven:apothic-attributes-898963:7445079"
-    compatibilityLocalRuntime "curse.maven:apothic-enchanting-1063926:8107222"
-    compatibilityLocalRuntime "curse.maven:apothic-spawners-986583:7492121"
-    compatibilityLocalRuntime "curse.maven:apotheosis-313970:8182695"
-    compatibilityLocalRuntime "curse.maven:enchantment-descriptions-250419:8240827"
-    compatibilityLocalRuntime "curse.maven:hostile-neural-networks-552574:8321864"
+    compatibilityLocalRuntime "curse.maven:apothic-attributes-898963:9006294"
+    compatibilityLocalRuntime "curse.maven:apothic-enchanting-1063926:9095862"
+    compatibilityLocalRuntime "curse.maven:apothic-spawners-986583:8469405"
+    compatibilityLocalRuntime "curse.maven:apotheosis-313970:8993983"
+    compatibilityLocalRuntime "curse.maven:enchantment-descriptions-250419:8693034"
+    compatibilityLocalRuntime "curse.maven:hostile-neural-networks-552574:8525006"
 
     // ── 运行时其它内容 mod（兼容测试）──────────────────────────
-    compatibilityLocalRuntime "curse.maven:occultism-361026:8253041"
-    compatibilityLocalRuntime "curse.maven:modonomicon-538392:7771524"
+    compatibilityLocalRuntime "curse.maven:occultism-361026:9450865"
+    compatibilityLocalRuntime "curse.maven:modonomicon-538392:9384356"
     compatibilityLocalRuntime "curse.maven:smartbrainlib-661293:7055149"
     compatibilityLocalRuntime "curse.maven:brandons-core-231382:7130990"
-    compatibilityLocalRuntime "curse.maven:codechicken-lib-1-8-242818:7281427"
-    compatibilityLocalRuntime "curse.maven:draconic-evolution-223565:7584459"
+    compatibilityLocalRuntime "curse.maven:codechicken-lib-1-8-242818:8491811"
+    // This MC line has no stable release; retain the latest compatible Beta.
+    compatibilityLocalRuntime "curse.maven:draconic-evolution-223565:8797042"
 
     // ── 仅客户端运行时（UI / 输入辅助，不进服务端 run）─────────
     clientLocalRuntime "curse.maven:ae2-jei-integration-1074338:${ae2jei_integration_file}"
@@ -115,5 +111,6 @@ dependencies {
     clientLocalRuntime "curse.maven:searchables-858542:${searchables_file}"
     clientLocalRuntime "curse.maven:controlling-250398:${controlling_file}"
     clientLocalRuntime "curse.maven:imblocker-483760:${imblocker_file}"
-    clientLocalRuntime "maven.modrinth:I7k4B65h:XPKoy65e"
+    // Pin the NeoForge 1.21.1 file: the version number is shared by other loaders.
+    clientLocalRuntime "maven.modrinth:I7k4B65h:iNnJuUnx" // JustEnoughCharacters 4.5.30
 }

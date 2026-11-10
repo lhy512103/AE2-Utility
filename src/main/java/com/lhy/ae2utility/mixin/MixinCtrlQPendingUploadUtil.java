@@ -1,46 +1,63 @@
 package com.lhy.ae2utility.mixin;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-
 import appeng.api.networking.IGrid;
 
 import com.lhy.ae2utility.debug.EaepUploadDebugLog;
+import com.lhy.ae2utility.integration.eaep.EaepApiAccess;
+import com.lhy.ae2utility.integration.eaep.EaepApiAccess.UploadResult;
 import com.lhy.ae2utility.integration.eaep.EaepDirectCompat;
 import com.lhy.ae2utility.service.SequentialUploadContextBridge;
 import com.lhy.ae2utility.service.SequentialUploadResultBridge;
 
 import net.minecraft.server.level.ServerPlayer;
 
-/**
- * 统一对 EAEP {@code CtrlQPendingUploadUtil} 的三个钩子（上传完成结果、取消/归还、findGrid 兜底）。
- */
+/** Upload hooks accept both legacy boolean and current UploadOutcome without EAEP class linkage. */
 @Mixin(targets = "com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil", remap = false)
 public class MixinCtrlQPendingUploadUtil {
+    @Unique
+    private static final Map<UUID, UploadResult> ae2utility$awaitingPatternReturn = new ConcurrentHashMap<>();
 
-    @WrapMethod(method = "uploadPendingCtrlQPattern")
-    private static boolean ae2utility$recordPendingUploadTarget(ServerPlayer player, long providerId,
-            Operation<Boolean> original) {
+    @Inject(method = "uploadPendingCtrlQPattern", at = @At("HEAD"))
+    private static void ae2utility$capturePendingUploadTarget(ServerPlayer player, long providerId,
+            CallbackInfoReturnable<Object> cir) {
+        if (player != null) {
+            ae2utility$awaitingPatternReturn.remove(player.getUUID());
+        }
         EaepDirectCompat.clearPendingProviderUpload(player);
+        EaepDirectCompat.beginPendingProviderUpload(player);
+    }
+
+    @Inject(method = "uploadPendingCtrlQPattern", at = @At("RETURN"))
+    private static void ae2utility$recordPendingUploadTarget(ServerPlayer player, long providerId,
+            CallbackInfoReturnable<Object> cir) {
+        UploadResult result = EaepApiAccess.uploadResult(cir.getReturnValue());
+        boolean inserted = result == UploadResult.SUCCESS;
         try {
-            EaepDirectCompat.beginPendingProviderUpload(player);
-            boolean ok = original.call(player, providerId);
-            EaepDirectCompat.finishPendingProviderUpload(player, providerId, ok);
-            EaepUploadDebugLog.info(
-                    "EAEP uploadPendingCtrlQPattern RETURN player={} providerId={} ok={}",
-                    player != null ? player.getScoreboardName() : "null", providerId, ok);
-            if (ok) {
+            EaepDirectCompat.finishPendingProviderUpload(player, providerId, inserted);
+            EaepUploadDebugLog.info("EAEP uploadPendingCtrlQPattern RETURN player={} providerId={} outcome={}",
+                    player != null ? player.getScoreboardName() : "null", providerId, result);
+            if (!SequentialUploadResultBridge.hasPendingSequentialUploadResult(player)) {
+                // Inventory uploads use a copied pending stack and their own acknowledgement packet.
+                return;
+            }
+            if (inserted) {
                 SequentialUploadContextBridge.rememberSuccessfulProvider(player, providerId);
                 SequentialUploadResultBridge.flushPendingResult(player, true);
-            } else {
-                SequentialUploadResultBridge.flushPendingResult(player, false, true);
+            } else if (player != null) {
+                // EAEP returns the encoded pending stack for DUPLICATE/FAILED. Do not refund a
+                // blank here as well: wait for that return, then disarm the blank refund exactly once.
+                ae2utility$awaitingPatternReturn.put(player.getUUID(), result);
             }
-            return ok;
         } finally {
             EaepDirectCompat.clearPendingProviderUpload(player);
         }
@@ -48,14 +65,19 @@ public class MixinCtrlQPendingUploadUtil {
 
     @Inject(method = "returnPendingCtrlQPatternToInventory", at = @At("RETURN"))
     private static void ae2utility$onReturnPending(ServerPlayer player, CallbackInfoReturnable<Boolean> cir) {
+        UploadResult uploadResult = player == null ? null
+                : ae2utility$awaitingPatternReturn.remove(player.getUUID());
+        if (!SequentialUploadResultBridge.hasPendingSequentialUploadResult(player)) {
+            return;
+        }
         boolean returned = cir.getReturnValueZ();
-        EaepUploadDebugLog.info(
-                "EAEP returnPendingCtrlQPatternToInventory RETURN player={} returnedOk={}",
-                player != null ? player.getScoreboardName() : "null", returned);
+        boolean purgeSameMachine = uploadResult != UploadResult.DUPLICATE;
+        EaepUploadDebugLog.info("EAEP returnPendingCtrlQPatternToInventory player={} returned={} outcome={}",
+                player != null ? player.getScoreboardName() : "null", returned, uploadResult);
         if (returned) {
-            SequentialUploadResultBridge.flushPendingProviderUiDismissed(player, true);
+            SequentialUploadResultBridge.flushPendingProviderUiDismissed(player, purgeSameMachine);
         } else {
-            SequentialUploadResultBridge.flushPendingResult(player, false, true);
+            SequentialUploadResultBridge.flushPendingResult(player, false, purgeSameMachine);
         }
     }
 

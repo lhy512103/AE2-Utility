@@ -1,0 +1,28 @@
+name: Sync Release to Modrinth and CurseForge
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published GitHub Release tag; must already contain its main JAR'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: distribution-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.draft
+    uses: ./.github/workflows/_publish.yml
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+    secrets:
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}

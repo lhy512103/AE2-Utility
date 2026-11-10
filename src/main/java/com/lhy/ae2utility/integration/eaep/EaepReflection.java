@@ -1,11 +1,12 @@
 package com.lhy.ae2utility.integration.eaep;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
 import appeng.api.networking.IGrid;
+import appeng.helpers.patternprovider.PatternContainer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,12 +16,9 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/**
- * Centralizes ExtendedAE-Plus reflective calls. EAEP does not expose all upload helpers as a stable API.
- */
+/** Version-neutral access to the legacy monolith and EAEP 1.6 split upload helpers. */
 public final class EaepReflection {
     private static final String MOD_ID = "extendedae_plus";
-    private static final String UPLOAD_UTIL = "com.extendedae_plus.util.uploadPattern.ExtendedAEPatternUploadUtil";
     private static final String PENDING_UTIL = "com.extendedae_plus.util.uploadPattern.CtrlQPendingUploadUtil";
     private static final String REQUEST_PROVIDERS_PACKET = "com.extendedae_plus.network.RequestProvidersListC2SPacket";
 
@@ -31,136 +29,146 @@ public final class EaepReflection {
         return ModList.get().isLoaded(MOD_ID);
     }
 
-    /**
-     * Stores the attribution in the same custom-data field used by ExtendedAE-Plus.
-     * Keeping this on every encoded pattern also makes the value survive inventory,
-     * matrix, and provider upload paths even when EAEP is loaded after the pattern is created.
-     */
     public static void writeEncoderAttribution(ServerPlayer player, ItemStack pattern) {
-        if (pattern.isEmpty()) {
-            return;
+        if (!pattern.isEmpty()) {
+            CustomData.update(DataComponents.CUSTOM_DATA, pattern,
+                    tag -> tag.putString("encodePlayer", player.getGameProfile().getName()));
         }
-        CustomData.update(DataComponents.CUSTOM_DATA, pattern,
-                tag -> tag.putString("encodePlayer", player.getGameProfile().getName()));
     }
 
     public static @Nullable String defaultCraftingSearchKey() {
         try {
-            Field field = Class.forName(UPLOAD_UTIL).getField("DEFAULT_CRAFTING_SEARCH_KEY");
-            Object value = field.get(null);
+            Object value = EaepApiAccess.uploadField("RecipeTypeNameConfig", "DEFAULT_CRAFTING_SEARCH_KEY");
             return value instanceof String s ? s : null;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException unavailable) {
             return null;
         }
     }
 
     public static @Nullable String mapRecipeTypeToSearchKey(Recipe<?> recipe) {
-        try {
-            Method method = Class.forName(UPLOAD_UTIL).getMethod("mapRecipeTypeToSearchKey", Recipe.class);
-            Object value = method.invoke(null, recipe);
-            return value instanceof String s && !s.isEmpty() ? s : null;
-        } catch (Throwable ignored) {
-            return null;
-        }
+        return searchKey("mapRecipeTypeToSearchKey", Recipe.class, recipe);
     }
 
     public static @Nullable String deriveSearchKeyFromUnknownRecipe(Object recipe) {
-        try {
-            Method method = Class.forName(UPLOAD_UTIL).getMethod("deriveSearchKeyFromUnknownRecipe", Object.class);
-            Object value = method.invoke(null, recipe);
-            return value instanceof String s && !s.isEmpty() ? s : null;
-        } catch (Throwable ignored) {
-            return null;
-        }
+        return searchKey("deriveSearchKeyFromUnknownRecipe", Object.class, recipe);
     }
 
     public static @Nullable String resolveSearchKeyAlias(String raw) {
+        return searchKey("resolveSearchKeyAlias", String.class, raw);
+    }
+
+    private static @Nullable String searchKey(String method, Class<?> parameter, Object argument) {
         try {
-            Method method = Class.forName(UPLOAD_UTIL).getMethod("resolveSearchKeyAlias", String.class);
-            Object value = method.invoke(null, raw);
+            Object value = EaepApiAccess.invokeUpload("RecipeTypeNameConfig", method,
+                    new Class<?>[] {parameter}, argument);
             return value instanceof String s ? s : null;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException unavailable) {
             return null;
         }
     }
 
     public static boolean setLastProviderSearchKey(String key) {
         try {
-            Method method = Class.forName(UPLOAD_UTIL).getMethod("setLastProviderSearchKey", String.class);
-            method.invoke(null, key);
+            EaepApiAccess.invokeUpload("RecipeTypeNameConfig", "setLastProviderSearchKey",
+                    new Class<?>[] {String.class}, key);
             return true;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException unavailable) {
             return false;
         }
     }
 
+    private static Object invokePending(String name, Class<?>[] parameters, Object... arguments)
+            throws ReflectiveOperationException {
+        Method method = Class.forName(PENDING_UTIL).getMethod(name, parameters);
+        return method.invoke(null, arguments);
+    }
+
     public static @Nullable IGrid findPlayerGrid(ServerPlayer player) {
         try {
-            Method method = Class.forName(PENDING_UTIL).getMethod("findPlayerGrid", ServerPlayer.class);
-            Object value = method.invoke(null, player);
+            Object value = invokePending("findPlayerGrid", new Class<?>[] {ServerPlayer.class}, player);
             return value instanceof IGrid grid ? grid : null;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException unavailable) {
             return null;
         }
     }
 
     public static boolean matrixContainsPattern(IGrid grid, ItemStack pattern) {
         try {
-            Method method = Class.forName(UPLOAD_UTIL).getDeclaredMethod("matrixContainsPattern", IGrid.class, ItemStack.class);
-            method.setAccessible(true);
-            return Boolean.TRUE.equals(method.invoke(null, grid, pattern));
-        } catch (Throwable ignored) {
+            return Boolean.TRUE.equals(EaepApiAccess.invokeUpload("MatrixUploadUtil", "matrixContainsPattern",
+                    new Class<?>[] {IGrid.class, ItemStack.class}, grid, pattern));
+        } catch (ReflectiveOperationException unavailable) {
             return false;
         }
     }
 
     public static boolean uploadPatternToMatrix(ServerPlayer player, ItemStack pattern, IGrid grid) {
+        return Boolean.TRUE.equals(invokeRequiredUpload("MatrixUploadUtil", "uploadPatternToMatrix",
+                new Class<?>[] {ServerPlayer.class, ItemStack.class, IGrid.class}, player, pattern, grid));
+    }
+
+    public static boolean uploadPatternToProvider(ServerPlayer player, int slot, long providerId) {
+        return Boolean.TRUE.equals(invokeRequiredUpload("ProviderUploadUtil", "uploadPatternToProvider",
+                new Class<?>[] {ServerPlayer.class, int.class, long.class}, player, slot, providerId));
+    }
+
+    public static List<PatternContainer> listAvailableProvidersFromGrid(IGrid grid) {
+        Object value = invokeRequiredUpload("ProviderUploadUtil", "listAvailableProvidersFromGrid",
+                new Class<?>[] {IGrid.class}, grid);
+        if (!(value instanceof List<?> providers)) {
+            throw new IllegalStateException("EAEP returned a non-list provider inventory");
+        }
+        return providers.stream().map(PatternContainer.class::cast).toList();
+    }
+
+    public static void recordProviderUpload(ServerPlayer player, long id, PatternContainer container, int slot) {
+        invokeRequiredUpload("ProviderUploadUtil", "recordProviderUpload",
+                new Class<?>[] {ServerPlayer.class, long.class, PatternContainer.class, int.class},
+                player, id, container, slot);
+    }
+
+    private static Object invokeRequiredUpload(String role, String name, Class<?>[] parameters, Object... arguments) {
         try {
-            Method method = Class.forName(UPLOAD_UTIL).getMethod("uploadPatternToMatrix", ServerPlayer.class, ItemStack.class, IGrid.class);
-            Object value = method.invoke(null, player, pattern, grid);
-            return !(value instanceof Boolean b) || b;
-        } catch (Throwable ignored) {
-            return false;
+            return EaepApiAccess.invokeUpload(role, name, parameters, arguments);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Cannot call EAEP " + role + "." + name, failure);
         }
     }
 
     public static boolean returnPendingCtrlQPatternToInventory(ServerPlayer player) {
         try {
-            Method method = Class.forName(PENDING_UTIL).getMethod("returnPendingCtrlQPatternToInventory", ServerPlayer.class);
-            method.invoke(null, player);
-            return true;
-        } catch (Throwable ignored) {
+            return Boolean.TRUE.equals(invokePending("returnPendingCtrlQPatternToInventory",
+                    new Class<?>[] {ServerPlayer.class}, player));
+        } catch (ReflectiveOperationException unavailable) {
             return false;
         }
     }
 
     public static boolean clearPendingCtrlQUpload(ServerPlayer player) {
         try {
-            Method method = Class.forName(PENDING_UTIL).getMethod("clearPendingCtrlQUpload", ServerPlayer.class);
-            method.invoke(null, player);
+            invokePending("clearPendingCtrlQUpload", new Class<?>[] {ServerPlayer.class}, player);
             return true;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException unavailable) {
             return false;
         }
     }
 
     public static boolean beginPendingCtrlQUpload(ServerPlayer player, ItemStack pattern) {
         try {
-            Method method = Class.forName(PENDING_UTIL).getMethod("beginPendingCtrlQUpload", ServerPlayer.class, ItemStack.class);
-            method.invoke(null, player, pattern);
-            return true;
-        } catch (Throwable ignored) {
+            Object id = invokePending("beginPendingCtrlQUpload",
+                    new Class<?>[] {ServerPlayer.class, ItemStack.class}, player, pattern);
+            return id instanceof String text && !text.isBlank();
+        } catch (ReflectiveOperationException unavailable) {
             return false;
         }
     }
 
     public static boolean uploadPendingCtrlQPattern(ServerPlayer player, long providerId) {
         try {
-            Method method = Class.forName(PENDING_UTIL).getMethod("uploadPendingCtrlQPattern", ServerPlayer.class, long.class);
-            Object value = method.invoke(null, player, providerId);
-            return Boolean.TRUE.equals(value);
-        } catch (Throwable ignored) {
-            return false;
+            Object result = invokePending("uploadPendingCtrlQPattern",
+                    new Class<?>[] {ServerPlayer.class, long.class}, player, providerId);
+            return EaepApiAccess.uploadResult(result) == EaepApiAccess.UploadResult.SUCCESS;
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Cannot upload EAEP pending pattern", failure);
         }
     }
 
@@ -169,11 +177,10 @@ public final class EaepReflection {
             return false;
         }
         try {
-            Class<?> cls = Class.forName(REQUEST_PROVIDERS_PACKET);
-            Object packet = cls.getDeclaredField("INSTANCE").get(null);
+            Object packet = Class.forName(REQUEST_PROVIDERS_PACKET).getDeclaredField("INSTANCE").get(null);
             PacketDistributor.sendToServer((CustomPacketPayload) packet);
             return true;
-        } catch (Throwable ignored) {
+        } catch (ReflectiveOperationException unavailable) {
             return false;
         }
     }

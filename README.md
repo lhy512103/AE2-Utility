@@ -103,6 +103,8 @@ Java 21 is required:
 ./gradlew build
 ```
 
+Tag-based GitHub, CurseForge, and Modrinth release setup and maintainer steps are documented in [`.github/RELEASING.md`](.github/RELEASING.md).
+
 Main artifacts:
 
 - `build/libs/ae2utility-<version>.jar`
