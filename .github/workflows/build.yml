@@ -34,7 +34,8 @@ jobs:
       - name: Compile and test
         run: |
           chmod +x gradlew
-          ./gradlew build --no-daemon
+          # Do not reuse intermediate decompiled Minecraft sources from other branches.
+          ./gradlew build --no-daemon -PneoForge.neoFormRuntime.enableCache=false
       - name: Upload build JARs (not a platform release)
         uses: actions/upload-artifact@v6
         with:

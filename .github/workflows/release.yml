@@ -63,7 +63,8 @@ jobs:
         working-directory: source
         run: |
           chmod +x gradlew
-          ./gradlew build --no-daemon
+          # Release builds must regenerate Minecraft sources rather than reuse branch caches.
+          ./gradlew build --no-daemon -PneoForge.neoFormRuntime.enableCache=false
       - name: Require the exact valid main JAR
         run: >-
           python automation/.github/scripts/release.py pack
