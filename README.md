@@ -74,8 +74,8 @@ Back up worlds before updating addon storage networks, and update both clients a
 
 ## Links
 
-- Source: https://github.com/lhy512103/Create-Package/tree/forge-1.20.1
-- Issues: https://github.com/lhy512103/Create-Package/issues
+- Source: https://github.com/lhy512103/AE2-Utility/tree/forge-1.20.1
+- Issues: https://github.com/lhy512103/AE2-Utility/issues
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 

@@ -8,7 +8,7 @@ Include the Minecraft version, Forge version, AE2 Utility version, relevant mod
 versions, reproduction steps, and the related part of `latest.log` or a crash report.
 
 Report issues at:
-https://github.com/lhy512103/Create-Package/issues
+https://github.com/lhy512103/AE2-Utility/issues
 
 ## Pull Requests
 
