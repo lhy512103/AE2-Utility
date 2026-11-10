@@ -11,7 +11,7 @@
 
 不要把 Token 发到聊天、写进代码、命令行参数或日志。两平台任务只获得各自的 Token；普通 PR/CI 不获得发布密钥。GitHub Release 使用自动提供的 `GITHUB_TOKEN`，工作流已声明 `contents: write`，不需要另建 GitHub PAT。
 
-2026-11-10 配置检查时仓库 Actions 已启用，但上述两个 Secrets 均未设置；没有密钥时平台发布会明确失败，不会假装成功或跳过 JAR 校验。
+2026-11-10 最终检查已确认仓库 Actions 启用，且 `MODRINTH_TOKEN`、`CURSEFORGE_TOKEN` 两个 Secrets 名称均存在；未读取密钥内容，也未触发真实发布来验证平台权限。没有密钥时平台发布会明确失败，不会假装成功或跳过 JAR 校验。
 
 ## 正常发布
 
