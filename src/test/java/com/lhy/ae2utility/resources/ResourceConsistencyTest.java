@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 /** Validates packaged resources without bootstrapping Minecraft registries. */
 class ResourceConsistencyTest {
     private static final List<String> ITEMS = List.of(
-            "nbt_tear_card", "redstone_signal_card", "me_quick_transfer", "recipe_finder");
+            "nbt_tear_card", "redstone_signal_card", "me_quick_transfer");
     private static final List<String> CRAFTABLE_ITEMS = List.of(
             "nbt_tear_card", "redstone_signal_card", "me_quick_transfer");
 
@@ -33,14 +33,10 @@ class ResourceConsistencyTest {
             String parent = model.get("parent").getAsString();
             assertTrue(parent.equals("minecraft:item/generated") || parent.equals("item/generated"), item);
             String texture = model.getAsJsonObject("textures").get("layer0").getAsString();
-            if (item.equals("recipe_finder")) {
-                assertEquals("minecraft:item/compass", texture);
-            } else {
-                assertEquals("ae2utility:item/" + item, texture, item);
-                try (var stream = getClass().getClassLoader().getResourceAsStream(
-                        "assets/ae2utility/textures/item/" + item + ".png")) {
-                    assertNotNull(stream, "Missing item texture: " + item);
-                }
+            assertEquals("ae2utility:item/" + item, texture, item);
+            try (var stream = getClass().getClassLoader().getResourceAsStream(
+                    "assets/ae2utility/textures/item/" + item + ".png")) {
+                assertNotNull(stream, "Missing item texture: " + item);
             }
         }
     }
@@ -81,6 +77,12 @@ class ResourceConsistencyTest {
             assertEquals("ae2utility:" + item, result.get("id").getAsString(), item);
             assertTrue(result.get("count").getAsInt() > 0, item);
         }
+    }
+
+    @Test
+    void removedFinderItemDefinitionIsNotPackaged() {
+        org.junit.jupiter.api.Assertions.assertNull(getClass().getClassLoader().getResource(
+                "assets/ae2utility/items/recipe_finder.json"));
     }
 
     private JsonObject json(String path) throws IOException {

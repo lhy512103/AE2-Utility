@@ -16,7 +16,6 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
 import com.lhy.ae2utility.Ae2UtilityMod;
 import com.lhy.ae2utility.client.NbtTearCardScreen;
-import com.lhy.ae2utility.client.RecipeFinderScreen;
 import com.lhy.ae2utility.compat.JeictCompat;
 import com.lhy.ae2utility.compat.SomeUselessThingsCompat;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
@@ -26,16 +25,41 @@ import com.lhy.ae2utility.machine.MachineTransferProfiles;
 public class Ae2UtilityJeiPlugin implements IModPlugin {
     private static final String AE2_WTLIB_WCT_MENU = "de.mari_023.ae2wtlib.wct.WCTMenu";
 
-    private static mezz.jei.api.runtime.IJeiRuntime jeiRuntime;
+    private static volatile mezz.jei.api.runtime.IJeiRuntime jeiRuntime;
+    private static boolean jemiRuntimeBridgeLogged;
 
+    /** Loaded lazily, so JEI-only installations never resolve EMI classes. */
+    private static final class JemiRuntimeBridge {
+        private static final OptionalRuntimeBridge<mezz.jei.api.runtime.IJeiRuntime> RUNTIME =
+                new OptionalRuntimeBridge<>("dev.emi.emi.jemi.JemiPlugin", "runtime",
+                        mezz.jei.api.runtime.IJeiRuntime.class);
+    }
     @Override
     public void onRuntimeAvailable(mezz.jei.api.runtime.IJeiRuntime jeiRuntime) {
         Ae2UtilityJeiPlugin.jeiRuntime = jeiRuntime;
         JeictCompat.tryRegisterBackend();
     }
 
+    @Override
+    public void onRuntimeUnavailable() {
+        jeiRuntime = null;
+    }
+
     public static mezz.jei.api.runtime.IJeiRuntime getJeiRuntime() {
-        return jeiRuntime;
+        var runtime = jeiRuntime;
+        if (runtime != null) return runtime;
+        // EMI skips all JEI callbacks for mods with a native EMI plugin.
+        // Its JEMI plugin still owns the live runtime and clears it on unload.
+        if (!net.neoforged.fml.ModList.get().isLoaded("emi")) return null;
+        runtime = JemiRuntimeBridge.RUNTIME.current();
+        if (runtime != null) {
+            if (!jemiRuntimeBridgeLogged) {
+                jemiRuntimeBridgeLogged = true;
+                Ae2UtilityMod.LOGGER.info("Using EMI/JEMI runtime bridge for AE2 Utility JEI services");
+            }
+            JeictCompat.tryRegisterBackend();
+        }
+        return runtime;
     }
 
     @Override
@@ -51,7 +75,6 @@ public class Ae2UtilityJeiPlugin implements IModPlugin {
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
         registration.addGhostIngredientHandler(NbtTearCardScreen.class, new NbtTearCardGhostHandler());
-        registration.addGhostIngredientHandler(RecipeFinderScreen.class, new RecipeFinderGhostHandler());
     }
 
     @Override

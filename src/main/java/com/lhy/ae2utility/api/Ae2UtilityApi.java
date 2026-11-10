@@ -2,7 +2,6 @@ package com.lhy.ae2utility.api;
 
 import com.lhy.ae2utility.api.card.CardApi;
 import com.lhy.ae2utility.api.pattern.PatternEncodingApi;
-import com.lhy.ae2utility.api.recipe.RecipeFinderApi;
 import com.lhy.ae2utility.api.transfer.RecipeTransferApi;
 
 /**
@@ -13,7 +12,7 @@ import com.lhy.ae2utility.api.transfer.RecipeTransferApi;
  * without notice.</p>
  */
 public final class Ae2UtilityApi {
-    public static final int API_VERSION = 1;
+    public static final int API_VERSION = 2;
 
     private Ae2UtilityApi() {
     }
@@ -30,7 +29,4 @@ public final class Ae2UtilityApi {
         return CardApi.INSTANCE;
     }
 
-    public static RecipeFinderApi recipeFinder() {
-        return RecipeFinderApi.INSTANCE;
-    }
 }

@@ -2,7 +2,6 @@ package com.lhy.ae2utility.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -16,7 +15,7 @@ import net.minecraft.resources.Identifier;
 class Ae2UtilityApiTest {
     @Test
     void exposesCurrentApiVersion() {
-        assertEquals(1, Ae2UtilityApi.API_VERSION);
+        assertEquals(2, Ae2UtilityApi.API_VERSION);
     }
 
     @Test
@@ -30,19 +29,5 @@ class Ae2UtilityApiTest {
         assertEquals(1, rule.itemIds().size());
         assertThrows(UnsupportedOperationException.class,
                 () -> rule.itemIds().add(Identifier.fromNamespaceAndPath("test", "third")));
-    }
-
-    @Test
-    void customRecipeFeaturesAreMergedWithBuiltIns() {
-        Identifier id = Identifier.fromNamespaceAndPath("test", "classifier_api_contract");
-        Ae2UtilityApi.recipeFinder().registerClassifier(id, 100,
-                ingredient -> "marker".equals(ingredient) ? Set.of("test.marker") : Set.of());
-
-        Set<String> features = Ae2UtilityApi.recipeFinder().classify("marker");
-
-        assertTrue(features.contains("test.marker"));
-        assertTrue(features.contains("special"));
-        assertThrows(IllegalArgumentException.class,
-                () -> Ae2UtilityApi.recipeFinder().registerClassifier(id, 0, ignored -> Set.of()));
     }
 }

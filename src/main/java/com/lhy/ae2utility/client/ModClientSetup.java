@@ -13,7 +13,6 @@ public final class ModClientSetup {
 
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenus.NBT_TEAR_CARD.get(), NbtTearCardScreen::new);
-        event.register(ModMenus.RECIPE_FINDER.get(), RecipeFinderScreen::new);
     }
 
     public static void registerTooltipComponents(RegisterClientTooltipComponentFactoriesEvent event) {

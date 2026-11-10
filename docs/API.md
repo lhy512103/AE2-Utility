@@ -1,6 +1,6 @@
 # AE2: Utility Java API
 
-本文档描述 `com.lhy.ae2utility.api` 下的稳定 Java API。当前 `Ae2UtilityApi.API_VERSION` 为 `1`。
+本文档描述 `com.lhy.ae2utility.api` 下的稳定 Java API。当前 `Ae2UtilityApi.API_VERSION` 为 `2`；本版本移除了配方查找器分类 API，样板编码、拉料和功能卡 API 保留。
 
 本分支面向 Minecraft 26.1.2 / NeoForge 26.1.2 / Java 25；示例中的 `Identifier` 来自 `net.minecraft.resources.Identifier`，机器配方类型使用 JEI `IRecipeType<?>`。兼容承诺仅适用于同一 Minecraft 版本线，旧版模组必须重新编译，不能直接加载 1.21.1 二进制。
 
@@ -47,12 +47,12 @@ int apiVersion = Ae2UtilityApi.API_VERSION;
 var patterns = Ae2UtilityApi.patternEncoding();
 var transfers = Ae2UtilityApi.recipeTransfer();
 var cards = Ae2UtilityApi.cards();
-var recipeFinder = Ae2UtilityApi.recipeFinder();
+
 ```
 
 - 编码与拉料是服务端权威操作，必须在 Minecraft 服务端主线程调用，并传入 `ServerPlayer`。
 - API 不代替你的客户端数据包。客户端操作应先发给你的服务端 handler，再在 handler 中调用 API。
-- 机器和配方分类器应在 JEI 注册相应 handler/索引之前注册，推荐在模组 common/client setup 阶段完成。
+- 机器应在 JEI 注册相应 handler/索引之前注册，推荐在模组 common/client setup 阶段完成。
 - 编码请求仍受 AE2: Utility 服务端配置、批次上限、当前菜单、ME 安全权限、空白样板和重复样板检查约束。
 
 ## 样板编码
@@ -172,29 +172,6 @@ cards.onSuccessfulPatternPush(host, providerBusy, returnInventoryPending);
 ```
 
 `triggerPulse` 和 `setContinuousSignal` 由宿主负责更新方块、持久化状态并通知邻居。`allowCraftOnFallingEdge` 仅用于无法精确观察产物返还事件的供应器；能够精确捕获返还时应传 `false`，避免重复脉冲。
-
-## 配方查找器分类
-
-注册分类器时使用唯一 id 和优先级。优先级高的分类器先运行；所有结果会与内置分类器结果合并。
-
-```java
-Ae2UtilityApi.recipeFinder().registerClassifier(
-        Identifier.fromNamespaceAndPath("example", "alloys"),
-        100,
-        ingredient -> ingredient instanceof ItemStack stack && isAlloy(stack)
-                ? Set.of("example.alloy")
-                : Set.of()
-);
-```
-
-规则：
-
-- feature key 不得为空，最大 64 个字符。
-- 重复 id 会抛出 `IllegalArgumentException`。
-- 分类器应是无副作用、快速且线程安全的纯函数；JEI 全局索引会对大量原料调用它。
-- 未被扩展分类器识别的原料仍会经过内置分类器，并至少得到内置兜底特征。
-
-`RecipeCandidateView` 是不包含内部网络包或 JEI recipe 对象的只读候选投影，可用于展示和二次筛选。
 
 ## 兼容策略
 

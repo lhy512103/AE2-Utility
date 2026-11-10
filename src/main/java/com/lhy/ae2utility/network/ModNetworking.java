@@ -79,11 +79,7 @@ public final class ModNetworking {
                 .playToServer(RedstoneSignalCardConfigApplyPacket.TYPE, RedstoneSignalCardConfigApplyPacket.STREAM_CODEC,
                         (payload, context) -> context.enqueueWork(() -> RedstoneSignalCardConfigApplyPacket.applyOnServer(context.player(), payload)))
                 .playToServer(NbtTearGhostSlotPacket.TYPE, NbtTearGhostSlotPacket.STREAM_CODEC,
-                        (payload, context) -> context.enqueueWork(() -> handleNbtTearGhostSlot(context.player(), payload)))
-                .playToServer(RecipeFinderSamplePacket.TYPE, RecipeFinderSamplePacket.STREAM_CODEC,
-                        (payload, context) -> context.enqueueWork(() -> handleRecipeFinderSample(context.player(), payload)))
-                .playToServer(RecipeFinderEncodePacket.TYPE, RecipeFinderEncodePacket.STREAM_CODEC,
-                        (payload, context) -> context.enqueueWork(() -> handleRecipeFinderEncode(context.player(), payload)));
+                        (payload, context) -> context.enqueueWork(() -> handleNbtTearGhostSlot(context.player(), payload)));
     }
 
     private static void handleNbtTearGhostSlot(Player player, NbtTearGhostSlotPacket payload) {
@@ -92,19 +88,5 @@ public final class ModNetworking {
             return;
         }
         menu.applyGhostFilterSlot(payload.slotIndex(), payload.stack());
-    }
-
-    private static void handleRecipeFinderSample(Player player, RecipeFinderSamplePacket payload) {
-        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer
-                && serverPlayer.containerMenu instanceof com.lhy.ae2utility.menu.RecipeFinderMenu menu) {
-            menu.applySample(payload.stack());
-        }
-    }
-
-    private static void handleRecipeFinderEncode(Player player, RecipeFinderEncodePacket payload) {
-        if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer
-                && serverPlayer.containerMenu instanceof com.lhy.ae2utility.menu.RecipeFinderMenu) {
-            com.lhy.ae2utility.service.EncodePatternService.handleBatch(serverPlayer, payload.patterns());
-        }
     }
 }
