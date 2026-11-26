@@ -15,7 +15,6 @@ import appeng.client.gui.style.Blitter;
 import com.lhy.ae2utility.client.ClientMessages;
 import com.lhy.ae2utility.util.RecipeLookup;
 import com.mojang.logging.LogUtils;
-import com.lhy.ae2utility.client.RemoteEncodeRules;
 import com.lhy.ae2utility.client.SequentialUploadQueue;
 import com.lhy.ae2utility.client.jei.BlankPatternClientPrecheck;
 import com.lhy.ae2utility.jei.BulkEncodeSessions;
@@ -213,13 +212,7 @@ public final class JeictCompat {
 
     private static boolean dispatchPackets(List<EncodePatternPacket> sourcePackets, boolean uploadMode) {
         if (sourcePackets.isEmpty()) return false;
-        int originalCount = sourcePackets.size();
-        List<EncodePatternPacket> packets = new ArrayList<>(RemoteEncodeRules.capPacketsToServerBulkLimit(sourcePackets));
-        if (packets.size() < originalCount && Minecraft.getInstance().player != null) {
-            ClientMessages.show(Minecraft.getInstance().player,
-                    Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice", originalCount, packets.size())
-                            .withStyle(ChatFormatting.GOLD), false);
-        }
+        List<EncodePatternPacket> packets = new ArrayList<>(sourcePackets);
         if (stopBatchEncodeIfLocallyNoDetectableBlank()) return false;
         if (uploadMode) SequentialUploadQueue.startReplacing(packets);
         else for (EncodePatternPacket packet : packets) ClientPacketDistributor.sendToServer(packet);

@@ -61,6 +61,8 @@ public class Ae2UtilityMod {
 
     private static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         RemoteEncodeRules.clearOnDisconnected();
+        com.lhy.ae2utility.client.SequentialUploadQueue.cancelAllQuiet();
+        com.lhy.ae2utility.client.InventoryPatternUploadQueue.clearOnDisconnected();
     }
 
     private static void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {

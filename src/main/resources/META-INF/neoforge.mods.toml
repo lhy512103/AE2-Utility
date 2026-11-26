@@ -22,7 +22,7 @@ side="BOTH"
 [[dependencies.${mod_id}]]
 modId="jei"
 type="required"
-versionRange="[29.53.0.115,30)"
+versionRange="[29.47.0.110,30)"
 ordering="AFTER"
 side="CLIENT"
 

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.lhy.ae2utility.network.EncodePatternPacket;
 
+@SuppressWarnings("deprecation")
 class RemoteEncodeRulesTest {
     @AfterEach
     void reset() {
@@ -26,14 +27,15 @@ class RemoteEncodeRulesTest {
     }
 
     @Test
-    void capsBulkEncodeAfterSync() {
+    void preservesCandidatesForServerSideSuccessCounting() {
         RemoteEncodeRules.receiveFromServer(true, true, 1);
         EncodePatternPacket first = dummyPacket();
         List<EncodePatternPacket> packets = List.of(first, dummyPacket());
 
         assertTrue(RemoteEncodeRules.remoteBlocksJeFullCategoryBatch());
         assertTrue(RemoteEncodeRules.remoteRequiresOpenEncodingMenuForJe());
-        assertEquals(List.of(first), RemoteEncodeRules.capPacketsToServerBulkLimit(packets));
+        assertEquals(1, RemoteEncodeRules.remoteMaxJeBulkEncodePatternsPerSession());
+        assertSame(packets, RemoteEncodeRules.capPacketsToServerBulkLimit(packets));
     }
 
     @Test

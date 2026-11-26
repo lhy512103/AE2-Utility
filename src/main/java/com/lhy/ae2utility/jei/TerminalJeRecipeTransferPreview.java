@@ -5,6 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+import org.jetbrains.annotations.Nullable;
+
+import com.lhy.ae2utility.util.MeIngredientExtraction;
+
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 import net.minecraft.world.item.ItemStack;
@@ -96,7 +100,7 @@ public final class TerminalJeRecipeTransferPreview {
         for (int idx = 0; idx < inputs.size(); idx++) {
             IRecipeSlotView slotView = inputs.get(idx);
             var ingredient = toIngredient(slotView);
-            if (ingredient.isEmpty()) {
+            if (ingredient == null) {
                 continue;
             }
 
@@ -190,11 +194,12 @@ public final class TerminalJeRecipeTransferPreview {
     }
 
     private static boolean hasItemStack(IRecipeSlotView slotView) {
-        return slotView.getDisplayedItemStack().isPresent() || slotView.getItemStacks().findAny().isPresent();
+        return slotView.getItemStacks().anyMatch(stack -> !stack.isEmpty());
     }
 
+    @Nullable
     private static Ingredient toIngredient(IRecipeSlotView slotView) {
-        return Ingredient.of(slotView.getItemStacks().map(ItemStack::getItem));
+        return MeIngredientExtraction.ingredientFromItemStacks(slotView.getItemStacks().toList());
     }
 
     private static ItemStack getDisplayedStack(IRecipeSlotView slotView) {
