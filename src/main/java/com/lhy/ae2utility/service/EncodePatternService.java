@@ -76,6 +76,8 @@ public final class EncodePatternService {
     private enum EncodeOutcome {
         SUCCESS,
         FAILURE,
+        ENCODED_UPLOAD_ABORTED,
+        BATCH_ABORT_LIMIT,
         BATCH_SKIP_DUPLICATE,
         BATCH_ABORT_NO_BLANK,
         /** EAEP 供应器界面已打开；同刻继续处理会破坏待上传队列 */
@@ -88,7 +90,7 @@ public final class EncodePatternService {
             List<GenericStack> encodedInputs) {}
 
     private record EaepShiftBlankRefundHold(MEStorage inventory, IActionSource actionSource, BlankPatternSource source,
-            AEItemKey blankKey) {}
+            AEItemKey blankKey, EncodeBulkSessionLimiter.EncodingPermit permit) {}
 
     private static final ConcurrentHashMap<UUID, EaepShiftBlankRefundHold> EAEP_SHIFT_BLANK_PENDING = new ConcurrentHashMap<>();
 
@@ -217,17 +219,23 @@ public final class EncodePatternService {
                 return;
             }
         }
-        List<EncodePatternPacket> toProcess = patterns;
         int mx = Ae2UtilityServerConfig.jeiBulkEncodeMaxPatternsPerSession();
-        if (mx > 0 && patterns.size() > mx) {
-            toProcess = EncodeBatchPolicy.cap(patterns, mx);
-            serverPlayer.sendSystemMessage(
-                    Component.translatable("message.ae2utility.bulk_encode_truncated_to_server_batch", patterns.size(), mx)
-                            .withStyle(net.minecraft.ChatFormatting.GOLD));
-        }
-        int total = toProcess.size();
-        for (int i = 0; i < toProcess.size(); i++) {
-            EncodeOutcome outcome = encodePatternInternal(serverPlayer, toProcess.get(i), true);
+        int generated = 0;
+        int total = patterns.size();
+        for (int i = 0; i < total; i++) {
+            if (mx > 0 && generated >= mx) {
+                serverPlayer.sendSystemMessage(
+                        Component.translatable("message.ae2utility.bulk_encode_exceeds_server_limit", mx)
+                                .withStyle(net.minecraft.ChatFormatting.GOLD));
+                return;
+            }
+            EncodeOutcome outcome = encodePatternInternal(serverPlayer, patterns.get(i), true);
+            if (outcome == EncodeOutcome.SUCCESS) {
+                generated++;
+            }
+            if (outcome == EncodeOutcome.BATCH_ABORT_LIMIT || outcome == EncodeOutcome.ENCODED_UPLOAD_ABORTED) {
+                return;
+            }
             if (outcome == EncodeOutcome.BATCH_ABORT_NO_BLANK) {
                 serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.batch_encode_blank_stopped", total - i));
                 return;
@@ -618,7 +626,7 @@ public final class EncodePatternService {
             return EncodeOutcome.FAILURE;
         }
 
-        if (EncodeBulkSessionLimiter.rejectIfLimited(serverPlayer, payload)) {
+        if (EncodeBulkSessionLimiter.rejectIfBlockedCategory(serverPlayer, payload)) {
             return EncodeOutcome.FAILURE;
         }
 
@@ -693,149 +701,160 @@ public final class EncodePatternService {
             return EncodeOutcome.FAILURE;
         }
 
-        BlankPatternSource blankSource = consumeOneBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey);
-        if (blankSource == null) {
-            if (!batchMode) {
-                serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.encode_failed_no_blank_named",
-                        payload.patternName().isBlank() ? "-" : payload.patternName()));
-                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
-            }
-            return batchMode ? EncodeOutcome.BATCH_ABORT_NO_BLANK : EncodeOutcome.FAILURE;
+        EncodeBulkSessionLimiter.EncodingPermit permit = EncodeBulkSessionLimiter.reserve(serverPlayer, payload);
+        if (permit == null) {
+            return EncodeOutcome.BATCH_ABORT_LIMIT;
         }
-
-        try {
-            rememberProviderSearchKey(serverPlayer, payload, encodedPattern);
-
-            // ECO 优先：合成/锻造/切石样板（canUploadToMatrix）若网络存在 ECO 合成子系统，先尝试塞入 ECO；
-            // ECO 满或无该子系统时返回 false，继续走下方原有上传逻辑（EAEP 装配矩阵 / 供应器）。
-            if (payload.shiftDown() && canUploadToMatrix
-                    && com.lhy.ae2utility.integration.eco.EcoReflection.isLoaded()
-                    && com.lhy.ae2utility.integration.eco.EcoReflection.tryInsertPattern(grid, encodedPattern)) {
-                String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
-                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                return EncodeOutcome.SUCCESS;
+        try (permit) {
+            BlankPatternSource blankSource = consumeOneBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey);
+            if (blankSource == null) {
+                if (!batchMode) {
+                    serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.encode_failed_no_blank_named",
+                            payload.patternName().isBlank() ? "-" : payload.patternName()));
+                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                }
+                return batchMode ? EncodeOutcome.BATCH_ABORT_NO_BLANK : EncodeOutcome.FAILURE;
             }
 
-            if (payload.shiftDown() && ModList.get().isLoaded("extendedae_plus")) {
-                try {
-                    IGrid eaepGrid = com.lhy.ae2utility.integration.eaep.EaepReflection.findPlayerGrid(serverPlayer);
-                    if (eaepGrid == null) {
-                        eaepGrid = grid;
-                    }
+            try {
+                rememberProviderSearchKey(serverPlayer, payload, encodedPattern);
 
-                    EaepUploadDebugLog.info(
-                            "EncodePattern shift EAEP start player={} patternName={} recipeId={} canMatrixHint={} eaepGridNull={}",
-                            serverPlayer.getScoreboardName(), payload.patternName(), payload.recipeId(), canUploadToMatrix,
-                            eaepGrid == null);
+                // ECO 优先：合成/锻造/切石样板（canUploadToMatrix）若网络存在 ECO 合成子系统，先尝试塞入 ECO；
+                // ECO 满或无该子系统时返回 false，继续走下方原有上传逻辑（EAEP 装配矩阵 / 供应器）。
+                if (payload.shiftDown() && canUploadToMatrix
+                        && com.lhy.ae2utility.integration.eco.EcoReflection.isLoaded()
+                        && com.lhy.ae2utility.integration.eco.EcoReflection.tryInsertPattern(grid, encodedPattern)) {
+                    permit.commit();
+                    String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
+                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                    sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                    return EncodeOutcome.SUCCESS;
+                }
 
+                if (payload.shiftDown() && ModList.get().isLoaded("extendedae_plus")) {
+                    try {
+                        IGrid eaepGrid = com.lhy.ae2utility.integration.eaep.EaepReflection.findPlayerGrid(serverPlayer);
                         if (eaepGrid == null) {
-                            if (payload.jeiSequentialQueue()) {
-                                refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
-                                serverPlayer.sendSystemMessage(
-                                        Component.translatable("message.ae2utility.recipe_shift_batch_aborted_no_network")
-                                                .withStyle(net.minecraft.ChatFormatting.RED));
-                                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false,
-                                        true);
-                                return EncodeOutcome.FAILURE;
-                            }
-                    } else {
-                        /*
-                         * 与 ExtendedAE Plus 对齐：只有「合成/锻造/切石」类样板（canUploadToMatrix=true）才尝试装配矩阵；
-                         * 处理样板（processing）不进装配矩阵，直接走供应器待定队列，避免误判为「矩阵已满」而上传失败。
-                         */
-                        if (canUploadToMatrix) {
-                            boolean uploadedMatrix = EaepDirectCompat
-                                    .uploadPatternToMatrix(serverPlayer, encodedPattern, eaepGrid);
-                            EaepUploadDebugLog.info(
-                                    "EncodePattern matrix upload attempted recipeId={} canMatrixHint={} uploaded={}",
-                                    payload.recipeId(), canUploadToMatrix, uploadedMatrix);
+                            eaepGrid = grid;
+                        }
 
-                            if (uploadedMatrix) {
-                                disarmEaepShiftBlankRefund(serverPlayer);
-                                String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
-                                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
-                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                                return EncodeOutcome.SUCCESS;
+                        EaepUploadDebugLog.info(
+                                "EncodePattern shift EAEP start player={} patternName={} recipeId={} canMatrixHint={} eaepGridNull={}",
+                                serverPlayer.getScoreboardName(), payload.patternName(), payload.recipeId(), canUploadToMatrix,
+                                eaepGrid == null);
+
+                            if (eaepGrid == null) {
+                                if (payload.jeiSequentialQueue()) {
+                                    refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
+                                    serverPlayer.sendSystemMessage(
+                                            Component.translatable("message.ae2utility.recipe_shift_batch_aborted_no_network")
+                                                    .withStyle(net.minecraft.ChatFormatting.RED));
+                                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false,
+                                            true);
+                                    return EncodeOutcome.FAILURE;
+                                }
+                        } else {
+                            /*
+                             * 与 ExtendedAE Plus 对齐：只有「合成/锻造/切石」类样板（canUploadToMatrix=true）才尝试装配矩阵；
+                             * 处理样板（processing）不进装配矩阵，直接走供应器待定队列，避免误判为「矩阵已满」而上传失败。
+                             */
+                            if (canUploadToMatrix) {
+                                boolean uploadedMatrix = EaepDirectCompat
+                                        .uploadPatternToMatrix(serverPlayer, encodedPattern, eaepGrid);
+                                EaepUploadDebugLog.info(
+                                        "EncodePattern matrix upload attempted recipeId={} canMatrixHint={} uploaded={}",
+                                        payload.recipeId(), canUploadToMatrix, uploadedMatrix);
+
+                                if (uploadedMatrix) {
+                                    permit.commit();
+                                    disarmEaepShiftBlankRefund(serverPlayer);
+                                    String okName = payload.patternName().isBlank() ? sequentialResultLabel(payload) : payload.patternName();
+                                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, okName, true);
+                                    sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                                    return EncodeOutcome.SUCCESS;
+                                }
+
+                                /*
+                                 * JEI Ctrl+Shift 顺序批量：preserveInputOrder=false（JEICT 批量为 true）。
+                                 * 矩阵与 EAEP upload 均未接受时视作「矩阵满/无法再塞」一类，中止整批，避免逐项弹供应器又把失败配方收藏满 JEI。
+                                 * 仅对「可进矩阵」的样板适用；处理样板不会到达此分支。
+                                 */
+                                boolean jeiSequentialShiftJeBulkOnly = payload.jeiSequentialQueue()
+                                        && payload.shiftDown()
+                                        && !payload.preserveInputOrder();
+                                if (jeiSequentialShiftJeBulkOnly) {
+                                    disarmEaepShiftBlankRefund(serverPlayer);
+                                    giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
+                                    permit.commit();
+                                    serverPlayer.sendSystemMessage(
+                                            Component.translatable("message.ae2utility.shift_batch_aborted_matrix_reject").withStyle(
+                                                    net.minecraft.ChatFormatting.GOLD));
+                                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true);
+                                    sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                                    return EncodeOutcome.ENCODED_UPLOAD_ABORTED;
+                                }
                             }
+
+                            sendEaepProviderSearchSync(serverPlayer, payload);
+                            SequentialUploadContextBridge.rememberGrid(serverPlayer, eaepGrid);
+                            SequentialUploadContextBridge.rememberPendingSearchKey(serverPlayer,
+                                    deriveRawEaepSearchKeyForSync(serverPlayer, payload));
+                            SequentialUploadContextBridge.rememberPendingProviderDisplayName(serverPlayer, payload.providerDisplayName());
+                            com.lhy.ae2utility.integration.eaep.EaepReflection.clearPendingCtrlQUpload(serverPlayer);
+                            SequentialUploadResultBridge.rememberPendingName(serverPlayer, sequentialResultLabel(payload));
+                            List<AEKey> pendingCraftableRefresh = collectCraftableKeysForRefresh(payload);
+                            if (!pendingCraftableRefresh.isEmpty()) {
+                                SequentialUploadResultBridge.rememberPendingCraftableRefresh(serverPlayer, pendingCraftableRefresh);
+                            }
+                            com.lhy.ae2utility.integration.eaep.EaepReflection
+                                    .beginPendingCtrlQUpload(serverPlayer, encodedPattern.copyWithCount(1));
+                            permit.commit();
 
                             /*
-                             * JEI Ctrl+Shift 顺序批量：preserveInputOrder=false（JEICT 批量为 true）。
-                             * 矩阵与 EAEP upload 均未接受时视作「矩阵满/无法再塞」一类，中止整批，避免逐项弹供应器又把失败配方收藏满 JEI。
-                             * 仅对「可进矩阵」的样板适用；处理样板不会到达此分支。
+                             * 与 ExtendedAE Plus 对齐：不再在服务端「凭记忆的 providerId 直接上传、跳过供应器界面」。
+                             * 原实现存在两个问题：
+                             *   1) 不读取 EAEP 的「唯一匹配自动上传」开关，开关关闭后仍会自动上传；
+                             *   2) CtrlQ 路径的 providerId 是 -1-index 这种随供应器列表顺序变化的临时索引，
+                             *      批量过程中列表（空位/可见性）一变就会上传到错误的供应器。
+                             * 现在统一走「打开供应器界面」的路径，由 EAEP 客户端 ProviderSelectScreen 的开关 +
+                             * 唯一匹配逻辑（tryAutoUploadIfUniqueMatch）决定是否自动上传，从而保证行为对齐。
                              */
-                            boolean jeiSequentialShiftJeBulkOnly = payload.jeiSequentialQueue()
-                                    && payload.shiftDown()
-                                    && !payload.preserveInputOrder();
-                            if (jeiSequentialShiftJeBulkOnly) {
-                                disarmEaepShiftBlankRefund(serverPlayer);
-                                giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
-                                serverPlayer.sendSystemMessage(
-                                        Component.translatable("message.ae2utility.shift_batch_aborted_matrix_reject").withStyle(
-                                                net.minecraft.ChatFormatting.GOLD));
-                                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, sequentialResultLabel(payload), false, true);
-                                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-                                return EncodeOutcome.FAILURE;
+                            if (!batchMode || payload.jeiSequentialQueue()) {
+                                armEaepShiftBlankForPendingProvider(serverPlayer, ctx, blankSource, blankPatternKey, permit);
+                                SequentialUploadResultBridge.sendAwaitingProviderUpload(serverPlayer, sequentialResultLabel(payload));
                             }
+                            EaepUploadDebugLog.info(
+                                    "EncodePattern EAEP beginPendingCtrlQUpload sequential={} recipeId={} patternItem={} rememberedGrid=true",
+                                    payload.jeiSequentialQueue(), payload.recipeId(), encodedPattern.getItem());
+                            return EncodeOutcome.EAEP_PROVIDER_UI_OPENED;
                         }
-
-                        sendEaepProviderSearchSync(serverPlayer, payload);
-                        SequentialUploadContextBridge.rememberGrid(serverPlayer, eaepGrid);
-                        SequentialUploadContextBridge.rememberPendingSearchKey(serverPlayer,
-                                deriveRawEaepSearchKeyForSync(serverPlayer, payload));
-                        SequentialUploadContextBridge.rememberPendingProviderDisplayName(serverPlayer, payload.providerDisplayName());
-                        com.lhy.ae2utility.integration.eaep.EaepReflection.clearPendingCtrlQUpload(serverPlayer);
-                        SequentialUploadResultBridge.rememberPendingName(serverPlayer, sequentialResultLabel(payload));
-                        List<AEKey> pendingCraftableRefresh = collectCraftableKeysForRefresh(payload);
-                        if (!pendingCraftableRefresh.isEmpty()) {
-                            SequentialUploadResultBridge.rememberPendingCraftableRefresh(serverPlayer, pendingCraftableRefresh);
+                    } catch (Throwable e) {
+                        SequentialUploadResultBridge.clearPendingName(serverPlayer);
+                        boolean refundedShiftBlank = refundEaepShiftBlankIfPending(serverPlayer);
+                        EaepUploadDebugLog.error("EncodePattern EAEP branch threw patternName=" + payload.patternName(), e);
+                        String failName = payload.jeiSequentialQueue() ? sequentialResultLabel(payload) : payload.patternName();
+                        SequentialUploadResultBridge.sendImmediateResult(serverPlayer, failName, false);
+                        if (!refundedShiftBlank && !permit.isCommitted()) {
+                            refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
                         }
-                        com.lhy.ae2utility.integration.eaep.EaepReflection
-                                .beginPendingCtrlQUpload(serverPlayer, encodedPattern.copyWithCount(1));
-
-                        /*
-                         * 与 ExtendedAE Plus 对齐：不再在服务端「凭记忆的 providerId 直接上传、跳过供应器界面」。
-                         * 原实现存在两个问题：
-                         *   1) 不读取 EAEP 的「唯一匹配自动上传」开关，开关关闭后仍会自动上传；
-                         *   2) CtrlQ 路径的 providerId 是 -1-index 这种随供应器列表顺序变化的临时索引，
-                         *      批量过程中列表（空位/可见性）一变就会上传到错误的供应器。
-                         * 现在统一走「打开供应器界面」的路径，由 EAEP 客户端 ProviderSelectScreen 的开关 +
-                         * 唯一匹配逻辑（tryAutoUploadIfUniqueMatch）决定是否自动上传，从而保证行为对齐。
-                         */
-                        if (!batchMode || payload.jeiSequentialQueue()) {
-                            armEaepShiftBlankForPendingProvider(serverPlayer, ctx, blankSource, blankPatternKey);
-                            SequentialUploadResultBridge.sendAwaitingProviderUpload(serverPlayer, sequentialResultLabel(payload));
-                        }
-                        EaepUploadDebugLog.info(
-                                "EncodePattern EAEP beginPendingCtrlQUpload sequential={} recipeId={} patternItem={} rememberedGrid=true",
-                                payload.jeiSequentialQueue(), payload.recipeId(), encodedPattern.getItem());
-                        return EncodeOutcome.EAEP_PROVIDER_UI_OPENED;
+                        return permit.isCommitted() ? EncodeOutcome.ENCODED_UPLOAD_ABORTED : EncodeOutcome.FAILURE;
                     }
-                } catch (Throwable e) {
-                    SequentialUploadResultBridge.clearPendingName(serverPlayer);
-                    boolean refundedShiftBlank = refundEaepShiftBlankIfPending(serverPlayer);
-                    EaepUploadDebugLog.error("EncodePattern EAEP branch threw patternName=" + payload.patternName(), e);
-                    String failName = payload.jeiSequentialQueue() ? sequentialResultLabel(payload) : payload.patternName();
-                    SequentialUploadResultBridge.sendImmediateResult(serverPlayer, failName, false);
-                    if (!refundedShiftBlank) {
-                        refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
-                    }
-                    return EncodeOutcome.FAILURE;
                 }
+                giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
+                permit.commit();
+                disarmEaepShiftBlankRefund(serverPlayer);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
+                return EncodeOutcome.SUCCESS;
+            } catch (Throwable e) {
+                SequentialUploadResultBridge.clearPendingName(serverPlayer);
+                Ae2UtilityMod.LOGGER.error("Error encoding pattern: ", e);
+                SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
+                if (!refundEaepShiftBlankIfPending(serverPlayer) && !permit.isCommitted()) {
+                    refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
+                }
+                return permit.isCommitted() ? EncodeOutcome.ENCODED_UPLOAD_ABORTED : EncodeOutcome.FAILURE;
             }
-            giveEncodedPatternNoUpload(serverPlayer, encodedPattern);
-            disarmEaepShiftBlankRefund(serverPlayer);
-            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
-            sendCraftableCacheRefreshIfNonEmpty(serverPlayer, payload);
-            return EncodeOutcome.SUCCESS;
-        } catch (Throwable e) {
-            SequentialUploadResultBridge.clearPendingName(serverPlayer);
-            Ae2UtilityMod.LOGGER.error("Error encoding pattern: ", e);
-            SequentialUploadResultBridge.sendImmediateResult(serverPlayer, payload.patternName(), false);
-            if (!refundEaepShiftBlankIfPending(serverPlayer)) {
-                refundBlankPattern(serverPlayer, inventory, actionSource, blankPatternKey, blankSource);
-            }
-            return EncodeOutcome.FAILURE;
         }
     }
 
@@ -1126,9 +1145,10 @@ public final class EncodePatternService {
      * 已进入 EAEP「等供应器」路径后记录空白样板来源，{@link SequentialUploadResultBridge#flushPendingResult} 成功时卸下、失败则退还。
      */
     private static void armEaepShiftBlankForPendingProvider(ServerPlayer player, EncodeContext ctx, BlankPatternSource source,
-            AEItemKey blankKey) {
+            AEItemKey blankKey, EncodeBulkSessionLimiter.EncodingPermit permit) {
         if (player != null) {
-            EAEP_SHIFT_BLANK_PENDING.put(player.getUUID(), new EaepShiftBlankRefundHold(ctx.inventory(), ctx.actionSource(), source, blankKey));
+            EAEP_SHIFT_BLANK_PENDING.put(player.getUUID(), new EaepShiftBlankRefundHold(
+                    ctx.inventory(), ctx.actionSource(), source, blankKey, permit));
         }
     }
 
@@ -1142,6 +1162,7 @@ public final class EncodePatternService {
             return false;
         }
         refundBlankPattern(player, hold.inventory(), hold.actionSource(), hold.blankKey(), hold.source());
+        hold.permit().release();
         return true;
     }
 }

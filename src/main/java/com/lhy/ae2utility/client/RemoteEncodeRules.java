@@ -35,17 +35,11 @@ public final class RemoteEncodeRules {
     }
 
     /**
-     * 已同步规则且超过 {@link #remoteMaxJeBulkEncodePatternsPerSession()} 时，仅保留列表前若干条用于发送；否则返回原列表引用。
+     * 兼容旧调用方，保留全部候选请求，服务端根据实际保留的样板执行额度限制。
      */
+    @Deprecated
     public static List<EncodePatternPacket> capPacketsToServerBulkLimit(List<EncodePatternPacket> packets) {
-        if (!hasSyncedRulesFromServer() || packets.isEmpty()) {
-            return packets;
-        }
-        int max = remoteMaxJeBulkEncodePatternsPerSession();
-        if (max <= 0 || packets.size() <= max) {
-            return packets;
-        }
-        return List.copyOf(packets.subList(0, max));
+        return packets;
     }
 
     /** 服务端同步（主线程 enqueue 调用）。{@code maxBulkPatterns == -1} 表示关闭上限，在客户端侧等价于无截断。*/

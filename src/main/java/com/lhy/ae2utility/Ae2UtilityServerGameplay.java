@@ -51,10 +51,12 @@ public final class Ae2UtilityServerGameplay {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         WirelessTerminalContextResolver.cleanUp();
+        EncodeBulkSessionLimiter.cleanUp();
     }
 
     private static void onServerStopped(ServerStoppedEvent event) {
         WirelessTerminalContextResolver.clearAll();
+        EncodeBulkSessionLimiter.clearAll();
     }
 
     private static void onModConfigReload(ModConfigEvent.Reloading ev) {

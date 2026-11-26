@@ -73,15 +73,6 @@ public final class EmiRecipesBatchEncode {
         JeiEncodeQueueDebugLog.info("EmiRecipesBatchEncode.run collected {} packets (currentPageOnly={} shiftUpload={})",
                 packets.size(), currentPageOnly, shiftUpload);
 
-        int origCount = packets.size();
-        packets = RemoteEncodeRules.capPacketsToServerBulkLimit(packets);
-        if (packets.size() < origCount) {
-            com.lhy.ae2utility.client.ClientMessages.show(player,
-                    Component.translatable("message.ae2utility.bulk_encode_truncated_client_notice", origCount, packets.size())
-                            .withStyle(ChatFormatting.GOLD),
-                    false);
-        }
-
         if (packets.isEmpty()) {
             com.lhy.ae2utility.client.ClientMessages.show(player,
                     Component.translatable("message.ae2utility.batch_encode_none").withStyle(ChatFormatting.GRAY),

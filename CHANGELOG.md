@@ -14,6 +14,7 @@
 8. Fixed: Limit machine recipe transfer quantities to the available input slots and ingredient stack sizes.
 9. Fixed: Clear upload queues and provider selection state when disconnecting from a server.
 10. Fixed: Clear expired wireless terminal contexts and release cached contexts on logout and server shutdown.
+11. Fixed: Count retained patterns toward batch limits and release quota when encoding fails or blank patterns are refunded.
 
 ### 中文
 
@@ -27,3 +28,4 @@
 8. 修复：按机器输入槽位和原料堆叠上限限制配方拉料数量。
 9. 修复：断线时清理上传队列和供应器选择状态。
 10. 修复：主动清理过期无线终端缓存，并在退出和停服时释放缓存。
+11. 修复：批量编码按实际保留的样板计数，编码失败或退还空白样板时释放额度。
