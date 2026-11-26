@@ -11,6 +11,7 @@
 5. Fixed: Keep shared JEI recipe access available when EMI handles plugin callbacks.
 6. Fixed: Preserve custom ingredient components when selecting fallback items for recipe transfer.
 7. Fixed: Restore the JEI item list when ExtendedAE Plus is installed.
+8. Fixed: Limit machine recipe transfer quantities to the available input slots and ingredient stack sizes.
 
 ### 中文
 
@@ -21,3 +22,4 @@
 5. 修复：EMI 接管插件回调时仍可访问共享的 JEI 配方数据。
 6. 修复：配方拉料选择备用物品时保留自定义原料的数据组件。
 7. 修复：安装 ExtendedAE Plus 时 JEI 物品列表不显示的问题。
+8. 修复：按机器输入槽位和原料堆叠上限限制配方拉料数量。

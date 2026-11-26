@@ -48,7 +48,8 @@ public final class MachinePullService {
             return;
         }
 
-        List<RequestedIngredient> requestedIngredients = sanitizeRequestedIngredients(payload.requestedIngredients());
+        List<RequestedIngredient> requestedIngredients = sanitizeRequestedIngredients(payload.requestedIngredients()
+                .subList(0, Math.min(payload.requestedIngredients().size(), profile.inputSlotCount())));
         if (!hasMeaningfulIngredients(requestedIngredients)) {
             serverPlayer.sendSystemMessage(Component.translatable("message.ae2utility.no_item_inputs"));
             return;
@@ -155,10 +156,15 @@ public final class MachinePullService {
                 continue;
             }
 
-            int count = Math.max(1, ingredient.count());
+            int maxAllowed = alternatives.stream().mapToInt(ItemStack::getMaxStackSize).max().orElse(64);
+            int count = clampRequestedCount(ingredient.count(), maxAllowed);
             sanitized.add(new RequestedIngredient(alternatives, count));
         }
         return sanitized;
+    }
+
+    static int clampRequestedCount(int requestedCount, int maxStackSize) {
+        return Math.clamp(requestedCount, 0, Math.max(1, maxStackSize));
     }
 
     private static boolean hasMeaningfulIngredients(List<RequestedIngredient> requestedIngredients) {
