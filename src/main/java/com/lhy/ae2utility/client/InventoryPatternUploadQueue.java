@@ -278,6 +278,12 @@ public final class InventoryPatternUploadQueue {
         resetAll();
     }
 
+    /** 连接已断开时清理本地会话。 */
+    public static void clearOnDisconnected() {
+        resetSelectionState();
+        clearProviderSelectionSession();
+    }
+
     private static void onProviderUploadRejected(@Nullable LocalPlayer player) {
         if (player == null) {
             resetAll();
@@ -515,8 +521,7 @@ public final class InventoryPatternUploadQueue {
         if (awaitingProviderPreparationSlot != null || preparedNetworkUploadSlot != null) {
             clearPreparedNetworkUploadOnServer();
         }
-        resetSelectionState();
-        clearProviderSelectionSession();
+        clearOnDisconnected();
     }
 
     private static void clearPreparedNetworkUploadOnServer() {
