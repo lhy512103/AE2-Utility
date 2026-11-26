@@ -24,6 +24,19 @@ public final class WirelessTerminalContextResolver {
     private WirelessTerminalContextResolver() {
     }
 
+    public static void clearFor(UUID playerId) {
+        CACHE.remove(playerId);
+    }
+
+    public static void clearAll() {
+        CACHE.clear();
+    }
+
+    public static void cleanUp() {
+        long now = System.currentTimeMillis();
+        CACHE.entrySet().removeIf(entry -> now >= entry.getValue().expiresAtMs);
+    }
+
     /**
      * 在背包与 Curios 中查找 {@link WirelessEncodeTerminalItems#mayProvideWirelessEncoding} 认可的物品，
      * 解析为无线菜单主机且已接入网络（或 WCWT：链路状态未及时刷新但网格已可用）。
@@ -167,7 +180,7 @@ public final class WirelessTerminalContextResolver {
         }
 
         long now = System.currentTimeMillis();
-        if (now > entry.expiresAtMs || entry.menu != player.containerMenu) {
+        if (now >= entry.expiresAtMs || entry.menu != player.containerMenu) {
             CACHE.remove(player.getUUID(), entry);
             return null;
         }

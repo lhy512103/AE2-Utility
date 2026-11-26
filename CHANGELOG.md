@@ -13,6 +13,7 @@
 7. Fixed: Restore the JEI item list when ExtendedAE Plus is installed.
 8. Fixed: Limit machine recipe transfer quantities to the available input slots and ingredient stack sizes.
 9. Fixed: Clear upload queues and provider selection state when disconnecting from a server.
+10. Fixed: Clear expired wireless terminal contexts and release cached contexts on logout and server shutdown.
 
 ### 中文
 
@@ -25,3 +26,4 @@
 7. 修复：安装 ExtendedAE Plus 时 JEI 物品列表不显示的问题。
 8. 修复：按机器输入槽位和原料堆叠上限限制配方拉料数量。
 9. 修复：断线时清理上传队列和供应器选择状态。
+10. 修复：主动清理过期无线终端缓存，并在退出和停服时释放缓存。

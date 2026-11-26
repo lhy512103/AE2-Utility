@@ -13,8 +13,11 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import com.lhy.ae2utility.network.SyncAe2UtilityEncodeRulesPacket;
 import com.lhy.ae2utility.service.EncodeBulkSessionLimiter;
 import com.lhy.ae2utility.service.MeQuickTransferService;
+import com.lhy.ae2utility.service.WirelessTerminalContextResolver;
 
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
  * 登录下发编码策略包、离线清理服务端限量状态；服务端配置 reload 后对在线玩家刷新规则。
@@ -27,19 +30,31 @@ public final class Ae2UtilityServerGameplay {
     public static void register(IEventBus modBus) {
         NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedInEvent.class, Ae2UtilityServerGameplay::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedOutEvent.class, Ae2UtilityServerGameplay::onPlayerLogout);
+        NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, Ae2UtilityServerGameplay::onServerTick);
+        NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, Ae2UtilityServerGameplay::onServerStopped);
         modBus.addListener(ModConfigEvent.Reloading.class, Ae2UtilityServerGameplay::onModConfigReload);
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer sp) {
+            WirelessTerminalContextResolver.clearFor(sp.getUUID());
             sendEncodeRules(sp);
             MeQuickTransferService.cancel(sp.getUUID());
         }
     }
 
     private static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        WirelessTerminalContextResolver.clearFor(event.getEntity().getUUID());
         EncodeBulkSessionLimiter.clearFor(event.getEntity().getUUID());
         MeQuickTransferService.cancel(event.getEntity().getUUID());
+    }
+
+    private static void onServerTick(ServerTickEvent.Post event) {
+        WirelessTerminalContextResolver.cleanUp();
+    }
+
+    private static void onServerStopped(ServerStoppedEvent event) {
+        WirelessTerminalContextResolver.clearAll();
     }
 
     private static void onModConfigReload(ModConfigEvent.Reloading ev) {
