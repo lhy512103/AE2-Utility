@@ -44,7 +44,7 @@ VS Code 工作区配置使用 Buildship 导入 Gradle，并排除 `.migration-de
 
 `compatibilityRuntime` 启用额外模组测试组合，`ecoRuntime` 追加 NeoEco 和 LDLib2。EMI 与 AE2LT 的运行时依赖已移除。`-PtestServer=127.0.0.1:25565` 可让测试客户端自动连接本地服务器。
 
-输出：`build/libs/ae2utility-neoforge-26.1.2-1.8.1.jar`。开发 API 见 [docs/API.md](docs/API.md)。更新日志仅记录用户可见变化，见 [CHANGELOG.md](CHANGELOG.md)。
+输出：`build/libs/ae2utility-neoforge-26.1.2-0.0.1.jar`。开发 API 见 [docs/API.md](docs/API.md)。更新日志仅记录用户可见变化，见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## English
 
