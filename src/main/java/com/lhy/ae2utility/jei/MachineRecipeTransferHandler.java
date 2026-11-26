@@ -28,6 +28,7 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
 import com.lhy.ae2utility.util.PullIngredientOrdering;
+import com.lhy.ae2utility.util.MeIngredientExtraction;
 import com.lhy.ae2utility.machine.MachineTransferProfile;
 import com.lhy.ae2utility.network.MachineRecipeStatePacket;
 import com.lhy.ae2utility.network.PullMachineRecipeInputsPacket;
@@ -132,7 +133,7 @@ public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> im
         for (int inputIndex = 0; inputIndex < inputSlots.size(); inputIndex++) {
             IRecipeSlotView slotView = inputSlots.get(inputIndex);
             var ingredient = toIngredient(slotView);
-            if (ingredient.isEmpty()) {
+            if (ingredient == null) {
                 continue;
             }
 
@@ -240,11 +241,12 @@ public class MachineRecipeTransferHandler<C extends AbstractContainerMenu, R> im
     }
 
     private boolean hasItemStack(IRecipeSlotView slotView) {
-        return slotView.getDisplayedItemStack().isPresent() || slotView.getItemStacks().findAny().isPresent();
+        return slotView.getItemStacks().anyMatch(stack -> !stack.isEmpty());
     }
 
+    @Nullable
     private Ingredient toIngredient(IRecipeSlotView slotView) {
-        return Ingredient.of(slotView.getItemStacks().map(ItemStack::getItem));
+        return MeIngredientExtraction.ingredientFromItemStacks(slotView.getItemStacks().toList());
     }
 
     private RequestedIngredient toRequestedIngredient(IRecipeSlotView slotView) {

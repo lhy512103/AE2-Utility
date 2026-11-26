@@ -16,6 +16,7 @@
 10. Fixed: Clear expired wireless terminal contexts and release cached contexts on logout and server shutdown.
 11. Fixed: Count retained patterns toward batch limits and release quota when encoding fails or blank patterns are refunded.
 12. Fixed: Restore Shift-click pattern uploads when EAEP's unrelated matrix integration cannot load.
+13. Fixed: Handle empty JEI input slots when previewing recipe transfers in machines and ME terminals.
 
 ### 中文
 
@@ -31,3 +32,4 @@
 10. 修复：主动清理过期无线终端缓存，并在退出和停服时释放缓存。
 11. 修复：批量编码按实际保留的样板计数，编码失败或退还空白样板时释放额度。
 12. 修复：EAEP 矩阵兼容代码加载异常时 Shift 点击编码箭头无法上传样板的问题。
+13. 修复：机器与 ME 终端的 JEI 配方拉料预览遇到空输入槽时出现异常的问题。
