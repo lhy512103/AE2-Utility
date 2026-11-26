@@ -17,20 +17,20 @@
 
 ### 依赖与可选集成
 
-核心依赖：AE2 `26.1.13-beta`、客户端 JEI `29.47.0.110`，以及它们要求的 GuideME、MezzConfig。
+核心依赖：AE2 `26.1.14-beta`、客户端 JEI `29.47.0.110`，以及它们要求的 GuideME、MezzConfig。
 
 可选集成在未安装对应模组时不启用，核心功能不依赖这些扩展。
 
 - ExtendedAE `26.1-1.0.6-neoforge` / ExtendedAE Plus `1.6.3`。
 - AdvancedAE `26.1.7`、AE2 Crystal Science `1.1.12`、Sophisticated Core `1.5.33.2466`。
 - AE2 Lightning Tech `1.0.1alpha-26.1.2neoforge`。
-- Neo ECO AE Extension `26.2.15-beta`。此版本要求同装 AE2LT 至少 `1.1.3`，不能与上述 AE2LT alpha 同装；测试配置将它们分开。
-- EMI 使用 **PF-EMI 非官方 26.1.2 移植版** `RHajWT5D`；Mekanism 和 Applied Mekanistics 使用 **Version Locked 非官方移植版**。它们不是官方旧版 JAR，也不代表官方支持。
+- Neo ECO AE Extension `26.2.17`，通过 `ecoRuntime` 启用。
+- EMI 使用 **PF-EMI 非官方 26.1.2 移植版** `2.0.0`；Mekanism 和 Applied Mekanistics 使用 **Version Locked 非官方移植版**。它们不是官方旧版 JAR，也不代表官方支持。
 - Some Useless Things 等没有核实到目标版发行的可选模组，其反射集成保留，但不宣称已完成对应发行版的运行验证。
 
 ### 构建与验证
 
-默认开发运行时包含 ExtendedAE Plus、ExtendedAE、Glodium 和水晶科技；客户端另含 Mouse Tweaks、Just Enough Characters、Modern UI、Sodium，后四项不会进入服务端运行类路径。这些开发依赖不会打进模组 JAR。
+默认开发运行时包含 ExtendedAE Plus、ExtendedAE、Glodium、水晶科技和 Jade；客户端另含 Mouse Tweaks、Just Enough Characters、Modern UI、Sodium，后四项不会进入服务端运行类路径。这些开发依赖不会打进模组 JAR。
 
 VS Code 工作区配置使用 Buildship 导入 Gradle，并排除 `.migration-deps` 中的参考工程。若切换导入器或更新构建文件后仍出现整包依赖无法解析，请执行“开发人员：重新加载窗口”，再执行“Java：重新加载项目”。Gradle 自动使用系统代理配置，不要求写死本机代理端口。
 
@@ -42,7 +42,7 @@ VS Code 工作区配置使用 Buildship 导入 Gradle，并排除 `.migration-de
 ./gradlew -PcompatibilityRuntime -PecoRuntime runServer
 ```
 
-`compatibilityRuntime` 启用额外模组测试组合；`ecoRuntime` 用 NeoEco 替换存在上游版本冲突的 AE2LT。`-PtestServer=127.0.0.1:25565` 可让测试客户端自动连接本地服务器。
+`compatibilityRuntime` 启用额外模组测试组合，`ecoRuntime` 追加 NeoEco 和 LDLib2。EMI 与 AE2LT 的运行时依赖已移除。`-PtestServer=127.0.0.1:25565` 可让测试客户端自动连接本地服务器。
 
 输出：`build/libs/ae2utility-neoforge-26.1.2-1.8.1.jar`。开发 API 见 [docs/API.md](docs/API.md)。更新日志仅记录用户可见变化，见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -52,8 +52,8 @@ AE2 Utility for **Minecraft 26.1.2, NeoForge 26.1.2.126 and Java 25**. This bran
 
 Features include ME ingredient transfer, JEI/EMI pattern encoding and preview, batch uploads, NBT Tear and Redstone Signal cards, the ME Quick Transfer Tool, server policies and public APIs.
 
-Core requirements are AE2 `26.1.13-beta`, JEI `29.47.0.110` on clients, and their GuideME/MezzConfig dependencies. Optional integrations remain isolated when absent.
+Core requirements are AE2 `26.1.14-beta`, JEI `29.47.0.110` on clients, and their GuideME/MezzConfig dependencies. Optional integrations remain isolated when absent.
 
-The target EMI integration uses the **unofficial PF-EMI port**; chemical transfer uses **unofficial Mekanism / Applied Mekanistics Version Locked ports**. These must not be confused with official releases. NeoEco `26.2.15-beta` rejects AE2LT versions below `1.1.3`; the provided test profiles keep NeoEco separate from the available AE2LT `1.0.1alpha` release. Optional bridges without a verified target release are retained but are not claimed as runtime-tested.
+The target EMI integration uses the **unofficial PF-EMI port**; chemical transfer uses **unofficial Mekanism / Applied Mekanistics Version Locked ports**. These must not be confused with official releases. `ecoRuntime` adds NeoEco `26.2.17` and LDLib2 to the compatibility profile. EMI and AE2LT runtime dependencies have been removed. Optional bridges without a verified target release are retained but are not claimed as runtime-tested.
 
 Run `./gradlew build` for compilation and tests. The commands above provide core and optional-integration development runs. See [the API documentation](docs/API.md), [changelog](CHANGELOG.md) and [MIT license](LICENSE).
