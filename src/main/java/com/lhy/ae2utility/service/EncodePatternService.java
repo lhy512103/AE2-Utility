@@ -806,8 +806,9 @@ public final class EncodePatternService {
                             if (!pendingCraftableRefresh.isEmpty()) {
                                 SequentialUploadResultBridge.rememberPendingCraftableRefresh(serverPlayer, pendingCraftableRefresh);
                             }
-                            com.lhy.ae2utility.integration.eaep.EaepReflection
-                                    .beginPendingCtrlQUpload(serverPlayer, encodedPattern.copyWithCount(1));
+                            if (!EaepReflection.beginPendingCtrlQUpload(serverPlayer, encodedPattern.copyWithCount(1))) {
+                                throw new IllegalStateException("EAEP could not prepare the encoded pattern for upload");
+                            }
                             permit.commit();
 
                             /*

@@ -59,7 +59,7 @@ public final class EaepReflection {
 
     private static @Nullable String searchKey(String method, Class<?> parameter, Object argument) {
         try {
-            Object value = EaepApiAccess.invokeUpload("RecipeTypeNameConfig", method,
+            Object value = EaepApiAccess.invokeUpload("RecipeTypeNameConfig", method, String.class,
                     new Class<?>[] {parameter}, argument);
             return value instanceof String s ? s : null;
         } catch (ReflectiveOperationException unavailable) {
@@ -69,7 +69,7 @@ public final class EaepReflection {
 
     public static boolean setLastProviderSearchKey(String key) {
         try {
-            EaepApiAccess.invokeUpload("RecipeTypeNameConfig", "setLastProviderSearchKey",
+            EaepApiAccess.invokeUpload("RecipeTypeNameConfig", "setLastProviderSearchKey", void.class,
                     new Class<?>[] {String.class}, key);
             return true;
         } catch (ReflectiveOperationException unavailable) {
@@ -94,7 +94,7 @@ public final class EaepReflection {
 
     public static boolean matrixContainsPattern(IGrid grid, ItemStack pattern) {
         try {
-            return Boolean.TRUE.equals(EaepApiAccess.invokeUpload("MatrixUploadUtil", "matrixContainsPattern",
+            return Boolean.TRUE.equals(EaepApiAccess.invokeUpload("MatrixUploadUtil", "matrixContainsPattern", boolean.class,
                     new Class<?>[] {IGrid.class, ItemStack.class}, grid, pattern));
         } catch (ReflectiveOperationException unavailable) {
             return false;
@@ -102,17 +102,17 @@ public final class EaepReflection {
     }
 
     public static boolean uploadPatternToMatrix(ServerPlayer player, ItemStack pattern, IGrid grid) {
-        return Boolean.TRUE.equals(invokeRequiredUpload("MatrixUploadUtil", "uploadPatternToMatrix",
+        return Boolean.TRUE.equals(invokeRequiredUpload("MatrixUploadUtil", "uploadPatternToMatrix", boolean.class,
                 new Class<?>[] {ServerPlayer.class, ItemStack.class, IGrid.class}, player, pattern, grid));
     }
 
     public static boolean uploadPatternToProvider(ServerPlayer player, int slot, long providerId) {
-        return Boolean.TRUE.equals(invokeRequiredUpload("ProviderUploadUtil", "uploadPatternToProvider",
+        return Boolean.TRUE.equals(invokeRequiredUpload("ProviderUploadUtil", "uploadPatternToProvider", boolean.class,
                 new Class<?>[] {ServerPlayer.class, int.class, long.class}, player, slot, providerId));
     }
 
     public static List<PatternContainer> listAvailableProvidersFromGrid(IGrid grid) {
-        Object value = invokeRequiredUpload("ProviderUploadUtil", "listAvailableProvidersFromGrid",
+        Object value = invokeRequiredUpload("ProviderUploadUtil", "listAvailableProvidersFromGrid", List.class,
                 new Class<?>[] {IGrid.class}, grid);
         if (!(value instanceof List<?> providers)) {
             throw new IllegalStateException("EAEP returned a non-list provider inventory");
@@ -121,14 +121,15 @@ public final class EaepReflection {
     }
 
     public static void recordProviderUpload(ServerPlayer player, long id, PatternContainer container, int slot) {
-        invokeRequiredUpload("ProviderUploadUtil", "recordProviderUpload",
+        invokeRequiredUpload("ProviderUploadUtil", "recordProviderUpload", void.class,
                 new Class<?>[] {ServerPlayer.class, long.class, PatternContainer.class, int.class},
                 player, id, container, slot);
     }
 
-    private static Object invokeRequiredUpload(String role, String name, Class<?>[] parameters, Object... arguments) {
+    private static Object invokeRequiredUpload(String role, String name, Class<?> returnType,
+            Class<?>[] parameters, Object... arguments) {
         try {
-            return EaepApiAccess.invokeUpload(role, name, parameters, arguments);
+            return EaepApiAccess.invokeUpload(role, name, returnType, parameters, arguments);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException("Cannot call EAEP " + role + "." + name, failure);
         }

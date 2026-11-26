@@ -1,7 +1,9 @@
 package com.lhy.ae2utility.integration.eaep;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.List;
 
 /** Version-neutral EAEP ABI adapter. Contains no Minecraft or EAEP linkage. */
@@ -50,11 +52,21 @@ public final class EaepApiAccess {
         }
     }
 
-    static Object invokeUpload(String role, String name, Class<?>[] parameters, Object... arguments)
+    static Object invokeUpload(String role, String name, Class<?> returnType, Class<?>[] parameters, Object... arguments)
             throws ReflectiveOperationException {
-        Method method = uploadOwner(role).getDeclaredMethod(name, parameters);
-        method.setAccessible(true);
-        return method.invoke(null, arguments);
+        return invokeStatic(uploadOwner(role), name, returnType, parameters, arguments);
+    }
+
+    /** Resolve only the requested signature so unrelated optional EAEP integrations stay unloaded. */
+    static Object invokeStatic(Class<?> owner, String name, Class<?> returnType, Class<?>[] parameters,
+            Object... arguments) throws ReflectiveOperationException {
+        var lookup = MethodHandles.privateLookupIn(owner, MethodHandles.lookup());
+        var method = lookup.findStatic(owner, name, MethodType.methodType(returnType, parameters));
+        try {
+            return method.invokeWithArguments(arguments);
+        } catch (Throwable failure) {
+            throw new InvocationTargetException(failure);
+        }
     }
 
     static Object uploadField(String role, String name) throws ReflectiveOperationException {
